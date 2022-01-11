@@ -205,11 +205,11 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
   ofstream ofile;
   ofile.open(file_name, ofstream::out | ofstream::app);
 
-  string ins_lbl_sfx = "";
+  string ins_lbl_sfx = "_" + to_string(start_) + "_def_code";
 
   if(isCode() == false) {
     ofile <<".unknown_BasicBlock_start_";
-    ins_lbl_sfx = "_" + to_string(start_) + "_unknown_code_";
+    ins_lbl_sfx = "_" + to_string(start_) + "_unknown_code";
   }
   else
     ofile <<".BasicBlock_start_";

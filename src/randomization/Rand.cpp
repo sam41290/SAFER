@@ -88,13 +88,11 @@ Rand::printUnwindRec(uint64_t frame, BasicBlock * bb) {
   vector <Instruction *> insList = bb->insList();
 
   for(auto it : insList) {
-    string label = it->label();
+    string label = it->label() + bb->lblSuffix();
     if(if_exists(it->location(), functionMap_) == true ||
     if_exists(it->location(), pointerMap_) == true)
       unwndBlkSz += 16;
     if(if_exists(frame, unwinding_info) == true) {
-      //LOG("Unwinding block: " << hex << it->location() 
-      //    << " size: " << unwndBlkSz << "\n");
       if(unwinding_info[frame].
         print_cfi(it->location(),
       	 "tmp/" + to_string(frame) + "_unwind.s",
@@ -105,19 +103,12 @@ Rand::printUnwindRec(uint64_t frame, BasicBlock * bb) {
     }
     if(it->isRltvAccess() == 1) {
       unwndBlkSz += 15;
-      //LOG(hex << it->location() << 
-      //    ": Adding 15 - block size: " << unwndBlkSz);
     }
     else if(it->isJump() == 1 || it->isCall() == 1) {
       unwndBlkSz += 10;
-      //LOG(hex << it->location() 
-       //   << ": Adding 10 - block size:" << unwndBlkSz);
     }
     else {
       unwndBlkSz += it->insSize();
-      //LOG(hex << it->location() << ": Adding binary size:"
-       //    << it->insSize() << " - block size: "
-       //    << unwndBlkSz);
     }
   }
 

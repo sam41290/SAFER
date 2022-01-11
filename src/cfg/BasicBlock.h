@@ -199,9 +199,16 @@ public:
     if(tramp_ != NULL)
       return tramp_->label();
     else if(isCode() == false)
-      return insList_[0]->label() + "_" + to_string(start_) + "_unknown_code_";
+      return insList_[0]->label() + "_" + to_string(start_) + "_unknown_code";
     else
-      return insList_[0]->label();
+      return insList_[0]->label() + "_" + to_string(start_) + "_def_code";
+  }
+
+  string lblSuffix() {
+    if(isCode())
+      return  "_" + to_string(start_) + "_def_code";
+    else
+      return "_" + to_string(start_) + "_unknown_code";
   }
 
   Instruction *getIns(uint64_t address);

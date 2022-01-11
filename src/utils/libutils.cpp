@@ -59,21 +59,38 @@ set <string> utils::uncond_cf_ins_set {
   "ret",
   "jmpq"
 };
-unordered_set <string> utils::prefixes {
-  "rex",
-  "rexq",
-  "rexz",
-  "rep",
-  "repz",
-  "repq",
-  "notrack",
-  "lock",
-  "repnz",
-  "repne",
-  "ss",
-  "es",
-  "fs",
-  "gs"
+unordered_map <string,uint8_t> utils::prefixes {
+  {"rex",0x40},
+  {"rexq",0x40},
+  {"rexz",0x40},
+  {"rex.B",0x41},
+  {"rex.X",0x42},
+  {"rex.XB",0x43},
+  {"rex.R",0x44},
+  {"rex.RB",0x45},
+  {"rex.RX",0x46},
+  {"rex.RXB",0x47},
+  {"rex.W",0x48},
+  {"rex.WB",0x49},
+  {"rex.WX",0x4a},
+  {"rex.WXB",0x4b},
+  {"rex.WR",0x4c},
+  {"rex.WRB",0x4d},
+  {"rex.WRX",0x4e},
+  {"rex.WRXB",0x4f},
+  {"rep",0xf3},
+  {"repz",0xf3},
+  {"repq",0xf3},
+  {"notrack",0x3e},
+  {"lock",0xf0},
+  {"repnz",0xf2},
+  {"repne",0xf2},
+  {"ss",0x2e},
+  {"es",0x26},
+  {"fs",0x64},
+  {"gs",0x65},
+  {"cs",0x2e},
+  {"ds",0x3e}
 };
 
 unordered_set <string> utils::invalid_prefixes {

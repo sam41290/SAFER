@@ -461,7 +461,7 @@ public:
   {
     return uncond_cf_ins_set;
   }
-  static unordered_set <string> prefixes;
+  static unordered_map <string,uint8_t> prefixes;
   static bool is_equivalent(string ins1, string ins2) {
     set <string> jmp_ins = utils::get_cf_ins_set();
     set <string> uncond_jmp_ins = utils::get_uncond_cf_ins_set();
