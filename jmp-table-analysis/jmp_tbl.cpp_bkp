@@ -1,0 +1,36 @@
+#include "interface.h"
+#include <iostream>
+#include <string>
+using namespace std;
+
+void load_model()
+{
+    string s2 = "/home/soumyakant/Static_binary_instrumentation_elf_x86-64/jmp-table-analysis/total.auto";
+    //Interface* ai = new Interface();
+    // Interface::ocaml_train_imap(s0, string(""));
+    Interface::ocaml_load_auto(s2);
+
+}
+
+vector<int64> analyze_jump_table(vector<string> fname) {
+    string s2 = "/home/soumyakant/Static_binary_instrumentation_elf_x86-64/jmp-table-analysis/total.auto";
+    Interface* ai = new Interface();
+    // Interface::ocaml_train_imap(s0, string(""));
+
+    Interface::ocaml_load_auto(s2);
+    vector<int64> all_jmp_tbls;
+    for(int i=0;fname.size();i++)
+    {
+        ai->analyze(fname[i]);
+        vector<MathExpr*> v = ai->get_jump_table_target(40);
+        for (vector<MathExpr*>::iterator it = v.begin(); it != v.end(); ++it)
+        {
+	    (*it)->print();
+    	    cout << endl;
+        }
+	vector<pair<int64,int>> jmp_tbls = ai->get_jump_table_target_base_entrysize(40);
+	all_jmp_tbls.insert(std::end(all_jmp_tbls), std::begin(jmp_tbls), std::end(jmp_tbls));
+    }
+    return all_jmp_tbls;
+
+}

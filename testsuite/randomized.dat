@@ -1,0 +1,10 @@
+libexpat.so.1.6.7:LLRK
+libepoxy.so.0.0.0:LLRK
+libgtk-3.so.0.2200.30:LLRK
+libp11-kit.so.0.3.0:LLRK
+libgtk-x11-2.0.so.0.2400.32:LLRK
+python2.7:LLRK
+libpython3.6m.so.1.0:LLRK
+libwireshark.so.11.1.10:LLRK
+perl:LLRK
+libicudata.so.60.2:LLRK

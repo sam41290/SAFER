@@ -1,0 +1,14 @@
+#!/bin/bash
+if [ $# -ne 1 ]
+then
+	>&2 echo "Usage: $0 <binary>"
+	>&2 echo "Output will be stored in a file in /tmp with .lft extension"
+	exit 0
+fi
+bin=$(basename "$1")
+dis=$(mktemp "/tmp/dolift_${bin}.XXXXXX")
+./disasm.sh $1 x64 > "$dis"
+
+(cd lift-code && make learnopt)
+time ./lift-code/learnopt -al lift-code/64test/auto/total.auto -l "$dis" > "$bin.lft"
+rm "$dis"

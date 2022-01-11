@@ -1,0 +1,128 @@
+Goal:
+  1.Support data between code
+  2.Handle ill-behaved code:
+      a.Hard coded pointers (non-PIC)
+      b.Assumes distance between 2 points in code or code and data (Computed
+          pointers).
+  3.Support Uninstrumented libraries.
+
+Approach 1: Pointer encoding
+  1.Two copies of code, original and instrumented.
+  2.Use static analysis to classify pointers as CP and DP.
+  3.Disassemble according to CP.
+  4.Encode all CP.
+  5.At runtime decode CP before jump.
+  6.DP remains unchanged, pointing to original code, to support data between
+    code.
+  7.Code pointer misclassified as DP: Use Address translation
+  8.Data pointer misclassified as CP: segmentation fault. signal handler will do
+    inverse translation.
+  9.Uninstrumented libraries: Segmentation fault: signal handler will decode
+    encoded CP.
+ 10.Pointer arithmetic: Encoding mechanism helps detect/tolerate arithmetic by
+     12 bits.
+ 11.Challenges:
+    
+    a.Implementation of inverse address translation and address translation.
+    Relocation changes pointer values at runtime. So, static mapping of pointers
+    wont work.
+
+    b.Signal handler: Knowing exact register or memory location to update in
+    case of a segfault is challenging. We may need to disassemble the faulting
+    instruction at runtime and find out the operands.
+        Also, Data accesses in a program can be too many. Faulting on data
+    accesses can be costly.
+
+Approach 2: Use of Execute only memory (XOM).
+  1.Keep two copies of code, original and instrumented. Mark the instrumented
+    code as execute only.
+  2.Update all pointers to point to instrumented code.
+  3.Data access will cause seg-fault. Signal handler will perform inverse
+    address translation.
+  4.Cannot detect or tolerate arithmetic on pointers.
+  5.Uninstrumented libraries will not be a problem.
+  6.Challenges:
+    
+    a.Implementation of inverse address translation.
+    b.Signal handler: Knowing exact register or memory location to update in
+    case of a segfault is challenging. We may need to disassemble the faulting
+    instruction at runtime and find out the operands.
+        Also, Data accesses in a program can be too many. Faulting on data
+    accesses can be costly.
+
+Pointer classification approach:
+  1.Definite code pointer (CP): Dynamic symbols, entry point, initialilzation
+    functions (init_array), clean up functions (fini array).
+  2.Definite data pointer (DP): Any relocated or PC relative pointer pointing to
+    data sections.
+  3.Start disassembly with CP as roots and mark code as definite code.
+  4.Second phase classification;
+    
+    a.Any pointer pointing to definite code marked as CP.
+    b.Treating gaps - two approaches:
+      
+      i) Approach 1: Any relocated pointer fallling within EH frames marked as
+      CP. Start second phase disassembly. Add new code to definite code and
+      re-classify pointers. Leftover unclassified pointers will be marked of
+      UNKNOWN type and will go through address translation.
+
+      Problem:
+      This approach leaves gaps and too much UNKNOWN pointers even for
+      applications that tend to work with linear disassembly. Also, assumption
+      that a relocated pointer within EH frame is CP could be wrong.
+
+      ii)Approach 2: Treat EH-frame starts as definite code starts. Start second
+      phase disassembly. Add new code to definite code and re-classify pointers.
+      Mark leftover pointers as UNKNOWN pointers.
+      This approach works well for most of the binaries. Leaves 0 UNKNOWN
+      pointers and 0 gaps for those that do not have Data embedded in code,
+      including libc and loader. For applications that have data between code,
+      it will leave UNKNOWN pointers requiring address translation.
+
+      Problem:
+      Assumption that EH-frame starts are definite code may backfire.
+      Applications like firefox have misaligned EH-frame starts. Also, no sure
+      way to confidently say that there is no data at EH-frame start. There
+      could be two possible scenarios:
+
+      1.Pointer misaligned with EH-frame (could be code or data pointer):
+        
+        Solution would be to treat the pointer as UNKNOWN and make it go through
+        address translation. Data access will refer to old code and hence will
+        be fine. 
+      
+      2.Data misinterpreted as code and corresponding pointer perfectly aligns
+        with EH-frame: Our classification will mark it as code. Data access at
+        runtime will require inverse address translation by segfault handler.
+
+Address translation:
+--------------------
+  Assumptions: Disassembly gaps are smaller than page size (4K). 
+
+  For each data gap G, set aside two consecutive pages of data T_G and D_G and
+  at a predetermined offset from code section. Copy the content of G into D_G,
+  while preserving all  relevant alignments. Every pointer P into G is
+  statically fixed up to point to the corresponding location in D_G.
+  
+  We are going to instrument possible code G and include this code in the
+  instrumented code section. Let C_G refer to the location of this instrumented
+  code.
+  
+  If P is used as a code pointer, we subtract 4K from P. This will get us to
+  a location in T_G. We make sure that at this location P-4K contains the target
+  address of the code correspond to P in C_G. So, we simply jump to *(P-4K).
+  
+  There are various complications to address, such as (a) what if G is larger
+  than 4K, (b) will it work if there are multiple gaps within the same page, and
+  (c) what some of the pointers into G are spaced closer than 8 bytes. They can
+  be addressed after we work out the simple case above.
+
+  Other problems:
+
+  1. Will not support undetected or hardcoded pointers (for example, in case of
+     non-PIC code).
+  2. To support undetected pointers we changed our approach to keep the original
+     code and data at the old addresses. Keeping old code and data in their
+     previous location will no longer support this address translation plan.
+
+

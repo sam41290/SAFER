@@ -1,0 +1,114 @@
+
+### 1. Overall design:
+------------------------------------------------------------------------------
+  i) classes pointed by # are data members. Example:
+
+      class_ A
+          # class_B
+
+      Means class_A contains a data member of type class_B.
+
+  ii) ------> represents inheritance. Example:
+
+      class_A -------> class_B
+
+      Means class_B inherits class_A.
+-----------------------------------------------------------------------------
+
+   Global object: exception_handler (kept global so that all the classes
+   below will be able to access it.)
+
+   binary
+       # cfg <-------- pointer_analysys
+                           # jump_table
+           # pointer
+           # function
+           # basic_block <------- instrument
+               # instruction <------- instrument
+           # bb_rand -------> zjr_rand ------> llrk_bb_rand
+                     |
+                     -------> no_bb_rand
+                     |
+                     -------> pbr_bb_rand
+       # exe_manager -------> elf_class
+                     |
+                     -------> windows_pe_class (To be implemented)
+
+
+### Directory and Code Structure
+
+    
+    i) class binary - This is the only class user needs to use to
+       disassemble and recreate a binary. Usage below:
+       
+       int main(int argc, char *args[])
+       {
+           string binary_path("");
+           binary_path += args[1];
+           binary b(binary_path);
+           b.rewrite();
+           return 0;
+       }
+
+       Important data members:
+
+       # cfg code_cfg - represents definite code and related functions,
+       basic blocks, etc.
+       # cfg unknown_cfg - represents possible code and related code
+       structures.
+       # exe_manager *manager - represents an object of either an ELF class or
+       windows PE class.
+ 
+ b. ./src/cfg:
+
+    i) class cfg - responsible for disassembly and generating CFG.
+    ii) class pointer
+   iii) class function
+    iv) class frame - represents a continuous memory region within which
+    a function lies. class function inherits class frame.
+     v) class basic_block
+    vi) class instruction
+   vii) class jump_table
+  viii) class pointer_analysis - responsible for jump table analysis.
+        Prepares input for Huan's analysis code and runs the analysis program.
+        class cfg inherits class pointer analysis.
+
+ c. ./src/disasm:
+
+    i) Doesn't contain any class. Contains required function definitions
+    to disassemble using capstone or objdump.
+
+ d. ./src/exe_manager:
+
+    i) class exe_manager: declares virtual functions to be implemented
+    by child classes such as class elf_class responsible for low level
+    executable format handling.
+
+ e. ./src/elf:
+
+    i) class elf_class: Deals with ELF format. Implements virtual
+    functions declared in class exe_manager.
+
+ f. ./src/instrument:
+
+    i) class instrument: Interface to add instrumentation code.
+    Implementation of this class is incomplete. 
+       # As of now it only contains functions to encode and decode
+       pointers at runtime.
+       # This class will be inheritted by classes of instrumentation
+       points such as instructions, basic blocks, functions, etc.
+
+ g. ./src/randomization:
+
+    i) class bb_rand: Interface for code randomization. Declares virtual
+    functions to be implemented by child classes. One child class for
+    each randomization techniquei below.
+    ii) class no_bb_rand: No randomization.
+   iii) class zjr_rand: Zero Jump Randomization.
+    iv) class llrk_bb_rand: Length limiting randomization.
+     v) class pbr_bb_Rand: Phantom block randomization.
+
+    class cfg contains a pointer to class bb_rand. Based on the user
+    supplied flags, the pointer will be type casted to one of the child
+    classes of class bb_rand.
+

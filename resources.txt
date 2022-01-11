@@ -1,0 +1,6 @@
+https://www.airs.com/blog/archives/date/2011/01
+https://www.airs.com/blog/archives/460
+http://dandylife.net/blog/archives/686
+https://flapenguin.me/2017/05/10/elf-lookup-dt-gnu-hash/
+https://refspecs.linuxfoundation.org/LSB_1.3.0/gLSB/gLSB/ehframehdr.html
+http://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-Core-generic/LSB-Core-generic/ehframechpt.html

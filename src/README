@@ -1,0 +1,19 @@
+Source code is organized into one .cpp file and one .h file for every class.
+It resides in the following subdirectories:
+    
+ -- binary: Contains source files for class binary. Entry point of source code.
+            Should start looking into code from this directory.
+ -- cfg: contains source files for class cfg and all other classes related to
+         cfg such as basic_block, function, instruction, pointer, etc.
+ -- disasm: contains function definitions for disassembly using capstone and
+            objdump.
+ -- elf: contains source code for ELF metadata parsing and re-creation.
+ -- exception: contains source code for exception handling metadata parsing and
+               re-creation.
+ -- exe_manager: contains source code for class exe_manager which deals with the
+                 executables (ELF or windows PE)
+ -- instrument: constains source code for class instrument which is responsible
+                for adding instrumentation code at user provided locations.
+ -- randomization: contains source code for all randomization models.
+ -- utils: contains source code for various utility functions and templates.
+

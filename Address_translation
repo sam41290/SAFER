@@ -1,0 +1,67 @@
+
+TARGET:
+
+1. Disassembler agnostic: should be able to handle both false positive and false
+   negatives in code pointer identification.
+   a. Support incorrect classification of data pointers as code pointers via
+   reverse address translation (RAT).
+   b. Support incorrect classification of code pointers as data pointers using
+   address translation (AT).
+2. Handle pointer arithmetic.
+   a. Translated code pointers may need proper handling in case the program
+   performs additional pointer arithmetic before using them.
+
+
+STEPS:
+
+1. Assign a 16 bit tag to all the statically translated code pointers.
+   a. Tag T = f(old) = index into a global translation table (GTT).
+      For PIEs T = f(relocated old).
+   b. Store T in most significant 16 bits.
+   c. GTT entry:  T: <old/relocated old | new/relocated new>
+2. Undetected code pointers (False negatives): Address translation at indirect
+   control flow transfers.
+3. Pointer arithmetic: 
+   a. use tag T to obtain old and new pointers. Check with new pointer to see if
+   any additional arithmetic has been performed. 
+        T = most_significant_bits(P);
+        old_ptr = GTT[T].old;
+        new_ptr = GTT[T].new;
+   b. If step (a), returns true, re-calculate as follows:
+        if(new_ptr - P > 0)
+          new_ptr = GTT[f(old_ptr + new_ptr - P)].new;
+
+4. Misclassified data pointers (False positives): Use tag T to obtain the old
+   pointer:
+        
+        T = most_significant_bits(P);
+        data_ptr = GTT[T].old;
+
+   a. Instrumenting every data access may add to performance overhead. So, we
+   should do the following:
+        
+        i) Intra-function analysis to say what argument registers are possibly
+        used for data access. Instrument function entries to translate any
+        missclassified or tagged pointer passed as parameter.  
+
+        ii) For pointers generated inside the function: Intra-function static
+        analysis to say if the pointer definitely NOT used for read/write within
+        the function. If definitely NOT used, then translate and add a tag T.
+        Otherwise, do not translate.
+
+5. Stored pointer constants (Non-PIEs): Do not translate as there is a possibility that
+   they might be used as integer constants.
+
+IMPLEMENTATION CHALLENGES:
+
+1. GTT needs to be generated at load time to support relocated pointers of PIEs.
+    a. Can be done via delegator process or a shared library.
+    b. Loader needs to be handled separately, since loader needs to load itself
+    first and cannot depend on any third-party library or delegator process. Or
+    instrument loader to do GTT creation and address translation rather than
+    using another shared library.
+   
+2. Maximum size of GTT is 2^16. Is this going to be enough?
+
+3. Find out VDSo pointers and avoid address translation for them. 
+        

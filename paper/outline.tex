@@ -1,0 +1,248 @@
+\section{Introduction - 1.5 pg}
+
+Ability to instrument stripped binaries has been sought for by security
+researchers since the beginning of the armsrace with adversaries. Exploitating
+vulnerabilites such as memory corruption in binaries is a lucrative option for
+the adversaries. The sheer number of CVEs based on such vulnerabilities
+highlights this fact. Without the availability of source code, binary
+instrumentation is the only option left to protect stripped COTS binaries.
+Defense mechanisms such as CFI \cite{}, code-randomization \cite{}, etc.,
+require complete instrumentation. Leaving portions of executable code
+uniinstrumented may severely impact the effectiveness of the defense mechanism.
+For example, if we fail to instrument a single indirect jump in case of CFI, the
+attacker may exploit that jump and launch unintended gadgets present anywhere in
+the memory space of the program. Additionally, correctness of instrumentation is
+required to preserve the program's functionality. Correctness directly impacts
+real-world deployment of defense techniques.
+
+Correctness and completeness of binary instrumentation directly relies on
+disassembly, which can be challenging for stripped binaries. Despite numerous
+research work, this challenge remains unsolved.  A linear disassembly of code
+section can result in complete code identification, however, it may misinterpret
+any embedded data as code.  Many recent works such as Retrowrite \cite{} and
+Egalito \cite{} point out that with evolution of compilers, data embedded in
+code is rarely found. In fact, both these techniques rely on linear disassembly
+and claim to produce correct results.  However, limited testing against real
+world applications puts question mark on these claims. A compiler may avoid
+putting any data between code, but compilers do not control a programmer who
+decides to use hand written assembly and puts some data between code. A number
+of system libraries contain hand-written assembly code and there is a high
+chance that such libraries can have data embedded in code. For example, we found
+embedded data in libgcrypt.so and libffi-3.2.so. These libraries are used by
+a majority of applications including gedit, openoffice, firefox, evince, gimp,
+etc. Even the primary shared library of firefox, libxul.so has data embedded in
+code. Since, all the security mechanisms rely on instrumenting whole processes,
+including third party shared libraries, it becomes imperative to correctly
+disassemble them in the presence of data between code.
+
+On the other hand, a recursive disassembly will always be correct, but
+incomplete because of the inability to identify functions that are only
+reachable via code pointers.  Identifying pointers in general is challenging in
+the absence of relocation information. Techniques such as Ramblr \cite {} and
+Datalog disassembly rely on static analysis as well as heuristics to identify
+code and data pointers and result in non-zero false positive and false negative
+rates.  For preserving functionality of a program post instrumentation, false
+negatives may not matter, but false positives, no matter how small will matter.
+Misinterpreting data as code and intrumenting it may cause unexpected behaviour
+or even a crash at the runtime. However, modern 64-bit operating systems have
+started using position independent executables (PIE) to facilitate better
+deployment of ASLR (address space layout randomization). Since, PIEs inherently
+carry relocation information, even in stripped form, pointer identification is
+no longer a problem. This has been exploited by techniques such as Egalito
+\cite{} and Retrowrite \cite{}.  However, distinuguishing between code and data
+pointers, which is inevitably necessary for disassembly, still remains
+a challenge. In the context of identifying valid functions, heuristics may not
+always hold true. For example, an approach that relies on checking function
+prologue against a fixed pattern will get confused by a piece of data which
+produces similar code upon disassembly. This is highly likely in CISC systems
+such as x86. On contrary, depending on the ABI, there may exist certain rules
+that will always hold true for a function. For example, a function must always
+save callee saved registers before using them. This should always hold true,
+atleast for indirectly reached functions, since it is hard for a compiler to
+determine who is the caller and whether the caller uses that particular register
+of interest.In this paper, we list out such properties. we show that functions
+always confirm to certain properties.  We will refer to these properties as good
+function properties. By verifying the address taken functions that can only be
+reached via indirect control flow transfers against these properties, we achieve
+0 FP and FN. These good function properties are listed below:
+\begin{itemize}
+  \item Zero Conflict: The function body mustn't conflict with known code or
+    definite code \footnote{Few pointers such as the entry point and the
+    pointers in export table are confirmed code pointers. Any code reachable via
+    such pointers are termed as definite code}. 
+  \item Zero intra-function Overlap: A function's code must not overlap with
+    eachother. That is, none of the jump instructions target middle of an instruction.
+  \item ABI confirmation: A function must preserve callee saved registers and
+    must save them before writing over them. At the same time, there should be
+    no use-before-def for any register other than argument registers as per ABI
+    (e.g, rdi, rsi, rdx,rcx,r8,r9 for x86-64).
+  \item Preserved stack: A good function must restore the stack pointer before
+    exiting, to the value prior to its entry. That is, it must restore any stack
+    space it consumes before exiting.
+\end{itemize}
+
+\subsection{Approach overview and contributions}
+
+\section{Background - 2 pg}
+\subsection{Disassembly and its challenges}
+A good disassembler must strive to achieve two properties:
+\begin{itemize}
+  \item \textbf{Correctness:} A disassembler must disassemble valid instructions
+    only and avoid misinterpreting any data as code.
+  \item \textbf{Completeness:} An ideal disassembler should be able to identify
+    all code.
+\end{itemize}
+
+However, such ideal characteristics are hard to achieve because of the following
+challenges:
+
+\begin{itemize}
+  \item \textbf{Data VS Code:} Linearly disassembling the code section provides
+    maximum code coverage. However, embedded data and alignment padding can be
+    a problem. Because of the dense encoding of x86 and x86-64 CISC
+    architecture, there is a very high probability that any data byte sequence
+    will get translated to valid instruction. Furthermore, because of the
+    variable-length instruction set of x86 and x86-64 architecture, subsequent
+    valid instructions can get incorrectly translated. As shown in table
+    \ref{fig:linear disassembly fig1}, the original code contains a data byte
+    \textit{0x0f} in the middle of the code. Objdump treats it as a valid
+    instruction opcode(\textit{cmovs}) and treats the subsequent code bytes as
+    its operands and hence misinterprets the next instruction as well.
+
+    \begin{table}[] \centering 
+      \begin{tabular}{|l|l|} 
+        \hline \textbf{Original Code} & \textbf{Objdump output} 
+        \\ \hline
+        \cellcolor[HTML]{FFFFFF}
+        \begin{tabular}[c]{@{}l@{}}
+          .L1:\\ \qquad jmp .L2\\
+          \qquad .byte 0x0f\\ \\ 
+          .L2:\\ \qquad movq \$0x10, \%rax\\ 
+          \qquad push \%rax\\ 
+          \qquad call C\\ \\ 
+          C:
+        \end{tabular} & 
+        \begin{tabular}[c]{@{}l@{}}
+          0: eb 01 \hspace{1cm} jmp    3 \\ 
+          2: 0f 48 c7\hspace{0.8cm}cmovs  \%edi,\%eax\\ 
+          5: c0 10 00\hspace{0.8cm}rclb \$0x0,(\%rax)\\ 
+          8: 00 00 \hspace{1cm} add    \%al,(\%rax)\\ 
+          a: 50 \qquad \qquad \quad push   \%rax\\    
+          b: e8 00 00 00 00     callq  10
+        \end{tabular} \\ 
+      \hline 
+      \end{tabular}
+    \caption{Linear disassembly example} \label{fig:linear disassembly fig1}
+    \end{table}
+
+    This can create a serious problem as data being interpreted as valid code can
+    end up being instrumented/relocated and can lead to malfunction.
+
+  \item \textbf{Indirect control flow transfers:} One way to avoid errors due to
+    embedded data is to follow the control flow path of a program. Under ideal
+    conditions, recursive disassembly can provide 100\% accurate code recovery.
+    Direct control-flow transfer instructions whose target is embedded in the
+    instruction are easy to decipher. But, the indirect control-flow transfer
+    instructions whose target is determined at the runtime pose a problem.
+    Runtime computed pointers can be classified into following categories:
+
+    \begin{itemize}
+      \item \textbf{Pointer constants:} They may either appear as stored
+        constants in the data sections of the process or as immediate operands
+        in some instructions. As such, differentiating a pointer constant from
+        an integer data constant is hard. Techniques such as datalog disassembly
+        \cite{} and Angr \cite{} use static analysis and heuristics to
+        distinguish pointers from data constants and result in false positives
+        as well as false negatives. On the other hand, techniques such as BinCFI
+        \cite{} bypass pointer identification and use address translation to
+        translate pointers at the runtime, just before they are used. This
+        allows to have a certain degree of freedom with regards to correct code
+        identification. For example, Multiverse \cite{} uses superset
+        disassembly and disassembles every possible location in the code
+        section. This will result in a very high false positive rate in terms of
+        code identification. But, it is still able to produce correct
+        instrumentation with the help of runtime address translation. However,
+        it has to pay the price in terms of runtime overhead. Additionally,
+        superset disassembly can be very costly in terms of memory.
+
+      \item \textbf{RIP relative pointers:} These are a class of pointers that
+        are computed at the runtime as an offset from the current instruction
+        pointer (RIP) value. In legacy 32-bit architectures, there were no specific
+        instruction to carry out such computation. Hence, compilers had to take
+        help of call instructions to load the RIP (return address) into the
+        memory, and then compute the offset. This made the identification of
+        such pointers difficult, because there is a high chance that the RIP
+        value loading and final offset computation could be spread over multiple
+        basic blocks. However, modern 64-bit architectures have special
+        instructions (e.g., lea 0x100(\%RIP), \%RAX) to compute and store such
+        offsets, there by making their identification comparatively easier. 
+      \item \textbf{Jump tables:} Switch-case blocks of high-level C/C++
+        programs are encoded into jump tables. The entries of the jump table
+        undergo additional arithmetic computation at the runtime to generate
+        final target address. Statically identifying the location, size and the
+        actual computation pattern used by a jump table can be challenging.
+        Details regarding various forms of jump table is discussed in the
+        following subsection
+        \ref{jmp_tbl}. 
+    \end{itemize}
+
+\end{itemize}
+
+\subsection{PIE, non-PIE and The Relocation}
+Position independent executbles (PIE), as their name suggests do not rely on
+their location in the program's memory space. They can be loaded anywhere in the
+memory space and will still execute correctly. Because of this property, the
+notion of constant pointers is different in the realm of PIEs. Since the load
+address of PIEs is not fixed, Constant pointers statically generated by
+compilers must be relocated or updated every time a PIE is loaded into memory.
+This task must be done by the loader and to help loader achieve this, compilers
+generate additional metadata called \textit{The relocation information}. This
+relocation information holds a record for each pointer, that indicates the
+pointer's value and storage location.
+
+On the other hand, non-PIEs or Position dependent executables are always loaded
+at fixed memory address. Hence, they do not require relocation for their
+constant pointers. Absence of relocation information makes distinguishing
+pointers from integer constants difficult.
+
+From instrumentation perspective, the relocation information definitely helps in
+identifying and updating the pointers post instrumentation. Instrumentation
+techniques such as Egalito \cite{} and Retrowrite \cite{} that are solely
+designed for PIEs, take advantage of this factor and are able to avoid the
+overhead cost resulted by  the runtime address translation.  
+
+However, from a disassembler's perspective, the presence of relocation
+information doesn't help in correct disassembly. This is because, correct
+disassembly requires correctly distinguishing code pointers from data pointers.
+Furthermore, pointers that undergo runtime arithmetic computation (E.g., jump
+tables) do not require relocation. Relocation info doesn't help in either of
+these cases. Hence, we can conclude that a relocation serves no purpose for
+correct disassembly. 
+
+\subsection{Jump Tables} 
+
+\subsection{System V ABI}
+
+\section{Disassembly - 3 pg}
+\subsection{Discovering Definite and Possible code}
+\subsection{Jump table analysis}
+\subsection{Analyzing possible code}
+\paragraph{intra-function overlap check}
+\paragraph{Stack preservation analysis}
+\paragraph{use before def analysis}
+
+\section{Evaluation - 3 pg}
+We evaluated our disassembler against a wide range of both position dependent
+(non-pie) as well as position independent (pie) binaries. The binaries were
+built and evaluated on an 64-bit Ubuntu-20.04 system.
+\subsection{Dataset}
+Our data set consisted of 164 packages, which upon building, compiled into 125
+executables and 200 shared libraries. While the shared libraries could only be
+built into position independent format, executables were built as both position
+dependent and position indepent format. The packages were compiled using gcc,
+accross three optimization levels, O1, O2 and O3.
+\subsection{ground truth}
+\subsection{Result discussion}
+
+\section{Related works - 1 pg}
+\section{Conclusion}

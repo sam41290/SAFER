@@ -1,0 +1,51 @@
+   1. SBI supports instrumentation at BASIC BLOCKS and FUNCTION. A particular
+      function can also be instrumented by providing "function name" as
+      a parameter to instrumentation interface.
+   2. To instrument:
+      
+      i) Write instrumentation code in the form of C functions in the file
+      SBI/run/instrumentation_code_here/instrument.c
+
+         int instrument_bb ()
+         {
+            myprintf("basic block hooked\n");
+            return 0;
+         }
+
+         Note: there is no constraint in naming the function.
+      
+      ii) Build instrumentation code by running *make* in
+      "SBI/run/instrumentation_code_here" directory.
+     
+     iii) Call binary::register_instrumentation_function(string func_name,
+     instrumentation_point x, string instrumentee_name) in the main function
+     present in SBI/run/test_instrument.cpp file.
+
+         
+         int main(int argc, char *args[]) {
+             string binary_path("");
+             binary_path += args[1];
+             binary b(binary_path);
+             b.register_instrumentation_function("instrument_bb",
+               instrumentation_point::BASIC_BLOCK,"");
+             b.rewrite();
+             return 0;
+         
+         }
+
+   3. Note: SBI doesn't support use of standard library functions in the
+      instrumentation code. SBI defines some system calls such as mmap, printf,
+      etc, to be used in the instrumentation code. These definitions are
+      present in SBI/run/instrumentation_code_here/lib directory.
+         
+      If required, user can define more system calls in the same directory.
+
+   4. SBI installs a SIGSEGV handler by default, whenever GLIBC is
+      instrumented. User can put customized code inside the handler defined in
+      "SBI/run/instrumentation_code_here/instrument.c".
+
+      Note that, to use this feature, user must instrument GLIBC.
+
+      SBI instruments function "__libc_start_main" and adds a call to
+      "sigaction" system call inorder to register the SIGSEGV handler at
+      every program's start up.

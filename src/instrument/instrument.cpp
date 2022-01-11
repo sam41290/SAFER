@@ -1,0 +1,260 @@
+#include "instrument.h"
+#include "libutils.h"
+
+const vector <string> savedReg_{"flags","%rax",
+    "%rdi","%rsi","%rdx","%rcx","%r8","%r9","%r10","%r11"};
+
+
+void
+Instrument::encode_lea_instruction (string file_name, string mnemonic,
+				    string op1,uint64_t loc)
+{
+  ofstream ofile;
+  ofile.open (file_name, ofstream::out | ofstream::app);
+  size_t pos = op1.find (",");
+  string pointer = op1.substr (0, pos);
+  string reg = op1.substr (pos + 2);
+
+  bool rdx_saved = false;
+  string scratch_reg = "%rax";
+  if (reg.compare (scratch_reg) == 0)
+    {
+      scratch_reg = "%rcx";
+    }
+
+  string new_reg = reg;
+  if (reg.compare ("%rdx") != 0)
+    {
+      rdx_saved = true;
+      ofile << "\tpush %rdx\n";
+    }
+  else
+    {
+      ofile << "\tpush %rcx\n";
+      new_reg = "%rcx";
+    }
+
+  ofile << "\tpush " << scratch_reg << "\n";
+  ofile << "\tmov " << reg << ",%rdx\n";
+  ofile << "\tmov $0x0010000000000001," << scratch_reg << "\n";
+  ofile << "\tmulx " << scratch_reg << "," << new_reg << "," << scratch_reg <<
+    "\n";
+  ofile << "\tpop " << scratch_reg << "\n";
+  if (rdx_saved == true)
+    {
+      ofile << "\tpop %rdx\n";
+    }
+  else
+    {
+      ofile << "\tmov %rcx,%rdx\n";
+      ofile << "\tpop %rcx\n";
+    }
+
+  ofile.close ();
+
+}
+
+string
+Instrument::getIcfReg(string op1) {
+  string reg("-16(%rsp)");
+  return reg;
+}
+
+void
+Instrument::decode_icf_target (string file_name, string mnemonic, string op1,
+			       uint64_t loc)
+{
+  ofstream ofile;
+  ofile.open (file_name, ofstream::out | ofstream::app);
+  op1.replace (0, 1, "");
+
+  const char *exe = file_name.c_str();
+  uint64_t exePtr = (uint64_t)exe;
+
+  if (op1.find ("rsp") != string::npos)
+    {
+      int pos = op1.find ("(");
+      uint64_t adjst = 0;
+      if (pos != 0)
+	    {
+	      string off = op1.substr (0, pos);
+	      adjst = stoi (off, 0, 16);
+	    }
+      adjst += 8;
+      op1 = to_string (adjst) + "(%rsp)";
+    }
+
+  string inst_code = "";
+
+  //inst_code += "\tpushf\n";
+  inst_code += "\tpush %rax\n";
+  inst_code += "\tmov " + op1 + ",%rax\n";
+  inst_code += "\tmov %rax,-8(%rsp)\n";
+  inst_code += "\tand $0xfff, %rax\n";
+  inst_code += "\tshl $4,%rax\n";
+  inst_code += "\txor -2(%rsp),%ax\n";
+  inst_code += "\tmov %ax,-2(%rsp)\n";
+  inst_code += "\tcmp $0,%ax\n";
+  inst_code += "\tje .jump_loc_" + to_string (loc) + "\n";
+  inst_code += ".addrs_trans_" + to_string (loc) + ":\n";
+  //inst_code += "\tint3\n";
+  inst_code += ".jump_loc_" + to_string (loc) + ":\n";
+  inst_code += "\tpop %rax\n";
+  //inst_code += "\tpopf\n";
+  //inst_code += "\t" + mnemonic + " *-16(%rsp)\n";
+
+  ofile << inst_code;
+
+  ofile.close ();
+}
+
+string 
+Instrument::moveZeros(string op1, uint64_t loc, string file_name) {
+  op1.replace (0, 1, "");
+  string instCode = "";
+  const char *exe = file_name.c_str();
+  uint64_t exePtr = (uint64_t)exe;
+
+  instCode += "mov " + op1 + ",-8(%rsp)\n" +
+              "movw $0,-2(%rsp)\n" +
+              "mov -8(%rsp)," + op1 + "\n";
+  return instCode;
+}
+
+void
+Instrument::set_encode (bool to_encode)
+{
+  encode = to_encode;
+}
+
+
+bool
+Instrument::get_encode ()
+{
+  return encode;
+}
+
+void
+Instrument::set_decode (bool to_decode)
+{
+  decode = to_decode;
+}
+
+
+bool
+Instrument::get_decode ()
+{
+  return decode;
+}
+
+void 
+Instrument::registerInstrumentation(InstPoint p,string
+    func_name,vector<InstArg>argsLst) {
+  targetPos_.push_back(make_pair(p,func_name));
+  instFuncs_.push_back(func_name);
+  instArgs_[func_name] = argsLst;
+}
+
+void
+Instrument::registerInstrumentation(string fnName,string
+    instCodeSymbol,vector<InstArg>argsLst) {
+  targetFuncs_.push_back(make_pair(fnName,instCodeSymbol));
+  instArgs_[instCodeSymbol] = argsLst;
+  instFuncs_.push_back(instCodeSymbol);
+
+}
+
+
+void 
+Instrument::registerInstrumentation(uint64_t tgtAddrs,string
+    instCodeSymbol,vector<InstArg> argsLst) {
+  targetAddrs_.push_back(make_pair(tgtAddrs,instCodeSymbol));
+  instArgs_[instCodeSymbol] = argsLst;
+  instFuncs_.push_back(instCodeSymbol);
+}
+
+string
+Instrument::generate_hook(string hook_target, bool is_segfault_hook, uint64_t
+             sigaction_addrs = 0, string args="") {
+
+  /* Generates assembly code stub to be put at the instrumentation point
+   *(basic block or function).
+   *  The stub saves caller saved registers and flags.
+   *  Then makes a call to the instrumentation code.
+   */
+  string inst_code = "";
+  inst_code += save();
+  inst_code += args + "call ." + hook_target + "\n";
+
+  if(is_segfault_hook) {
+    /* If the stub is supposed to install seg-fault handler, we need to make
+     * an additional call to sigaction system call.
+     */
+    inst_code = inst_code + "mov $11, %rdi\n" +
+                            "mov %rax,%rsi\n" +
+                            "mov $0, %rdx\n" +
+                            "call ." + to_string(sigaction_addrs) + "\n";
+  }
+
+  inst_code = inst_code + restore();
+  return inst_code;
+}
+
+string
+Instrument::save() {
+  string ins = "";
+
+  for(string str:savedReg_) {
+    if(str == "flags")
+      ins += "pushf\n";
+    else
+      ins+= "push " + str + "\n";
+  }
+  return ins;
+}
+
+string
+Instrument::restore() {
+  string ins = "";
+  auto it = savedReg_.end();
+  while(it != savedReg_.begin()) {
+    it = prev(it);
+    if(*it == "flags")
+      ins += "popf\n";
+    else
+      ins+= "pop " + *it + "\n";
+  }
+  return ins;
+}
+
+string
+Instrument::getRegVal(string reg) {
+  string val = "";
+  int offt = 8 * (savedReg_.size() - 1);
+  if(reg == "%rsp") {
+    val += to_string(offt) + "(%rsp)";
+    return val;
+  }
+  else if (reg.find ("rsp") != string::npos) {
+    int pos = reg.find ("(");
+    uint64_t adjst = 0;
+    if (pos != 0) {
+      string off = reg.substr (0, pos);
+      adjst = stoi (off, 0, 16);
+      //cout << "rsp offset: " << off << " adjst: " << adjst << endl;
+    }
+    adjst += (8 * savedReg_.size());
+    //cout << "new adjustment: " << adjst << endl;
+    val = to_string (adjst) + "(%rsp)";
+    return val;
+  }
+
+  for(string str:savedReg_) {
+    if(reg == str) {
+      val += to_string(offt) + "(%rsp)";
+      return val;
+    }
+    offt -= 8;
+  }
+  return reg;
+}
