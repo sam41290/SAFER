@@ -9,6 +9,7 @@ sudo apt-get -y install camlp4
 sudo apt-get -y install ctags
 
 tar -xf auto.tgz
+mkdir run/tmp
 
 #installing capstone
 
