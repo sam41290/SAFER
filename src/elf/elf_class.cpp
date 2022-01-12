@@ -1787,14 +1787,13 @@ uint64_t
 ElfClass::newSymVal (uint64_t old_offset) {
   if (old_offset == 0)
     return 0;
-  LOG ("Getting new symbol value for offset: " << old_offset);
   if (old_offset >= oldDataSeg_)
     return newSymAddrs_[".datasegment_start"] + old_offset -
       oldDataSeg_;
-  else {
-      //LOG ("symbol value doesn't exist for offset " << hex << old_offset);
+  else if(utils::sym_bindings.find(old_offset) != utils::sym_bindings.end())
+    return newSymAddrs_[utils::sym_bindings[old_offset]];
+  else
     return newSymAddrs_["." + to_string (old_offset)];	// - new_codesegment_offset;
-  }
 }
 
 void

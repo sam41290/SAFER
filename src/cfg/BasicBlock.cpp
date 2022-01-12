@@ -201,32 +201,13 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
   /* Prints out the asm instructions within this basic block
    */
 
-  LOG("Printing basic block");
-  ofstream ofile;
-  ofile.open(file_name, ofstream::out | ofstream::app);
-
   string ins_lbl_sfx = "_" + to_string(start_) + "_def_code";
 
   if(isCode() == false) {
-    ofile <<".unknown_BasicBlock_start_";
     ins_lbl_sfx = "_" + to_string(start_) + "_unknown_code";
   }
-  else
-    ofile <<".BasicBlock_start_";
-  ofile <<start_ <<":\n";
-
-  if(label_.length() != 0)
-    ofile <<label_ <<":\n";
-  ofile.close();
-
-
-  //bool is_jmp_table_block =(indirect_jump_targets.size()> 0);
-
-  //auto it = insList_.begin();
-  for(auto it:insList_) {
-    if(isCode() == false) {
-      it->isCode(false);
-    }
+  for(auto & it:insList_) {
+    it->isCode(isCode());
     uint64_t rip_rltv_offset = it->ripRltvOfft();
     if(ENCODE == 1 && rip_rltv_offset != 0 && 
         map_of_pointer[rip_rltv_offset]->type() == PointerType::CP 
@@ -240,21 +221,16 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
     }
     if((it->isJump() || it->isCall()) && targetBB_ != NULL) {
       it->asmIns(it->mnemonic() + " " + targetBB_->label());
+      it->op1(targetBB_->label());
     }
     it->print(file_name,ins_lbl_sfx);
   }
   printFallThroughJmp(file_name);
+  ofstream ofile;
   ofile.open(file_name, ofstream::out | ofstream::app);
   for(int i = 0; i < traps_; i++)
     ofile <<".byte 0xcc\n";
-  if(isCode() == false)
-    ofile <<".unknown_BasicBlock_end_";
-  else
-    ofile <<".BasicBlock_end_";
-
-  ofile <<start_<<":\n";
   ofile.close();
-
 }
 
 
@@ -269,56 +245,37 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
   LOG("Adjusting RIP relative access");
   if(insList_.size() <= 0)
     LOG("No instructions in the bb!!");
-  for(auto it:insList_) {
+  for(auto & it : insList_) {
     if(it->isRltvAccess() == 1 && it->rltvOfftAdjusted() == false) {
       uint64_t rip_rltv_offset = it->ripRltvOfft();
       LOG("Relative Pointer: " <<hex <<rip_rltv_offset);
-      if(rip_rltv_offset>= data_segment_start) {
-        string mnemonic = it->mnemonic();
-        string operand = it->op1();
-        int pos = operand.find("(%rip)");
-        int offset_pos = operand.rfind(".", pos);
-        operand = operand.replace(offset_pos, pos
-      			 - offset_pos, "(.datasegment_start + "
-      			 + to_string(rip_rltv_offset -
-      				      data_segment_start) +
-      			 ")");
-        it->asmIns(it->prefix() + mnemonic + " " + operand);
-        it->op1(operand);
+      if(rip_rltv_offset >= data_segment_start) {
 
+        string op = utils::symbolizeRltvAccess(it->op1(),
+            ".datasegment_start + " + 
+             to_string(rip_rltv_offset - data_segment_start)
+             ,rip_rltv_offset,SymBind::FORCEBIND);
+        it->asmIns(it->prefix() + it->mnemonic() + " " + op);
+        it->op1(op);
       }
-      /*
-      else if(rip_rltv_offset == 0) {
-        string mnemonic = it->mnemonic();
-        string operand = it->op1();
-        int pos = operand.find("(%rip)");
-        int offset_pos = operand.rfind(".", pos);
-        operand = operand.replace(offset_pos, pos
-      			 - offset_pos, "(."
-      			 + to_string(rip_rltv_offset)
-      			 + " - 0x200000)");
-        it->asmIns(it->prefix() + mnemonic + " " + operand);
-        it->op1(operand);
-      }
-      */
       else {
         auto p = ptr_map.find(rip_rltv_offset);
-        if(p == ptr_map.end() || p->second->type() != PointerType::DP) {
+        if(p == ptr_map.end() || p->second->type() == PointerType::CP) {
           for (auto & bb : rltvTgts_) {
             if(bb->start() == rip_rltv_offset) {
-              string mnemonic = it->mnemonic();
-              string operand = it->op1();
-              int pos = operand.find("(%rip)");
-              int offset_pos = operand.rfind(".", pos);
-              string lbl = bb->label();
-              operand = operand.replace(offset_pos, pos
-                       - offset_pos, "("
-                       + lbl + ")");
-              it->asmIns(it->prefix() + mnemonic + " " + operand);
-              it->op1(operand);
+              string op = utils::symbolizeRltvAccess(it->op1(),
+                   bb->label(),rip_rltv_offset,SymBind::FORCEBIND);
+              it->asmIns(it->prefix() + it->mnemonic() + " " + op);
+              it->op1(op);
               break;
             }
           }
+        }
+        else {
+          string op = utils::symbolizeRltvAccess(it->op1(),
+                   "." + to_string(rip_rltv_offset),rip_rltv_offset,SymBind::FORCEBIND);
+          it->asmIns(it->prefix() + it->mnemonic() + " " + op);
+          it->op1(op);
         }
       }
       it->rltvOfftAdjusted(true);
@@ -335,11 +292,11 @@ BasicBlock::insCount() {
 void
 BasicBlock::printFallThroughJmp(string file_name) {
   if(fallThroughIns_.asmIns().size()> 0) {
-      ofstream ofile;
-      ofile.open(file_name, ofstream::out | ofstream::app);
-      ofile <<"\t" <<fallThroughIns_.asmIns() <<"\n";
-      ofile.close();
-    }
+    ofstream ofile;
+    ofile.open(file_name, ofstream::out | ofstream::app);
+    ofile <<"\t" <<fallThroughIns_.asmIns() <<"\n";
+    ofile.close();
+  }
 }
 
 vector <uint64_t> BasicBlock::allInsLoc() {

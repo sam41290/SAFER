@@ -74,15 +74,6 @@ bool
 CfgElems::validPtrToPtrArray(uint64_t ptr, uint64_t end) {
   LOG("Checking if pointer to symbol array: "<<hex<<ptr);
   uint64_t entry_sz = 8;
-  //if(validPtrToPtr(ptr + 4)) 
-  //  entry_sz = 4;
-  //else if(validPtrToPtr(ptr + 8))
-  //  entry_sz = 8;
-  //else {
-  //  LOG("Invalid entry size");
-  //  return false;
-  //}
-  //LOG("Entry size: "<<entry_sz);
   if((end - ptr) % entry_sz == 0) {
     return true;
     ptr += entry_sz;

@@ -1,7 +1,7 @@
 #include "libutils.h"
 
 using namespace std;
-
+unordered_map <uint64_t, string> utils::sym_bindings;
 set <string> utils::cf_ins_set {
    "jb",
    "jnae",
@@ -97,7 +97,9 @@ unordered_set <string> utils::invalid_prefixes {
   "ss",
   "es",
   "fs",
-  "gs"
+  "gs",
+  "cs",
+  "ds"
 };
 
 unordered_set <string> utils::ctrl_regs {

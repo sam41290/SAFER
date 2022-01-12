@@ -31,30 +31,21 @@ Rand::printBasicBlocks(vector <BasicBlock *> &bbs, string fileName,
     if(callSiteIt != all_call_sites.end()) {
       eh_frame.print_call_site_tbl(callSiteIt->second.start,
     				callSiteIt->second.start, fStart);
-      ofstream ofile;
-      ofile.open(fileName, ofstream::out | ofstream::app);
-      ofile << ".call_site_" << callSiteIt->first << ":\n";
-      ofile.close();
+      utils::printLbl(".call_site_" + to_string(callSiteIt->first),fileName);
     }
 
     bb->adjustRipRltvIns(dataSegmentStart_, pointerMap_);
     //LOG("Aligning code pointer");
     if(if_exists(bb->start(), pointerMap_)) {
-      ofstream ofile;
-      ofile.open(fileName, ofstream::out | ofstream::app);
-      ofile << ".align 16,0x90\n";
-      ofile.close();
+      utils::printAlgn(16,fileName);
     }
 
     bb->print(fileName, pointerMap_);
     printUnwindRec(fStart, bb);
     if(if_exists(bb->start(), callSiteEndMap_) == true) {
-      ofstream ofile;
-      ofile.open(fileName, ofstream::out | ofstream::app);
       vector<uint64_t> call_sites = callSiteEndMap_[bb->start()];
       for(auto addr : call_sites)
-        ofile << ".call_site_" << addr << "_end:\n";
-      ofile.close();
+        utils::printLbl(".call_site_" + to_string(addr) + "_end",fileName);
     }
   }
 }

@@ -235,40 +235,25 @@ Instruction::indirectCFWithReg() {
 void
 Instruction::print(string file_name, string lbl_sfx) {
   instrument();
-  ofstream ofile;
-  ofile.open(file_name, ofstream::out | ofstream::app);
-  ofile <<label_ <<lbl_sfx<<":\n";
-  ofile <<"\t"<<instAsmPre_<<"\n";
-  ofile.close();
-  if(get_decode() == true)
-    decode_icf_target(file_name, mnemonic_, op1_,loc_);
 
-  ofile.open(file_name, ofstream::out | ofstream::app);
-  if(get_decode()) {
-    string reg = getIcfReg(op1_);
-    asmIns_ = mnemonic_ + " *" + reg;
-  }
-  //ofile <<"\t"<<instAsmPre_<<"\n";
+  string asm_ins = "\t" + instAsmPre_ + "\n";
   if(mnemonic_ == "jrcxz") {
-    ofile<<"\tcmp $0, %rcx\n";
-    ofile<<"\tje ."<<to_string(target_)<<"\n";
+    asm_ins += "\tcmp $0, %rcx\n\tje " + op1_ + "\n";
   }
   else {
     if((isJump_ || isCall_ || isRltvAccess_)
         && asmIns_.find("ret") == string::npos)
-      ofile <<"\t" <<asmIns_ <<"\n";
+      asm_ins += "\t" + asmIns_ + "\n";
     else {
       for(auto byte : insBinary_)
-        ofile<<"\t.byte "<<(uint32_t)byte<<endl;
+        asm_ins += "\t.byte " + to_string((uint32_t)byte) + "\n";
     }
   }
-  ofile.close();
-  if(get_encode() == true)
-    encode_lea_instruction(file_name, mnemonic_, op1_, loc_);
-  ofile.open(file_name, ofstream::out | ofstream::app);
-  ofile<<"\t"<<instAsmPost_<<"\n";
-  ofile.close();
-
+  asm_ins += "\t" + instAsmPost_ + "\n";
+  SymBind b = SymBind::NOBIND;
+  if(isCode())
+    b = SymBind::FORCEBIND;
+  utils::printAsm(asm_ins,location(),label_ + lbl_sfx,b,file_name);
 }
 
 void

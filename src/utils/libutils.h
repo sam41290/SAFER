@@ -32,6 +32,12 @@ enum code_type {
 };
 
 
+enum class SymBind {
+  BIND,
+  NOBIND,
+  FORCEBIND
+};
+
 struct None {};
 
 template <typename First, typename Second> struct Pair {
@@ -515,6 +521,77 @@ public:
   }
 
   static unordered_set <string> invalid_prefixes;
+
+  static unordered_map <uint64_t, string> sym_bindings;
+
+  static void bind(uint64_t addr, string label, SymBind b) {
+    if(b == SymBind::FORCEBIND)
+      sym_bindings[addr] = label;
+    else if(b == SymBind::BIND) 
+      if(sym_bindings.find(addr) == sym_bindings.end())
+        sym_bindings[addr] = label;
+  }
+
+  static string symbolizeRltvAccess(string op,string label, 
+                                    uint64_t addr, SymBind b) {
+    if(b == SymBind::FORCEBIND)
+      sym_bindings[addr] = label;
+    else if(b == SymBind::BIND) { 
+      if(sym_bindings.find(addr) != sym_bindings.end())
+        label = sym_bindings[addr];
+      else
+        sym_bindings[addr] = label;
+    }
+
+    int pos = op.find("(%rip)");
+    int offset_pos = op.rfind(".", pos);
+    op = op.replace(offset_pos, pos
+             - offset_pos, "("
+             + label + ")");
+    return op;
+  }
+
+  static void printAsm(string asmbly, uint64_t addr, string label, 
+                       SymBind b, string file_name) {
+    if(b == SymBind::FORCEBIND)
+      sym_bindings[addr] = label;
+    else if(b == SymBind::BIND) { 
+      if(sym_bindings.find(addr) != sym_bindings.end())
+        label = sym_bindings[addr];
+      else
+        sym_bindings[addr] = label;
+    }
+
+    ofstream ofile;
+    ofile.open(file_name, ofstream::out | ofstream::app);
+    if(label.length() > 0)
+      ofile<<label<<":\n";
+    ofile<<asmbly<<endl;
+    ofile.close();
+  }
+
+  static void printLbl(string label, string file_name) {
+    if(label.length() > 0) {
+      ofstream ofile;
+      ofile.open(file_name, ofstream::out | ofstream::app);
+      ofile<<label<<":\n";
+      ofile.close();
+    }
+  }
+
+  static void printSkp(uint64_t cnt, string file_name) {
+    ofstream ofile;
+    ofile.open(file_name, ofstream::out | ofstream::app);
+    ofile<<".skip "<<cnt<<endl;
+    ofile.close();
+  }
+  static void printAlgn(uint64_t cnt, string file_name) {
+    ofstream ofile;
+    ofile.open(file_name, ofstream::out | ofstream::app);
+    ofile<<".align "<<cnt<<endl;
+    ofile.close();
+  }
 };
+
 
 #endif

@@ -460,22 +460,6 @@ Binary::map_functions_to_section() {
 
 }
 
-
-//void
-//utils::append_files(string inp_file, string out_file) {
-//  ofstream ofile;
-//  ofile.open(out_file, ofstream::out | ofstream::app);
-//
-//  ifstream ifile;
-//  ifile.open(inp_file);
-//  string str;
-//  while(getline(ifile, str))
-//    ofile <<str <<endl;
-//  ifile.close();
-//  ofile.close();
-//
-//}
-
 void
 Binary::print_data_segment(string file_name) {
   //Prints out the assembly file for data section using assembler directives
@@ -504,11 +488,9 @@ Binary::print_data_segment(string file_name) {
   uint64_t code_seg_end = rxSections_[last_sec_ind].offset
     + rxSections_[last_sec_ind].size;
 
-  ofstream ofile;
-  ofile.open(file_name, ofstream::out | ofstream::app);
-
-  ofile <<".skip " <<data_seg_start - code_seg_end <<endl;
-  ofile <<".datasegment_start:\n";
+  utils::printAsm(".skip " + to_string(data_seg_start - code_seg_end) + "\n",
+      code_seg_end,"." + to_string(code_seg_end), SymBind::BIND,file_name);
+  utils::printLbl(".datasegment_start",file_name);
   uint64_t byte_count = 0;
   uint64_t i = rwSections_[0].vma;
 
@@ -519,32 +501,33 @@ Binary::print_data_segment(string file_name) {
 
   for(; i < segment_size; i++) {
     if(if_exists(i, section_range_map)) {
-      ofile <<"\t.skip " <<byte_count <<endl;
-      ofile <<"." <<i <<":\n";
-      ofile <<section_range_map[i] + "_dup_end:\n";
+      utils::printAsm("\t.skip " + to_string(byte_count)
+          + "\n",0,"",SymBind::NOBIND,file_name);
+      utils::printAsm("\n",i,"." + to_string(i),SymBind::FORCEBIND,file_name); 
+      utils::printLbl(section_range_map[i] + "_dup_end",file_name);
       byte_count = 0;
     }
     if(if_exists(i, section_map)) {
-      for(string sec_name:section_map[i]) {
+      for(string & sec_name:section_map[i]) {
         if(byte_count> 0)
-  	      ofile <<"\t.skip " <<byte_count <<endl;
-        ofile <<"." <<i <<":\n";
-        ofile << sec_name + "_dup:\n";
+          utils::printAsm("\t.skip " + to_string(byte_count)
+              + "\n",0,"",SymBind::NOBIND,file_name);
+        utils::printAsm("\n",i,"." + to_string(i),SymBind::FORCEBIND,file_name); 
+        utils::printLbl(sec_name + "_dup",file_name);
         byte_count = 0;
       }
     }
     byte_count++;
   }
-  if(byte_count> 0)
-    ofile <<"\t.skip " <<byte_count <<endl;
+  if(byte_count > 0)
+    utils::printAsm("\t.skip " + to_string(byte_count)
+        + "\n",0,"",SymBind::NOBIND,file_name);
 
   if(if_exists(i, section_range_map)) {
-    ofile <<section_range_map[i] + "_dup_end:\n";
+    utils::printLbl(section_range_map[i] + "_dup_end",file_name);
   }
-  ofile <<".datasegment_end:\n";
-  ofile <<"." + to_string(i) + ":\n";
-
-  ofile.close();
+  utils::printLbl(".datasegment_end",file_name);
+  utils::printAsm("\n",i,"." + to_string(i),SymBind::FORCEBIND,file_name); 
 
 }
 
@@ -561,8 +544,10 @@ Binary::print_old_code_and_data(string file_name) {
   ofile.open(file_name, ofstream::out | ofstream::app);
 
   ofile <<".old_top:\n";
-  vector <pheader> ronly_segs = manager_->prgrmHeader(pheader_types::LOAD,pheader_flags::RONLY);
-  vector <pheader> rx_segs = manager_->prgrmHeader(pheader_types::LOAD,pheader_flags::RX);
+  vector <pheader> ronly_segs
+    = manager_->prgrmHeader(pheader_types::LOAD,pheader_flags::RONLY);
+  vector <pheader> rx_segs
+    = manager_->prgrmHeader(pheader_types::LOAD,pheader_flags::RX);
 
   vector <pheader> rorx_segs;
   
@@ -595,7 +580,7 @@ Binary::print_old_code_and_data(string file_name) {
     ctr++;
   }
   ofile<<".old_end:\n";
-
+  ofile<<".align "<<manager_->segAlign()<<endl;
   ofile.close();
 
   print_data_segment(file_name);
@@ -618,24 +603,23 @@ Binary::rewrite_jmp_tbls(string file_name) {
   section new_sec("jmp_table",0,0,0,8);
   new_sec.start_sym=".jmp_tbl_start";
   new_sec.end_sym=".jmp_tbl_end";
+  new_sec.sec_type = section_types::RONLY;
   new_sec.additional = true;
   manager_->newSection(new_sec);
-  ofstream ofile;
-  ofile.open(file_name, ofstream::out | ofstream::app);
-  ofile<<".align 8\n";
-  ofile<<".jmp_tbl_start:\n";
+  utils::printAlgn(8,file_name);
+  utils::printLbl(".jmp_tbl_start",file_name);
   set <uint64_t> processed_jmp_tbl;
   vector <JumpTable> jmp_tbls = codeCFG_->jumpTables();
   sort_jmp_tbl(jmp_tbls);
   for(auto & j : jmp_tbls) {
     if(processed_jmp_tbl.find(j.location()) == processed_jmp_tbl.end()) {
       string tbl = j.rewriteTgts();
-      ofile <<tbl;
+      utils::printAsm(tbl,j.location(),"."
+          + to_string(j.location()),SymBind::FORCEBIND,file_name); 
       processed_jmp_tbl.insert(j.location());
     }
   }
-  ofile<<".jmp_tbl_end:\n";
-  ofile.close();
+  utils::printLbl(".jmp_tbl_end",file_name);
 }
 
 void
@@ -869,15 +853,15 @@ Binary::print_executable_section(uint64_t section_start, uint64_t
     LOG("Printing function: " <<hex <<func_addrs);
     ofile.open(sec_file, ofstream::out | ofstream::app);
     ofile <<".frame_" <<func_addrs <<":\n";	//Tag representing start of
-    //an EH frame
+                                            //an EH frame
     ofile.close();
     xtraJmp = 0;
     unwndBlkSz = 0;
     LOG("Printing definite code\n");
     eh_frame.print_bst(func_addrs);	//Print a record for the function in
-    //EH's Binary search table.
+                                    //EH's Binary search table.
     codeCFG_->printFunc(func_addrs, sec_file);
-    LOG("printing uncertain code\n");
+    //LOG("printing uncertain code\n");
     //unknownCFG_.printFunc(func_addrs, sec_file);
     ofile.open(sec_file, ofstream::out | ofstream::app);
     ofile <<".frame_" <<func_addrs <<"_end:\n";	//Tag for end of an EH frame.
@@ -889,8 +873,6 @@ Binary::print_executable_section(uint64_t section_start, uint64_t
 string
 Binary::printPsblData() {
   string filename="psbl_data.s";
-  ofstream ofile;
-  ofile.open(filename);
   for(auto & p : pointerMap_) {
     if(p.second->type() == PointerType::UNKNOWN) {
       //uint64_t next_ptr = codeCFG_->nextPtr(p.first);
@@ -907,11 +889,10 @@ Binary::printPsblData() {
       utils::READ_FROM_FILE(exePath_,data,offset,size);
       uint64_t addr = p.first;
       for(uint64_t i = 0; i < size; i++,addr++)
-        ofile<<"."<<addr<<"_unknown_code: .byte "<<(uint32_t)data[i]<<endl;
-        
+        utils::printAsm(".byte " + to_string((uint32_t)data[i]) + "\n",addr,
+            "." + to_string(addr),SymBind::FORCEBIND,filename); 
     }
   }
-  ofile.close();
   return filename;
 }
 
@@ -922,8 +903,6 @@ Binary::print_ro_section(uint64_t start_offset, uint64_t section_start,
   /* Prints ASM for a read-only data section.
    */
 
-  ofstream ofile;
-  ofile.open(sec_file, ofstream::out | ofstream::app);
   uint8_t *section_data =(uint8_t *) malloc(byte_count);
   utils::READ_FROM_FILE(exePath_, section_data, start_offset,
 			 byte_count);
@@ -934,27 +913,27 @@ Binary::print_ro_section(uint64_t start_offset, uint64_t section_start,
      * Because jump tables will be re-created at a separate location with
      * these labels.
      */
-
-    if(codeCFG_->isJmpTblLoc(section_start))
+    SymBind b = SymBind::FORCEBIND;
+    if(codeCFG_->isJmpTblLoc(section_start)) {
       line = "";
+      b = SymBind::NOBIND;
+    }
     else
-      line = "." + to_string(section_start) + ":\n";
+      line = "." + to_string(section_start);
 
-    ofile <<line;
-    ofile <<"\t.byte " <<(uint32_t)(section_data[i]) <<"\n";
+    utils::printAsm(".byte " + to_string((uint32_t)section_data[i])
+        + "\n",section_start,line,b,sec_file); 
     section_start++;
 
   }
-  ofile.close();
 
 }
 
 void
 Binary::printSections() {
-  for(section & sec:rxSections_) {
+  for(section & sec : rxSections_) {
     LOG("Printing section: " <<sec.name);
     string sec_file = sec.name;
-    // LOG("Extra: " <<sec_file);
     if(sec_file.find(".") == 0)
       sec_file = sec_file.replace(0, 1, "");
     sec_file += ".s";
@@ -1008,37 +987,20 @@ void
 Binary::stitchSections(section_types t,string file_name, bool align) {
   ofstream ofile;
   if(align) {
-    ofile.open(file_name, ofstream::out | ofstream::app);
-    ofile <<".align " <<manager_->segAlign()<<"\n";
-    ofile.close();
+    utils::printAlgn(manager_->segAlign(), file_name);
   }
   for(auto & sec : rxSections_) {
     if(sec.sec_type == t) {
-      ofile.open(file_name, ofstream::out | ofstream::app);
-      //if(prev_sec_end != 0 && sec.vma != prev_sec_end) {
-      //  ofile <<"." <<prev_sec_end <<":\n";
-      //  ofile <<".skip " <<sec.vma - prev_sec_end <<endl;
-      //}
-      ofile <<".align " <<sec.align <<"\n";
-      ofile<<sec.start_sym<<":"<<endl;
-      ofile.close();
+      utils::printAlgn(sec.align,file_name);
+      utils::printLbl(sec.start_sym,file_name);
       string
         sec_file = sec.asm_file;
 
       utils::append_files(sec_file, file_name);
-      ofile.open(file_name, ofstream::out | ofstream::app);
-      ofile<<sec.end_sym<<":"<<endl;
-      ofile.close();
+      utils::printLbl(sec.end_sym,file_name);
       section new_sec = sec;
       manager_->newSection(new_sec);
     }
-    //if(sec.name.rfind(".") == 0) {
-    //  ofile.open(file_name, ofstream::out | ofstream::app);
-    //  ofile <<sec.name <<"_dup_end:\n";
-    //  ofile.close();
-    //}
-    //prev_sec_end =
-    //  sec.vma + sec.size;
   }
 }
 
@@ -1048,28 +1010,12 @@ string Binary::print_assembly() {
   //data.
   string key("/");
   size_t found = exePath_.rfind(key);
-  ofstream ofile;
   string file_name = exePath_.substr(found + 1) + "_new.s";
   if(manager_->type() == exe_type::NOPIE)
     print_old_code_and_data("old_code_and_data.s");
   utils::append_files("old_code_and_data.s", file_name);
   
-  //section new_sec("dummy",0,rxSections_[0].offset,0,8);
-  //new_sec.start_sym = ".new_codesegment_start";
-  ofile.open(file_name, ofstream::out | ofstream::app);
-  //ofile <<".align " <<manager_->segAlign()<<"\n";
-  ofile <<".new_codesegment_start:\n";
-  //ofile <<"\t.byte 0x00\n";
-  //for(unsigned int i = 1; i <rxSections_[0].offset; i++) {
-  //  ofile <<".byte 0x00\n";
-  //  new_sec.end_sym = "." + to_string(i);
-  //}
-  //new_sec.end_sym = ".dummy_end";
-  //new_sec.sec_type = section_types::RONLY;
-  //new_sec.additional = true;
-  //manager_->newSection(new_sec);
-  //ofile<<".dummy_end:\n";
-  ofile.close();
+  utils::printLbl(".new_codesegment_start",file_name);
 
   printSections();
 
@@ -1081,12 +1027,8 @@ string Binary::print_assembly() {
   stitchSections(section_types::RX,file_name,true);
   stitchSections(section_types::RONLY,file_name, true);
   rewrite_jmp_tbls(file_name);
-  ofile.open(file_name, ofstream::out | ofstream::app);
-  ofile <<".new_codesegment_end:\n";
+  utils::printLbl(".new_codesegment_end",file_name);
 
-  ofile.close();
-  //manager_->printNewSectionHdrs("sectionHdr.s");
-  //utils::append_files("sectionHdr.s",file_name);
   return file_name;
 }
 
