@@ -8,6 +8,8 @@ sudo apt-get -y install camlp4-extra
 sudo apt-get -y install camlp4
 sudo apt-get -y install ctags
 
+tar -xf auto.tgz
+
 #installing capstone
 
 tar -xf capstone-4.0.2.tar.gz
