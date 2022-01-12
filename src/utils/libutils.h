@@ -467,7 +467,8 @@ public:
   {
     return uncond_cf_ins_set;
   }
-  static unordered_map <string,uint8_t> prefixes;
+  static unordered_map <uint8_t,string> prefixes;
+  static unordered_set <string> prefix_ops;
   static bool is_equivalent(string ins1, string ins2) {
     set <string> jmp_ins = utils::get_cf_ins_set();
     set <string> uncond_jmp_ins = utils::get_uncond_cf_ins_set();
@@ -512,10 +513,13 @@ public:
     return false;
   }
 
-  static bool is_prefix(string op) {
+  static bool is_prefix(uint8_t op) {
     if(prefixes.find(op) != prefixes.end())
       return true;
-    else if(op.find("rex") != string::npos)
+    return false;
+  }
+  static bool is_prefix(string op) {
+    if(prefix_ops.find(op) != prefix_ops.end())
       return true;
     return false;
   }

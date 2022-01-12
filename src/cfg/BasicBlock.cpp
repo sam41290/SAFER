@@ -66,11 +66,15 @@ BasicBlock::deleteIns(uint64_t address) {
 bool
 BasicBlock::isValidIns(uint64_t addrs) {
   for(auto & ins : insList_) { 
-    //LOG("Ins loc: "<<hex<<ins->location());
     if(addrs == ins->location())
       return true;
+    else if((addrs - ins->location()) == 1 
+             && ins->insSize() > 1) {
+      auto bin = ins->insBinary();
+      if(utils::is_prefix(bin[0]))
+        return true;
+    }
   }
-  //LOG("No Valid Ins found");
   return false;
 }
 

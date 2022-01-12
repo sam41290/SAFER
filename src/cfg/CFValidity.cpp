@@ -13,10 +13,13 @@ bool
 CFValidity::validOpCode(Instruction *ins) {
   if(ins->asmIns().find(".byte") != string::npos)
     return false;
-  string asm_ins = ins->asmIns();
-  vector <string> words = utils::split_string(asm_ins,' ');
-  if(words.size() == 1 && utils::is_prefix(words[0]))
+  auto bin = ins->insBinary();
+  if(bin.size() == 1 && utils::is_prefix(bin[0]))
     return false;
+  //string asm_ins = ins->asmIns();
+  //vector <string> words = utils::split_string(asm_ins,' ');
+  //if(words.size() == 1 && utils::is_prefix(words[0]))
+  //  return false;
   return true;
 }
 
