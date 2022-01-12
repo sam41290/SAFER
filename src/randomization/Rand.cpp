@@ -173,9 +173,13 @@ Rand::removeDuplication(vector <BasicBlock *> &bb_list) {
             LOG("Adjusting overlapping BB "<<hex<<bb_list[j]->start()<<" at "
                  <<hex<<ins2->location()<<" bigger BB: "<<hex<<bb_list[i]->start());
             bb_list[j]->split(ins2->location());
-            //delete(splitted_bb);
-            //bb_list[j]->fallThroughBB(NULL);
-            addJmpToFallThru(bb_list[j]);
+            Instruction ins;
+            string jmpLoc =
+              "jmp " + ins2->label() + bb_list[i]->lblSuffix();//to_string(bb->fallThrough());
+            ins.asmIns(jmpLoc);
+            ins.isJump(1);
+            bb_list[j]->fallThroughIns(ins);
+            //addJmpToFallThru(bb_list[j]);
             break;
           }
         }

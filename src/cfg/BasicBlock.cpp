@@ -68,16 +68,29 @@ BasicBlock::isValidIns(uint64_t addrs) {
   for(auto & ins : insList_) { 
     if(addrs == ins->location())
       return true;
-    else if((addrs - ins->location()) == 1 
-             && ins->insSize() > 1) {
-      auto bin = ins->insBinary();
-      if(utils::is_prefix(bin[0]))
-        return true;
-    }
   }
   return false;
 }
 
+
+bool
+BasicBlock::noConflict(uint64_t addrs) {
+  if(addrs >= start_ && addrs < boundary()) {
+    for(auto & ins : insList_) { 
+      if(addrs == ins->location())
+        return true;
+      else if((addrs - ins->location()) == 1 
+               && ins->insSize() > 1) {
+        auto bin = ins->insBinary();
+        if(utils::is_prefix(bin[0]))
+          return true;
+      }
+    }
+    return false;
+  }
+  else
+    return true;
+}
 
 bool
 BasicBlock::indirectCFWithReg() {

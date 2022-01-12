@@ -233,6 +233,7 @@ public:
   uint64_t boundary();
   void addTramp(uint64_t tramp_start);
   BasicBlock *tramp() { return tramp_; }
+  bool noConflict(uint64_t addrs);
 };
 }
 #endif

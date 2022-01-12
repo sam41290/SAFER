@@ -185,7 +185,7 @@ Frame::conflictsCnsrvtvCode(uint64_t addrs) {
     uint64_t start = bb->start();
     uint64_t end = bb->boundary();
     if(start <= addrs && end > addrs) {
-      if(bb->isValidIns(addrs))
+      if(bb->noConflict(addrs))
         return false;
       else
         return true;
