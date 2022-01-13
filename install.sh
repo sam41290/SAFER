@@ -22,22 +22,24 @@ path=`echo "${TOOL_PATH}" | sed 's/\//\\\\\//g'`
 
 sed -i "/#define TOOL_PATH/c #define TOOL_PATH \"${path}\/\"" run/config.h
 
-rand_configs=($(ls -1 run/randmodes/*.h))
+rand_configs=($(ls -1 ${TOOL_PATH}/run/randmodes/*.h))
 for f in "${rand_configs[@]}"
 do
   sed -i "/#define TOOL_PATH/c #define TOOL_PATH \"${path}\/\"" ${f}
 done
 
 export LD_LIBRARY_PATH=/usr/lib/ocaml
+cp ${TOOL_PATH}/run/randmodes/LLRK.h ${TOOL_PATH}/run/config.h
 
 
-//cd ${TOOL_PATH}/src/lift/lift-code
-//make clean
-//make all
-//
-//cd ${TOOL_PATH}/src/rtl-analysis/
-//make clean
-//make libanalysis.so
+#cd ${TOOL_PATH}/src/lift/lift-code
+#make clean
+#make all
+
+
+#cd ${TOOL_PATH}/src/rtl-analysis/
+#make clean
+#make libanalysis.so
 
 cd ${TOOL_PATH}
 
