@@ -490,6 +490,7 @@ Binary::print_data_segment(string file_name) {
 
   utils::printAsm(".skip " + to_string(data_seg_start - code_seg_end) + "\n",
       code_seg_end,"." + to_string(code_seg_end), SymBind::BIND,file_name);
+  utils::printAlgn(4096,file_name);
   utils::printLbl(".datasegment_start",file_name);
   uint64_t byte_count = 0;
   uint64_t i = rwSections_[0].vma;
