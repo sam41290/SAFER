@@ -8,7 +8,9 @@ using namespace SBI;
 
 PointerAnalysis::PointerAnalysis (uint64_t memstrt, uint64_t memend) :
                  CFValidity(memstrt,memend,INSVALIDITY),
-                 JmpTblAnalysis(memstrt,memend){}
+                 JmpTblAnalysis(memstrt,memend) {
+  //analysis::setup();
+}
 
 set <string> calleeSaved{"%r12", "%r13", "%r14", "%r15", "%rbx", "%rsp",
        "%rbp"};
@@ -85,7 +87,15 @@ PointerAnalysis::symbolizeRelocatedImm(Pointer *ptr) {
 
 bool
 PointerAnalysis::aligned(Pointer *ptr) {
-  return ptr->symbolizable(SymbolizeIf::ALIGNEDCONST);
+  vector <uint64_t> storages = ptr->storages(SymbolType::CONSTANT);
+  for(auto & loc : storages) {
+    if(isMetadata(loc) == false) {
+      auto bb = withinBB(loc);
+      if( (bb == NULL || bb->isCode() == false) && loc % 8 == 0)
+        return true;
+    }
+  }
+  return false;
 }
 
 bool
@@ -131,6 +141,14 @@ PointerAnalysis::relocatedConst(Pointer *ptr) {
 bool
 PointerAnalysis::rltvPtr(Pointer *ptr) {
   return ptr->symbolizable(SymbolizeIf::RLTV);
+}
+
+bool
+PointerAnalysis::jmpTblTgt(Pointer *ptr) {
+  auto bb = getBB(ptr->address());
+  if(bb != NULL && bb->CFConsistency() == CFStatus::CONSISTENT)
+    return ptr->symbolizable(SymbolizeIf::JMP_TBL_TGT);
+  return false;
 }
 
 void
@@ -221,9 +239,7 @@ PointerAnalysis::isSymbolizable(uint64_t addrs) {
   map <uint64_t, Pointer *> ptrMap = pointers ();
   auto it = ptrMap.find(addrs);
   if(it == ptrMap.end())
-    return true; //No Pointer means directly reached function. No need to check
-                 //symbolizable criteria.
-
+    return false; 
   return SYMBOLIZING_COND(it->second);
 }
 
@@ -265,9 +281,16 @@ PointerAnalysis::regPreserved(uint64_t entry,
     all_entries.push_back(entry);
     LOG("indirect targets size: "<<ind_tgts.size());
     //if(analysis::load(file_name,ins_sz,ind_tgts,all_entries)) {
-    //  bool ret = analysis::preserved(reg_list);
-    //  analysis::reset();
-    //  return ret;
+    //  for (int func_index = 0; ; ++func_index) {
+    //     bool valid_func = analysis::analyze(func_index);
+    //     if (valid_func) {
+    //        bool ret = analysis::preserved(reg_list);
+    //        return ret;
+    //     }
+    //     else
+    //        break;
+    //  }
+    //  //analysis::reset();
     //}
   }
   return false;
@@ -289,10 +312,10 @@ PointerAnalysis::validInit(uint64_t entry,
     vector <int64_t> all_entries;
     all_entries.push_back(entry);
     //if(analysis::load(file_name,ins_sz,ind_tgts,all_entries)) {
-    //  unordered_set<string> invalid_init = analysis::invalid_regs();
-    //  analysis::reset();
-    //  if(invalid_init.size() > 0)
-    //    return false;
+    //  //unordered_set<string> invalid_init = analysis::invalid_regs();
+    //  ////analysis::reset();
+    //  //if(invalid_init.size() > 0)
+    //  //  return false;
     //  return true;
     //}
   }
@@ -407,11 +430,12 @@ PointerAnalysis::resolvePossiblyExits(BasicBlock *bb) {
 void
 PointerAnalysis::classifyPsblFn(Function *fn) {
   set <uint64_t> possibleEntries = fn->probableEntry();
-  set <uint64_t> defEntries = fn->entryPoints();
+  //set <uint64_t> defEntries = fn->entryPoints();
   set <uint64_t> allEntries;
-  allEntries.insert(defEntries.begin(),defEntries.end());
+  //allEntries.insert(defEntries.begin(),defEntries.end());
   allEntries.insert(possibleEntries.begin(), possibleEntries.end());
   set <uint64_t> invalidPtrs = invalidPtr();
+  //bool resolved = true;
   for(auto & entry : allEntries) {
     LOG("Analyzing function entry: "<<hex<<entry);
     if(invalidPtrs.find(entry) == invalidPtrs.end() /*&& entry == 0xf6890*/) {
@@ -423,7 +447,6 @@ PointerAnalysis::classifyPsblFn(Function *fn) {
           LOG("Function entry pre-validated");
           continue;
         }
-        //resolvePossiblyExits(bb);
         vector <BasicBlock *> lst = bbSeq(bb,SEQTYPE::INTRAFN);
         counter = 0;
         if(hasPossibleCode(lst)) {
@@ -441,12 +464,81 @@ PointerAnalysis::classifyPsblFn(Function *fn) {
     else
       LOG("Invalid entry point: "<<hex<<entry);
   }
+  //return resolved;
 }
 
+bool
+PointerAnalysis::conflictingSeqs(vector <BasicBlock *> &seq1, 
+                                 vector <BasicBlock *> &seq2) {
+  for(auto & b1 : seq1) {
+    for(auto & b2 : seq2)
+      if(b1->noConflict(b2->start()) == false ||
+         b2->noConflict(b1->start()) == false) {
+        LOG("Conflicting bbs: "<<hex<<b1->start()<<" "<<b2->start());
+        return true;
+      }
+  }
+  return false;
+}
+
+void
+PointerAnalysis::filterJmpTblTgts(Function *fn) {
+  auto bb_list = fn->getDefCode();
+  auto bb_list2 = fn->getUnknwnCode();
+  bb_list.insert(bb_list.end(),bb_list2.begin(),bb_list2.end());
+
+  set <uint64_t> possibleEntries = fn->probableEntry();
+  set <uint64_t> defEntries = fn->entryPoints();
+  set <uint64_t> allEntries;
+  allEntries.insert(defEntries.begin(),defEntries.end());
+  allEntries.insert(possibleEntries.begin(), possibleEntries.end());
+  for(auto & bb : bb_list) {
+    auto ind_tgts = bb->indirectTgts();
+    BasicBlock *prev_bb = NULL;
+    for(auto & ind_bb : ind_tgts) { 
+      auto ind_seq = bbSeq(ind_bb);
+      LOG("Validating indirect target: "<<hex<<ind_bb->start());
+      bool valid_entry = false;
+      for (auto & e : allEntries) {
+        LOG("Entry: "<<hex<<e);
+        auto entry_bb = getBB(e);
+        if(entry_bb != NULL) {
+          auto entry_seq = bbSeq(entry_bb);
+          if(conflictingSeqs(entry_seq,ind_seq) == false) {
+            valid_entry = true;
+            break;
+          }
+          else
+            LOG("conflicts with entry");
+        }
+      }
+      if(valid_entry == false) {
+        LOG("Invalid jump table target (entry collision): "<<hex<<ind_bb->start());
+        ind_bb->CFConsistency(CFStatus::INCONSISTENT,TRANSITIVECF);
+        ind_bb->jmpTblConsistency(CFStatus::INCONSISTENT);
+      }
+      else if(prev_bb != NULL &&
+             (prev_bb->noConflict(ind_bb->start()) == false || 
+              ind_bb->noConflict(prev_bb->start()) == false)) {
+        LOG("Invalid jump table target (prev tgt collision): "<<hex<<ind_bb->start());
+        ind_bb->CFConsistency(CFStatus::INCONSISTENT,TRANSITIVECF);
+        ind_bb->jmpTblConsistency(CFStatus::INCONSISTENT);
+      }
+      else
+        prev_bb = ind_bb;
+
+    }
+  }
+}
 
 void
 PointerAnalysis::jmpTblConsistency() {
   map <uint64_t, Function *>funMap = funcMap();
+
+  for(auto & fn : funMap) {
+    filterJmpTblTgts(fn.second);
+  }
+
   auto jmp_tbls = jumpTables();
   for(auto & j : jmp_tbls) {
     vector <BasicBlock *> targets = j.targetBBs();
@@ -484,87 +576,117 @@ PointerAnalysis::jmpTblConsistency() {
 }
 
 vector <pair<uint64_t,uint64_t>>
-PointerAnalysis::conflicts(Function *fn1, Function *fn2) {
+PointerAnalysis::getConflicts(uint64_t fn_start,Function *fn) {
+  map <uint64_t, Function *>funMap = funcMap();
   vector <pair<uint64_t,uint64_t>> all_conflicts;
-  vector <BasicBlock *> lst1 = fn1->getUnknwnCode();
-  vector <BasicBlock *> lst2 = fn2->getUnknwnCode();
-  for(auto & b1 : lst1) {
-    for(auto & b2 : lst2) {
-      if(b1->start() > b2->start() && b1->start() < b2->boundary()
-         && b2->isValidIns(b1->start()) == false)
-        all_conflicts.push_back(make_pair(b1->start(),b2->start()));
-      else if(b2->start() > b1->start() && b2->start() < b1->boundary()
-         && b1->isValidIns(b2->start()) == false)
-        all_conflicts.push_back(make_pair(b1->start(),b2->start()));
-
+  auto bb_list = fn->getUnknwnCode();
+  unsigned int bb_cnt = bb_list.size();
+  LOG("Function: "<<hex<<fn_start);
+  auto next_it = next_iterator(fn_start,funMap);
+  for(unsigned int i = 0; i < bb_cnt; i++) {
+    if(bb_list[i]->CFConsistency() != CFStatus::INCONSISTENT) {
+      auto j = i + 1;
+      while(j < bb_cnt && bb_list[i]->boundary() > bb_list[j]->start()) {
+        if(bb_list[i]->noConflict(bb_list[j]->start()) == false) {
+          if(bb_list[j]->CFConsistency() != CFStatus::INCONSISTENT)
+            all_conflicts.push_back(make_pair(bb_list[i]->start(),bb_list[j]->start()));
+          else
+            bb_list[i]->conflict(ConflictStatus::NOCONFLICT,bb_list[j]->start());
+        }
+        j++;
+      }
+      auto it = next_it;
+      while(it != funMap.end() && bb_list[i]->boundary() > it->first) {
+        auto cnflcts = next_it->second->conflictingBBs(bb_list[i]->boundary());
+        for(auto & cnf : cnflcts) {
+          if(cnf->CFConsistency() != CFStatus::INCONSISTENT)
+            all_conflicts.push_back(make_pair(bb_list[i]->start(),cnf->start()));
+          else
+            bb_list[i]->conflict(ConflictStatus::NOCONFLICT,cnf->start());
+        }
+        it++;
+      }
     }
   }
   return all_conflicts;
 }
 
 void
-PointerAnalysis::resolveConflict(uint64_t p1, uint64_t p2) {
-  LOG("Resolving conflict: P1-"<<hex<<p1<<" P2-"<<hex<<p2);
+PointerAnalysis::resolveConflict(ResolutionType t) {
+  if(t == ResolutionType::NONE)
+    return;
   map <uint64_t, Function *>funMap = funcMap();
-  map <uint64_t, Pointer *> ptr_map = pointers();
-  auto bb1 = getBB(p1);
-  auto bb2 = getBB(p2);
-
-  auto roots1 = bb1->roots(); //getRoots(bb1);
-  auto roots2 = bb2->roots(); //getRoots(bb2);;
-  LOG("P1 roots count: "<<roots1.size());
-  LOG("P2 roots count: "<<roots2.size());
-  if(p1 < p2) {
-    for(auto & r : roots2) {
-      //LOG("Root: "<<hex<<r->start());
-      if(if_exists(r->start(),ptr_map) 
-         && ptr_map[r->start()]->type() == PointerType::DEF_PTR) {
-        LOG("P2 has def ptr root "<<hex<<r->start()); 
-        for(auto & r2 : roots1) {
-          auto fn = is_within(r2->start(),funMap);
-          LOG("Marking root invalid: "<<hex<<r2->start());
-          fn->second->passedPropertyCheck(r2->start(),false);
-          r2->jmpTblConsistency(CFStatus::INCONSISTENT);
-        }
-        break;
-      }
+  for(auto & fn : funMap) {
+    LOG("Finding conflicts in function: "<<hex<<fn.first);
+    vector <pair<uint64_t,uint64_t>> all_conflicts = getConflicts(fn.first,fn.second);
+    for(auto & cf : all_conflicts) {
+      LOG("Resolving conflict: "<<hex<<cf.first<<"-"<<cf.second);
+      RESOLVE(t,getBB(cf.first),getBB(cf.second));
     }
   }
-  else if(p1 > p2) {
-    for(auto & r : roots1) {
-      //LOG("Root: "<<hex<<r->start());
-      if(if_exists(r->start(),ptr_map) 
-         && ptr_map[r->start()]->type() == PointerType::DEF_PTR) {
-        LOG("P1 has def ptr root "<<hex<<r->start());
-        for(auto & r2 : roots2) {
-          LOG("Marking root invalid: "<<hex<<r2->start());
-          auto fn = is_within(r2->start(),funMap);
-          fn->second->passedPropertyCheck(r2->start(),false);
-          r2->jmpTblConsistency(CFStatus::INCONSISTENT);
-        }
-        break;
-      }
-    }
-  }
-
 }
 
 void
-PointerAnalysis::spatialIntegrity() {
-  map <uint64_t, Function *>funMap = funcMap();
-
-  for(auto & fn : funMap) {
-    vector <pair<uint64_t,uint64_t>> all_conflicts = conflicts(fn.second,fn.second);
-    for(auto & c : all_conflicts)
-      resolveConflict(c.first,c.second);
-    auto fn_it = next_iterator(fn.first,funMap);
-    if(fn_it != funMap.end()) {
-      vector <pair<uint64_t,uint64_t>> all_conflicts = conflicts(fn.second,fn_it->second);
-      for(auto & c : all_conflicts)
-        resolveConflict(c.first,c.second);
-    }
+PointerAnalysis::spatialResolver(BasicBlock *b1, BasicBlock *b2) {
+  map <uint64_t, Pointer *> ptr_map = pointers();
+  if(b2->start() > b1->start() && if_exists(b2->start(),ptr_map)
+     && ptr_map[b2->start()]->type() == PointerType::DEF_PTR) {
+    conflictingBBs_.erase(b2->start());
+    conflictingBBs_.insert(b1->start());
+    b1->CFConsistency(CFStatus::INCONSISTENT,Update::TRANSITIVE);
+    b1->conflict(ConflictStatus::CONFLICT,b2->start());
+    b2->conflict(ConflictStatus::NOCONFLICT,b1->start());
   }
+  else if(b1->start() > b2->start() && if_exists(b1->start(),ptr_map)
+     && ptr_map[b1->start()]->type() == PointerType::DEF_PTR) {
+    conflictingBBs_.erase(b1->start());
+    conflictingBBs_.insert(b2->start());
+    b2->CFConsistency(CFStatus::INCONSISTENT,Update::TRANSITIVE);
+    b1->conflict(ConflictStatus::NOCONFLICT,b2->start());
+    b2->conflict(ConflictStatus::CONFLICT,b1->start());
+  }
+  else {
+    LOG("Cannot resolve spatial integrity: "<<hex<<b1->start()<<" "<<b2->start());
+    conflictingBBs_.insert(b1->start());
+    conflictingBBs_.insert(b2->start());
+    b1->conflict(ConflictStatus::CONFLICT,b2->start());
+    b2->conflict(ConflictStatus::CONFLICT,b1->start());
+  }
+}
 
+bool
+PointerAnalysis::hasSymbolizableRoot(BasicBlock *b) {
+  auto roots = b->roots();
+  for(auto & r : roots)
+    if(SYMBOLIZABLE(r)) {
+      LOG("BB: "<<hex<<b->start()<<" symbolizable root: "<<hex<<r->start());
+      return true;
+    }
+  return false;
+}
+
+void
+PointerAnalysis::symbolizabilityResolver(BasicBlock *b1, BasicBlock *b2) {
+  if(hasSymbolizableRoot(b1) && !(hasSymbolizableRoot(b2))) {
+    conflictingBBs_.erase(b1->start());
+    conflictingBBs_.insert(b2->start());
+    b2->CFConsistency(CFStatus::INCONSISTENT,Update::TRANSITIVE);
+    b1->conflict(ConflictStatus::NOCONFLICT,b2->start());
+    b2->conflict(ConflictStatus::CONFLICT,b1->start());
+  }
+  else if(hasSymbolizableRoot(b2) && !(hasSymbolizableRoot(b1))) {
+    conflictingBBs_.erase(b2->start());
+    conflictingBBs_.insert(b1->start());
+    b1->CFConsistency(CFStatus::INCONSISTENT,Update::TRANSITIVE);
+    b1->conflict(ConflictStatus::CONFLICT,b2->start());
+    b2->conflict(ConflictStatus::NOCONFLICT,b1->start());
+  }
+  else {
+    conflictingBBs_.insert(b1->start());
+    conflictingBBs_.insert(b2->start());
+    b1->conflict(ConflictStatus::CONFLICT,b2->start());
+    b2->conflict(ConflictStatus::CONFLICT,b1->start());
+  }
 }
 
 void
@@ -591,6 +713,7 @@ PointerAnalysis::resolveAllPossibleExits() {
   }
 }
 
+
 void
 PointerAnalysis::classifyCode() {
   map <uint64_t, Function *>funMap = funcMap();
@@ -598,11 +721,46 @@ PointerAnalysis::classifyCode() {
     vector <uint64_t> valid_entries = fn.second->allValidEntries();
     for(auto & e : valid_entries) {
       if(fn.second->validEntry(e)) {
-        vector <BasicBlock *> lst = bbSeq(getBB(e),SEQTYPE::INTRAFN);
-        for(auto & bb2 : lst)
-          markAsDefCode(bb2->start());
+        auto bb = getBB(e);
+        if(bb != NULL && bb->conflict() != ConflictStatus::CONFLICT) {
+          LOG("Marking entry as defcode: "<<hex<<e);
+          vector <BasicBlock *> lst = bbSeq(bb,SEQTYPE::INTRAFN);
+          for(auto & bb2 : lst)
+            markAsDefCode(bb2->start());
+        }
       }
     }
+  }
+}
+
+void
+PointerAnalysis::resolveAndClassify(ResolutionType t) {
+  int ctr = 0;
+  resolveConflict(t);
+  while(true) {
+    unsigned int sz = conflictingBBs_.size();
+    LOG("Classifying code rep: "<<ctr<<" resolution: "<<(int)t<<" conflict count: "<<conflictingBBs_.size());
+    classifyCode();
+    auto jmp_tbls = jumpTables();
+    for(auto & j : jmp_tbls) {
+      vector <BasicBlock *> targets = j.targetBBs();
+      for(auto & tgt : targets) {
+        if(tgt->isCode() == false && tgt->CFConsistency() == CFStatus::CONSISTENT
+           && tgt->conflict() != ConflictStatus::CONFLICT) {
+          LOG("Marking jmp tbl tgt as defcode: "<<hex<<tgt->start());
+          auto lst = bbSeq(tgt);
+          for(auto & bb2 : lst) {
+            markAsDefCode(bb2->start());
+          }
+        }
+      }
+    }
+    classifyPtrs();
+    resolveConflict(t);
+    LOG("Conflicting BB count: "<<conflictingBBs_.size());
+    if(sz == conflictingBBs_.size())
+      break;
+    ctr++;
   }
 }
 
@@ -619,27 +777,12 @@ PointerAnalysis::cfgConsistencyAnalysis() {
   //re-classify pointers to get more definite pointers
 
   classifyPtrs();
-
-  spatialIntegrity();
   map <uint64_t, Function *>funMap = funcMap();
   for(auto & fn : funMap)
     classifyPsblFn(fn.second);
   jmpTblConsistency();
-  classifyCode();
-  auto jmp_tbls = jumpTables();
-  for(auto & j : jmp_tbls) {
-    vector <BasicBlock *> targets = j.targetBBs();
-    for(auto & tgt : targets) {
-      if(tgt->CFConsistency() == CFStatus::CONSISTENT) {
-        //LOG("Marking jump table target as def code: "<<hex<<tgt->start());
-        vector <BasicBlock *> lst = bbSeq(tgt);
-        for(auto & bb2 : lst) {
-          //LOG("BB: "<<hex<<bb2->start());
-          markAsDefCode(bb2->start());
-        }
-      }
-    }
-  }
+  resolveAndClassify(ResolutionType::SPATIAL);
+  resolveAndClassify(ResolutionType::SYMBOLIZABILITY);
 }
 
 

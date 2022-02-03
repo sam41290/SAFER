@@ -40,7 +40,7 @@ namespace SBI {
       InsValidators_[(int)InsValidityRules::VLD_USRMODE_INS] = &validUsrModeIns;
     }
     bool validCF(vector <BasicBlock *> &bb_list) { 
-      return (validIns(bb_list) && validCFTransfer(bb_list) && zeroConflict(bb_list));
+      return (zeroDefCodeConflict(bb_list) && validIns(bb_list) && validCFTransfer(bb_list));
     }
     static bool validIns(vector <BasicBlock *> &bb_list);
   private:
@@ -55,8 +55,10 @@ namespace SBI {
       return true;
     }
     static bool validUsrModeIns(Instruction *ins) {
-      if(utils::is_priviledged_ins(ins->asmIns()))
+      if(utils::is_priviledged_ins(ins->asmIns())) {
+        LOG("priviledged ins at: "<<hex<<ins->location());
         return false;
+      }
       return true;
     }
     bool validCFTransfer(vector <BasicBlock *> &bb_list);

@@ -33,42 +33,49 @@
     return false;\
   }
 
+
+#define RESOLVE(t,b1,b2) \
+  ((t == ResolutionType::SPATIAL) ? spatialResolver(b1,b2) :\
+  symbolizabilityResolver(b1,b2))
+
 namespace SBI {
 
-struct BBSeq {
-  vector <BasicBlock *> bbList_;
-  vector <vector<BasicBlock *>> psblRtrnBBs_;
+enum class ResolutionType {
+  SPATIAL,
+  SYMBOLIZABILITY,
+  NONE
 };
+
 
 class PointerAnalysis : public virtual SaInput, public virtual CFValidity,
   public virtual CfgElems, public JmpTblAnalysis
 {
   vector <Reloc> allConstRelocs_;
+  unordered_set <uint64_t> conflictingBBs_;
 public:
   PointerAnalysis (uint64_t memstrt, uint64_t memend);
   void cfgConsistencyAnalysis();
-  //void spAnalysis();
   void symbolize();
   void allConstRelocs(vector <Reloc> & r) { allConstRelocs_ = r; }
   virtual bool addToCfg(uint64_t addrs, PointerSource src) = 0;
   virtual void addToDisasmRoots (uint64_t address) = 0;
   virtual void rootSrc(PointerSource root) = 0;
 private:
+  void resolveConflict(ResolutionType t);
+  vector <pair<uint64_t,uint64_t>> getConflicts(uint64_t fn_Start,Function *fn);
+  void spatialResolver(BasicBlock *b1, BasicBlock *b2);
+  bool hasSymbolizableRoot(BasicBlock *b);
   void symbolizeIfValidAccess(Pointer *ptr);
-  
+  void symbolizabilityResolver(BasicBlock *b1, BasicBlock *b2);
 
   double CFTransferDensity(vector <BasicBlock *> &bbList);
   bool callsDefCode(vector <BasicBlock *> &bbList);
-  //bool validateCFtransfers(BasicBlock *bb);
   void classifyPsblFn(Function *fn);
   void jmpTblConsistency();
-  //bool invalidIns(vector<BasicBlock *> &bbList);
   bool CFDensityChk(vector <BasicBlock *> &bbList);
-  //bool overlapCheck(vector <BasicBlock *> &bbList);
   bool validInit(uint64_t entry, vector <BasicBlock *> fin_bb_lis);
   bool regPreserved(uint64_t entry,
     vector <BasicBlock *> fin_bb_list,const vector <string> &reg_list);
-  //void callTgtsAsDefCode(vector <BasicBlock *> &bbList);
   bool aligned(Pointer *ptr);
   bool immOperand(Pointer *ptr);
   bool relocatedConst(Pointer *ptr);
@@ -82,6 +89,7 @@ private:
   void symbolizeAlignedConst(Pointer *ptr);
   void symbolizeRltvPtr(Pointer *ptr);
   bool rltvPtr(Pointer *ptr);
+  bool jmpTblTgt(Pointer *ptr);
   bool notString(Pointer *ptr);
   void symbolizeNonString(Pointer *ptr);
   void symbolizeIfSymbolArray(Pointer *ptr);
@@ -90,13 +98,14 @@ private:
   CFStatus callsValidFns(BasicBlock *bb);
   CFStatus reachableFromValidRoot(BasicBlock *bb);
   void cfConsistency(map <uint64_t, Function *> &funMap);
-  void spatialIntegrity();
   void resolveConflict(uint64_t p1, uint64_t p2);
-  vector <pair<uint64_t,uint64_t>> conflicts(Function *fn1, Function *fn2);
   void resolvePossiblyExits(BasicBlock *bb);
   void classifyCode();
   void resolveAllPossibleExits();
-  //vector<vector<BasicBlock *>> bbSeq(BasicBlock *bb);
+  void resolveAndClassify(ResolutionType t);
+  void filterJmpTblTgts(Function *fn);
+  bool conflictingSeqs(vector <BasicBlock *> &seq1,
+                       vector <BasicBlock *> &seq2);
 };
 }
 #endif

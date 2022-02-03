@@ -75,14 +75,14 @@ BasicBlock::isValidIns(uint64_t addrs) {
 
 bool
 BasicBlock::noConflict(uint64_t addrs) {
-  if(addrs >= start_ && addrs < boundary()) {
+  if(addrs > start_ && addrs < boundary()) {
     for(auto & ins : insList_) { 
       if(addrs == ins->location())
         return true;
       else if((addrs - ins->location()) == 1 
                && ins->insSize() > 1) {
         auto bin = ins->insBinary();
-        if(utils::is_prefix(bin[0]))
+        if(bin.size() > 0 && utils::is_prefix(bin[0]))
           return true;
       }
     }
@@ -229,12 +229,12 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
     if(ENCODE == 1 && rip_rltv_offset != 0 && 
         map_of_pointer[rip_rltv_offset]->type() == PointerType::CP 
         && map_of_pointer[rip_rltv_offset]->encodable() == true)
-      it->set_encode(true);
+      it->encode(true);
     if(it->location() == end_ && isJmpTblBlk_ == true
         && ENCODE == 1) {
       it->asmIns(moveZeros(it->op1(),it->location(),file_name)
           + it->asmIns());
-      it->set_decode(false);
+      it->decode(false);
     }
     if((it->isJump() || it->isCall()) && targetBB_ != NULL) {
       it->asmIns(it->mnemonic() + " " + targetBB_->label());
@@ -409,6 +409,28 @@ BasicBlock::roots() {
   return roots_;
 }
 
+ConflictStatus
+BasicBlock::checkConflict(unordered_set <uint64_t> &passed) {
+  if(conflicts_.size() > 0) {
+    return ConflictStatus::CONFLICT;
+  }
+  passed.insert(start_);
+  if(targetBB_ != NULL && passed.find(target_) == passed.end()) 
+    if(targetBB_->checkConflict(passed) == ConflictStatus::CONFLICT)
+      return ConflictStatus::CONFLICT;
+  if(fallThroughBB_ != NULL && passed.find(fallThrough_) == passed.end()) 
+    if(fallThroughBB_->checkConflict(passed) == ConflictStatus::CONFLICT)
+      return ConflictStatus::CONFLICT;
+
+  return ConflictStatus::NOCONFLICT;
+}
+
+ConflictStatus
+BasicBlock::conflict() {
+  unordered_set <uint64_t> passed;
+  return checkConflict(passed);
+}
+
 void
 BasicBlock::addTramp(uint64_t tramp_start) {
   tramp_ = new BasicBlock(tramp_start,tramp_start,source(),source());
@@ -421,4 +443,48 @@ BasicBlock::addTramp(uint64_t tramp_start) {
   ins->mnemonic("jmp");
   ins->asmIns("jmp " + label());
   tramp_->addIns(ins);
+}
+
+void 
+BasicBlock::conflict(ConflictStatus c, uint64_t a) {
+  if(c == ConflictStatus::CONFLICT) {
+    LOG("BB: "<<hex<<start_<<" adding conflict: "<<hex<<a);
+    conflicts_.insert(a);
+  }
+  else {
+    LOG("BB: "<<hex<<start_<<" removing conflict: "<<hex<<a);
+    conflicts_.erase(a);
+  }
+}
+
+void 
+BasicBlock::inconsistentChild(BasicBlock *bb,CFStatus c, Update u) {
+  if(bb->CFConsistency() != c) {
+    LOG("Marking child inconsistent: "<<hex<<bb->start());
+    auto p = bb->parents();
+    if(p.size() > 1 || (p[0] != NULL && p[0]->start() != start_)) //Child has other parents
+      return;
+    auto child_roots = bb->roots();
+    for(auto & r : child_roots) //Child itself is a root
+      if(r->start() == bb->start())
+        return;
+    bb->CFConsistency(c,u);
+  }
+}
+
+
+void 
+BasicBlock::CFConsistency(CFStatus c, Update u) {
+  LOG("Changing CF consistency: "<<hex<<start_<<" "<<(int)c);
+  CFConsistency_ = c;
+  if(u == Update::TRANSITIVE && c == CFStatus::INCONSISTENT) {
+    for(auto & p : parents_)
+      if(p->CFConsistency() != c) {
+        p->CFConsistency(c,Update::TRANSITIVE);
+      }
+    if(targetBB_ != NULL)
+      inconsistentChild(targetBB_,c,u);
+    if(fallThroughBB_ != NULL)
+      inconsistentChild(fallThroughBB_,c,u);
+  }
 }

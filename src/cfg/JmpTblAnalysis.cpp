@@ -132,10 +132,17 @@ JmpTblAnalysis::analyzeAddress(uint64_t entry) {
       //}
       LOG("indirect targets size: "<<ind_tgts.size());
       //if(analysis::load(file_name,ins_sz,ind_tgts,all_entries)) {
-      //  vector<analysis::JumpTable> j_lst = analysis::jump_table_analysis();
-      //  decodeJmpTblTgts(j_lst);
-      //  linkAllBBs();
-      //  analysis::reset();
+      //  for (int func_index = 0; ; ++func_index) {
+      //    bool valid_func = analysis::analyze(func_index);
+      //    if (valid_func) {
+      //       vector<analysis::JumpTable> j_lst = analysis::jump_table_analysis();
+      //       decodeJmpTblTgts(j_lst);
+      //       linkAllBBs();
+      //    }
+      //    else
+      //       break;
+      //  }
+      //  //analysis::reset();
       //}
     }
     else
@@ -206,8 +213,8 @@ JmpTblAnalysis::analyze() {
    * discovered.
    */
 
-  //jmpTblAnalysis();
-  //return;
+  jmpTblAnalysis();
+  return;
 
   LOG("Analyzing jump table");
 #ifdef NOJMPTBLANALYSIS

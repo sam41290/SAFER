@@ -60,8 +60,6 @@ enum class InstArg {
 
 class Instrument
 {
-  bool decode = false;
-  bool encode = false;
   vector<pair<InstPoint,string>> targetPos_;
   map<string,vector<InstArg>>instArgs_;
   vector<pair<string,string>> targetFuncs_;
@@ -76,28 +74,14 @@ public:
   string exeNameLabel() { return exeNameLabel_; };
   map<string,vector<InstArg>> instArgs() { return instArgs_; }
   vector<pair<uint64_t,string>> targetAddrs() { return targetAddrs_; }
-  
-
-
-  void decode_icf_target (string file_name, string mnemonic, string op1,
-			  uint64_t loc);
-  void encode_lea_instruction (string file_name, string mnemonic, string op1,
-      uint64_t loc);
-  void set_encode (bool to_encode);
-  bool get_encode ();
-  void set_decode (bool to_decode);
-  bool get_decode ();
-  
   string moveZeros(string op1,uint64_t loc, string file_name);
   string getIcfReg(string op1);
-  
   void registerInstrumentation(uint64_t tgtAddrs,string
       instCodeSymbol,vector<InstArg>argsLst);
   void registerInstrumentation(InstPoint p,string
       instCodeSymbol,vector<InstArg>argsLst);
   void registerInstrumentation(string fnName,string
       instCodeSymbol,vector<InstArg>argsLst);
-
   string generate_hook(string hook_target, bool is_segfault_hook, uint64_t
       sigaction_addrs, string args);
   string getRegVal(string reg);  

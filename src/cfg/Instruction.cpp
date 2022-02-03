@@ -40,7 +40,7 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
       if(operand.find("*") != string::npos) {
         isIndirectCf(true);
         if(ENCODE == 1)
-          set_decode(true);
+          decode(true);
       }
       else if(asm_opcode.find("ret") != string::npos) {
         isFuncExit(true);

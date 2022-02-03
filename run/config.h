@@ -70,10 +70,11 @@
 #define CFTRANSFERDENSITY 0.1
 
 #else
-#define INSVALIDITY vector <InsValidityRules> {InsValidityRules::VLD_OP,InsValidityRules::VLD_MEM}
+#define INSVALIDITY vector <InsValidityRules> {InsValidityRules::VLD_OP,InsValidityRules::VLD_MEM,InsValidityRules::VLD_PRFX,InsValidityRules::VLD_USRMODE_INS}
 #define TRANSITIVECF Update::TRANSITIVE
 #define SYMBOLIZING_COND(ptr) false
 
+#define SYMBOLIZABLE(BB) isSymbolizable(BB->start())
 #define SYMBOLIZE(ptr)
 
 #define CFTODEFCODE 0
@@ -103,6 +104,6 @@
 //#define ZJR_BASIC_BLOCK_RANDOMIZATION
 
 #define ENCODE 0
-
+#define ENCCLASS GttAtt
 //#define OPTIMIZED_EH_METADATA
 

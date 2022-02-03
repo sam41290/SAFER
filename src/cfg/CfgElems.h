@@ -150,6 +150,7 @@ namespace SBI {
     vector <Reloc> xtraConstReloc_;
     vector <Reloc> picConstReloc_;
     set<uint64_t> invalidPtr_;
+    unordered_set <uint64_t> conflictingRoots_;
   public:
     uint64_t entryPoint_ = 0;
     uint64_t codeSegEnd_ = 0;
@@ -290,7 +291,7 @@ namespace SBI {
     bool isString(uint64_t addrs);
     uint64_t isValidRoot(uint64_t addrs,code_type t);
     uint64_t nextPtr(uint64_t addrs);
-    bool zeroConflict(vector <BasicBlock *> &bb_list);
+    bool zeroDefCodeConflict(vector <BasicBlock *> &bb_list);
     void createFn(bool is_call, uint64_t target_address,uint64_t ins_addrs,
         code_type t);
     void saveCnsrvtvCode() {
@@ -329,6 +330,8 @@ namespace SBI {
         }
       }
     }
+    bool isMetadata(uint64_t addrs);
+    string getSymbol(uint64_t addrs);
   private:
     void readIndrctTgts(BasicBlock *bb,uint64_t fn_addrs);
     BasicBlock *readBB(ifstream & file);

@@ -32,6 +32,8 @@ struct section
 {
   string name = "";
   section_types sec_type;
+  bool is_metadata = false;
+  bool is_att = false;
   uint64_t offset = 0;
   uint64_t size = 0;
   uint64_t vma = 0;

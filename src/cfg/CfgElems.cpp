@@ -175,13 +175,15 @@ CfgElems::conflictsDefCode(uint64_t addrs) {
 }
 
 bool
-CfgElems::zeroConflict(vector <BasicBlock *> &bb_list) {
+CfgElems::zeroDefCodeConflict(vector <BasicBlock *> &bb_list) {
   for(auto & bb : bb_list) {
-    if(bb->isCode() == false && conflictsDefCode(bb->start()))
+    if(bb->isCode() == false && (conflictsDefCode(bb->start()) ||
+          conflictsDefCode(bb->boundary())))
       return false;
   }
   return true;
 }
+
 
 void
 CfgElems::createFuncFrPtr(Pointer * ptr) {
@@ -787,21 +789,37 @@ CfgElems::printOriginalAsm() {
 
 bool 
 CfgElems::withinRoSection(uint64_t addrs) {
-  for(section sec:rxSections_) {
+  for(section & sec : rxSections_) {
     if(sec.sec_type == section_types::RONLY && sec.vma <= addrs && 
         (sec.vma + sec.size) > addrs) {
-      LOG(hex<<addrs<<" Within RO section: "<<hex<<sec.vma<<" - "<<sec.vma + sec.size);
       return true;
     }
   }
   return false;
 }
 
+
+bool 
+CfgElems::isMetadata(uint64_t addrs) {
+  for(section & sec : rxSections_) {
+    if(sec.vma <= addrs && (sec.vma + sec.size) > addrs
+       && sec.is_metadata) {
+      return true;
+    }
+  }
+  //for(section & sec : rwSections_) {
+  //  if(sec.vma <= addrs && (sec.vma + sec.size) > addrs 
+  //     && sec.is_metadata) {
+  //    return true;
+  //  }
+  //}
+  return false;
+}
+
 bool 
 CfgElems::withinRWSection(uint64_t addrs) {
-  for(section sec:rwSections_) {
+  for(section & sec : rwSections_) {
     if(sec.vma <= addrs && (sec.vma + sec.size) > addrs) {
-      LOG(hex<<addrs<<" Within RW section: "<<hex<<sec.vma<<" - "<<sec.vma + sec.size);
       return true;
     }
   }
@@ -1155,4 +1173,13 @@ CfgElems::isJmpTblLoc(uint64_t addrs) {
       return true;
   }
   return false;
+}
+
+string 
+CfgElems::getSymbol(uint64_t addrs) {
+  string sym = "";
+  auto bb = withinBB(addrs);
+  if(bb != NULL && bb->isValidIns(addrs))
+    sym = "." + to_string(addrs) + bb->lblSuffix();
+  return sym;
 }

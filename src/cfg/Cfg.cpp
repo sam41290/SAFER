@@ -899,7 +899,7 @@ Cfg::checkForPtr(Instruction *ins) {
   uint64_t ptr_val = ins->ripRltvOfft();
   if(ptr_val != 0 && ptr_val < dataSegmntEnd_) {
     LOG("Adding rltv ptr: "<<hex<<ptr_val<<" location: "<<hex<<ins->location());
-    newPointer(ptr_val, PointerType::DP,
+    newPointer(ptr_val, PointerType::UNKNOWN,
         PointerSource::RIP_RLTV,rootSrc_,ins->location());
     auto p = ptr(ptr_val);
     if(ins->isLea())
@@ -910,8 +910,6 @@ Cfg::checkForPtr(Instruction *ins) {
       code_type t = code_type::UNKNOWN;
       if(p->type() == PointerType::CP)
         t = code_type::CODE;
-      else
-        p->type(PointerType::UNKNOWN);
       createFn(true, ptr_val,ptr_val,t);
     }
   }

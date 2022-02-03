@@ -162,13 +162,7 @@ public:
   PointerSource source() { return source_; }
   void loadPoint(uint64_t pt) { loadPoint_ = pt; }
   uint64_t loadPoint() { return loadPoint_; }
-  void type(PointerType type) { 
-    type_ = type;
-    if(type == PointerType::CP)
-      encodable(true);
-    else
-      encodable(false);
-  }
+  void type(PointerType type) { type_ = type; }
   void address(uint64_t address) { address_ = address; }
   void source(PointerSource src) { source_ = src; }
   void encodable(bool enc) { encodable_ = enc; }

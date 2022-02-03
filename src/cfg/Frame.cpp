@@ -181,7 +181,7 @@ Frame::splitFrame(uint64_t addrs, Frame *f) {
 
 bool
 Frame::conflictsCnsrvtvCode(uint64_t addrs) {
-  for(auto & bb : cnsrvtvDefCode_) {
+  for(auto & bb : defCodeBBs_) {
     uint64_t start = bb->start();
     uint64_t end = bb->boundary();
     if(start <= addrs && end > addrs) {
@@ -194,10 +194,26 @@ Frame::conflictsCnsrvtvCode(uint64_t addrs) {
   return false;
 }
 
+vector <BasicBlock * >
+Frame::conflictingBBs(uint64_t addrs) {
+  LOG("getting conflicting bbs: "<<hex<<addrs);
+  vector <BasicBlock *> bb_list;
+  for(auto & bb : defCodeBBs_) {
+    if(bb->start() < addrs && bb->boundary() > addrs &&
+       bb->noConflict(addrs) == false)
+      bb_list.push_back(bb);
+  }
+  for(auto & bb : unknwnCodeBBs_) {
+    if(bb->start() < addrs && bb->boundary() > addrs &&
+       bb->noConflict(addrs) == false)
+      bb_list.push_back(bb);
+  }
+  return bb_list;
+}
+
 bool
 Frame::withinDefCode(uint64_t addrs) {
   for(auto & bb : defCodeBBs_) {
-    //LOG("BB: "<<hex<<bb->start()<<"-"<<hex<<bb->end());
     uint64_t start = bb->start();
     uint64_t end = bb->boundary();
     if(start <= addrs && end > addrs) 
@@ -257,7 +273,7 @@ Frame::removeDuplicates() {
 
 void
 Frame::markAsDefCode(BasicBlock *bb) {
-  //LOG("Marking as def code BB: "<<hex<<bb->start());
+  LOG("Marking as def code BB: "<<hex<<bb->start());
   if(bb->isCode() == false) {
     bb->codeType(code_type::CODE);
 

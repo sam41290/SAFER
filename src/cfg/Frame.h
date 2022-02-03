@@ -67,6 +67,7 @@ public:
   bool conflictsCnsrvtvCode(uint64_t addrs);
   BasicBlock *withinBB(uint64_t addrs);
   vector <BasicBlock *> leaBBs();
+  vector <BasicBlock * > conflictingBBs(uint64_t addrs);
   virtual vector <uint64_t> allValidEntries() = 0;
 private:
 };

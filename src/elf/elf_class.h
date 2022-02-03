@@ -54,6 +54,11 @@ class ElfClass:public ExeManager
     "__fortify_fail", "__chk_fail","err","errx","verr","verrx",
     "g_assertion_message_expr"};
   const vector <string> mayExitSyms_ = {"__fprintf_chk","__printf_chk"};
+  const unordered_set <string> metaSections_
+    = {".interp",".note.gnu.property",".note.gnu.build-id",
+      ".note.ABI-tag",".gnu.hash",".dynstr",".gnu.version",
+      ".gnu.version_r",".rela.dyn",".rela.plt",".eh_frame_hdr",
+      ".eh_frame",".gcc_except_table"};
   uint64_t oldDataSeg_;
 public:
 

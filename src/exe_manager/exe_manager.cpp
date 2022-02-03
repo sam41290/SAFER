@@ -34,11 +34,13 @@ ExeManager::is_ELF64 ()
 uint64_t
 ExeManager::encode (uint64_t ptr, uint64_t orig_ptr)
 {
-  if (ENCODE == 1 && encode_.find (orig_ptr) != encode_.end ())
-    ptr = ptr * 0x0010000000000001;
+  if (ENCODE == 1) {
+    if(encode_.find (orig_ptr) != encode_.end ()) {
+      ptr = encodePtr(ptr);
+    }
+  }
   return ptr;
 }
-
 
 void
 ExeManager::placeHooks(map <uint64_t, vector <uint8_t>> &hooks) {

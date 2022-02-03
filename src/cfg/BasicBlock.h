@@ -30,6 +30,12 @@ enum class CFStatus {
   NOT_EXAMINED
 };
 
+enum class ConflictStatus {
+  CONFLICT,
+  NOCONFLICT,
+  NA
+};
+
 enum class Update {
   LOCAL,
   TRANSITIVE
@@ -63,40 +69,18 @@ private:
   PointerSource source_;
   PointerSource rootSrc_;
   bool isTramp_ = false;
-  CFStatus inComingCall_ = CFStatus::NOT_EXAMINED;
-  CFStatus outGoingCall_ = CFStatus::NOT_EXAMINED;
   CFStatus jmpTblConsistency_ = CFStatus::NOT_EXAMINED;
   CFStatus CFConsistency_ = CFStatus::NOT_EXAMINED;
   unordered_set <BasicBlock *> roots_;
   vector <BasicBlock *> entries_;
   bool rootsComputed_ = false;
+  unordered_set <uint64_t> conflicts_;
 public:
-  //void CFConsistency(CFStatus c) { CFConsistency_ = c; }
-  void inconsistentChild(BasicBlock *bb,CFStatus c, Update u) {
-    if(bb->CFConsistency() != c) {
-      auto p = bb->parents();
-      if(p.size() > 1 || p[0]->start() != start_) //Child has other parents
-        return;
-      auto child_roots = bb->roots();
-      for(auto & r : child_roots) //Child itself is a root
-        if(r->start() == bb->start())
-          return;
-      bb->CFConsistency(c,u);
-    }
-  }
-  void CFConsistency(CFStatus c, Update u) {
-    LOG("Changing CF consistency: "<<hex<<start_<<" "<<(int)c);
-    CFConsistency_ = c;
-    if(u == Update::TRANSITIVE && c == CFStatus::INCONSISTENT) {
-      for(auto & p : parents_)
-        if(p->CFConsistency() != c)
-          p->CFConsistency(c,Update::TRANSITIVE);
-      if(targetBB_ != NULL)
-        inconsistentChild(targetBB_,c,u);
-      if(fallThroughBB_ != NULL)
-        inconsistentChild(fallThroughBB_,c,u);
-    }
-  }
+  ConflictStatus checkConflict(unordered_set <uint64_t> &passed);
+  ConflictStatus conflict();
+  void conflict(ConflictStatus c, uint64_t a); 
+  void inconsistentChild(BasicBlock *bb,CFStatus c, Update u);
+  void CFConsistency(CFStatus c, Update u);
   CFStatus CFConsistency() { return CFConsistency_; }
   BasicBlock(uint64_t start, uint64_t end, PointerSource src,
 		 PointerSource root,vector <Instruction *> &insList);
@@ -120,11 +104,7 @@ public:
   vector <BasicBlock *> entries() { return entries_; }
   void jmpTblConsistency(CFStatus c) { jmpTblConsistency_ = c; }
   CFStatus jmpTblConsistency() { return jmpTblConsistency_; }
-  void inComingCall(CFStatus c) { inComingCall_ = c; }
-  CFStatus inComingCall() { return inComingCall_; }
-  void outGoingCall(CFStatus c) { outGoingCall_ = c; }
-  CFStatus outGoingCall() { return outGoingCall_; }
-  void parent(BasicBlock * p) { parents_.push_back(p); }
+  void parent(BasicBlock * p) { if(p != NULL) parents_.push_back(p); }
   vector <BasicBlock *> parents() { return parents_; }
   void callType(BBType t) { callType_ = t; }
   BBType callType() { return callType_; }

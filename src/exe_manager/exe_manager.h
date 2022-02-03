@@ -10,6 +10,8 @@
 #include <iterator>
 #include <vector>
 #include <regex>
+#include "encode.h"
+#include "config.h"
 #ifndef _WIN32
 #include "linux_constants.h"
 #else
@@ -38,7 +40,7 @@ struct Reloc {
   uint64_t ptr;
 };
 
-class ExeManager
+class ExeManager : public virtual ENCCLASS
 {
   string origBname_;
   string bname_;
@@ -47,7 +49,7 @@ class ExeManager
   exe_type type_;
 
   //set of all code pointers that shall be encoded in the instrumented binary.
-  set < uint64_t > encode_;
+  unordered_set < uint64_t > encode_;
   vector <section> newSections_;
   vector <pheader> newPHdrs_;
 public:
@@ -57,6 +59,11 @@ public:
   static bool is_ELF64 ();
   string binaryName () { return bname_; }
   void ptrsToEncode (uint64_t ptr) { encode_.insert (ptr); }
+  bool encoded(uint64_t addrs) {
+    if(encode_.find(addrs) != encode_.end())
+      return true;
+    return false;
+  }
   uint64_t encode (uint64_t ptr, uint64_t orig_ptr);
   string origBname() { return origBname_; }
   void bname(string nm) { bname_ = nm; }
@@ -69,6 +76,7 @@ public:
   void newSection(section sec) { newSections_.push_back(sec); }
   vector <pheader> newPheaders() { return newPHdrs_; }
   void newPheader(pheader p) { newPHdrs_.push_back(p); }
+
   virtual uint64_t entryPoint () = 0;
   virtual vector<pheader> prgrmHeader (pheader_types p_type, pheader_flags p_flag) = 0;
   virtual section secHeader (string sec_name) = 0;

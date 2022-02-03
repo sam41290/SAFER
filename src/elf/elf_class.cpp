@@ -491,6 +491,8 @@ vector < section > ElfClass::sections (section_types p_type) {
       s.sec_type = p_type;
       break;
     }
+    if(metaSections_.find(sec.name) != metaSections_.end())
+      s.is_metadata = true;
     section_vec.push_back (s);
   }
   sort_sections (section_vec);
@@ -1075,6 +1077,7 @@ ElfClass::printPHdrs(string fname) {
   
   vector <section> new_secs = newSections();
   pheader cur_ph;
+  pheader att_ph;
   for(auto & sec : new_secs) {
     if(SAME_ACCESS_PERM(cur_ph.p_flag, sec.sec_type)) {
       SEGEND(cur_ph,sec);
@@ -1087,6 +1090,11 @@ ElfClass::printPHdrs(string fname) {
       if(newPheaders().size() == 0)
         new_ph.start_sym = ".0"; //Set the start of first segment to beginning of file
       cur_ph = new_ph;
+    }
+    if(sec.is_att) {
+      att_ph.start_sym = sec.start_sym;
+      att_ph.file_end_sym = sec.end_sym;
+      att_ph.mem_end_sym = sec.end_sym;
     }
   }
   newPheader(cur_ph);
@@ -1125,6 +1133,17 @@ ElfClass::printPHdrs(string fname) {
       ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<segAlign()<<endl;
     }
   }
+
+  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<PT_SBI_ATT<<endl;
+  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<PF_R<<endl;
+  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Off))<<" "<<att_ph.start_sym<<" - .elf_header_start"<<endl;
+  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Addr))<<" "<<att_ph.start_sym<<" - .elf_header_start"<<endl;
+  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Addr))<<" "<<att_ph.start_sym<<" - .elf_header_start"<<endl;
+  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<att_ph.file_end_sym
+    <<" - "<<att_ph.start_sym<<endl;
+  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<att_ph.mem_end_sym<<
+   " - "<<att_ph.start_sym<<endl;
+  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<1<<endl;
   int sz = newPHdrs_.size();
   while(sz <= (elfHeader_->e_phnum + 3)) {
     ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<PT_NULL<<endl;
@@ -1771,10 +1790,10 @@ ElfClass::updRelaSections (string bname) {
           || rl[j].r_info == R_X86_64_RELATIVE) {
         uint64_t orig_ptr = rl[j].r_addend;
         rl[j].r_addend = encode(newSymVal(rl[j].r_addend),orig_ptr);
+        if(encoded(orig_ptr) && enctype() == EncType::ENC_GTT_ATT)
+          rl[j].r_info = R_X86_64_SBIENC0;
         LOG ("addend: " << hex << rl[j].r_addend);
       }
-
-
     }
 
     utils::WRITE_TO_FILE (bname, rl, offset, size);

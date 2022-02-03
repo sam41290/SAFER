@@ -1,5 +1,5 @@
 /*
-   Copyright (C) 2018 - 2021 by Huan Nguyen in Secure Systems
+   Copyright (C) 2018 - 2022 by Huan Nguyen in Secure Systems
    Lab, Stony Brook University, Stony Brook, NY 11794.
 */
 
@@ -12,6 +12,7 @@
 #include <unordered_map>
 
 namespace analysis {
+
    struct JumpTable {
       int64_t jumpLoc = 0;
       char type = 0;
@@ -20,19 +21,20 @@ namespace analysis {
       char op1 = 0;
       char op2 = 0;
       int stride = 0;
+      bool detect_index = false;
+      int64_t index_lo = 0;
+      int64_t index_hi = 0;
    };
 
+   void setup();
    bool load(const std::string& asmFile,
              const std::unordered_map<int64_t,int64_t>& insnSize,
              const std::unordered_map<int64_t,std::vector<int64_t>>& jumpTable,
              const std::vector<int64_t>& entry);
-   bool load(const std::string& asmFile,
-             const std::unordered_map<int64_t,int64_t>& insnSize,
-             const std::vector<int64_t>& entry);
-   void reset();
-
+   bool analyze(int func_index);
    bool preserved(const std::vector<std::string>& regs);
-   std::unordered_set<std::string> invalid_regs();
    std::vector<JumpTable> jump_table_analysis();
+
 }
+
 #endif

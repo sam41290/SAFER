@@ -65,11 +65,11 @@ CFValidity::validCFTransfer(vector <BasicBlock *> &bbList) {
         valid = false;
         break;
       }
-      else if(ins->location() != bbList[i]->start()) {
-        auto new_bb = bbList[i]->split(bbList[i + 1]->start());
-        bbList[i]->fallThroughBB(bbList[i + 1]);
-        delete(new_bb);
-      }
+      //else if(ins->location() != bbList[i]->start()) {
+      //  auto new_bb = bbList[i]->split(bbList[i + 1]->start());
+      //  bbList[i]->fallThroughBB(bbList[i + 1]);
+      //  delete(new_bb);
+      //}
     }
   }
   return valid;

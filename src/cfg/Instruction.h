@@ -23,7 +23,7 @@
 
 using namespace std;
 namespace SBI {
-class Instruction:public Instrument
+class Instruction : public Instrument, public ENCCLASS
 {
 private:
   uint64_t loc_;
@@ -58,6 +58,8 @@ private:
   uint64_t insSize_ = 0;  
   vector<string> instParams_;
   vector<string> paramIns_;
+  bool decode_ = false;
+  bool encode_ = false;
 public:
   Instruction() {}
   Instruction(uint64_t address, char *mnemonic, char *op_str, uint8_t
@@ -67,6 +69,10 @@ public:
   void location(uint64_t p_loc) { loc_ = p_loc;}
   bool isCode() { return isCode_; }
   void isCode(bool code) { isCode_ = code; }
+  void encode (bool to_encode) { encode_ = to_encode; }
+  bool encode () { return encode_; }
+  void decode (bool to_decode) { decode_ = to_decode; }
+  bool decode () { return decode_; }
   void
   isJump(bool is_jump) { isJump_ = is_jump;}
   bool isHlt() { return isHlt_; } 

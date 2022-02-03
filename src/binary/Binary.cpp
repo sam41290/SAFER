@@ -131,15 +131,26 @@ Binary::disassemble() {
   codeCFG_->disassemble();
   pointerMap_ = codeCFG_->pointers();
   funcMap_ = codeCFG_->funcMap();
-  for(auto it = pointerMap_.begin(); it != pointerMap_.end(); it++)
+
+  for(auto it = pointerMap_.begin(); it != pointerMap_.end(); it++) {
     if(it->second->type() == PointerType::CP
-	&& it->second->encodable() == true) {
+    && it->second->encodable() == true) {
       if(exeName == "ld-2.27.so" && it->second->address() == entryPoint_)
         it->second->encodable(false);
-      else
+      else {
+        string sym = codeCFG_->getSymbol(it->first);
+        manager_->addAttEntry(it->first,".8byte " + to_string(it->first),sym);
         manager_->ptrsToEncode(it->first);
+      }
     }
-
+    else if(it->second->type() == PointerType::UNKNOWN){
+      string sym = codeCFG_->getSymbol(it->first);
+      if(sym != "") {
+        manager_->addAttEntry(it->first,".8byte " + to_string(it->first),sym);
+        manager_->addAttEntry(it->first,".8byte ." + to_string(it->first) + " - " + ".elf_header_start",sym);
+      }
+    }
+  }
 
 #ifdef OPTIMIZED_EH_METADATA
   mark_leaf_functions();
@@ -490,7 +501,6 @@ Binary::print_data_segment(string file_name) {
 
   utils::printAsm(".skip " + to_string(data_seg_start - code_seg_end) + "\n",
       code_seg_end,"." + to_string(code_seg_end), SymBind::BIND,file_name);
-  utils::printAlgn(4096,file_name);
   utils::printLbl(".datasegment_start",file_name);
   uint64_t byte_count = 0;
   uint64_t i = rwSections_[0].vma;
@@ -1028,6 +1038,16 @@ string Binary::print_assembly() {
   stitchSections(section_types::RX,file_name,true);
   stitchSections(section_types::RONLY,file_name, true);
   rewrite_jmp_tbls(file_name);
+  section new_sec("att_table",0,0,0,8);
+  new_sec.start_sym=".att_tbl_start";
+  new_sec.end_sym=".att_tbl_end";
+  new_sec.sec_type = section_types::RONLY;
+  new_sec.additional = true;
+  new_sec.is_att = true;
+  manager_->newSection(new_sec);
+  string att_asm = manager_->attTableAsm();
+  utils::printAsm(att_asm,0,new_sec.start_sym,SymBind::NOBIND,file_name); 
+  utils::printLbl(new_sec.end_sym,file_name);
   utils::printLbl(".new_codesegment_end",file_name);
 
   return file_name;

@@ -4,13 +4,11 @@
 const vector <string> savedReg_{"flags","%rax",
     "%rdi","%rsi","%rdx","%rcx","%r8","%r9","%r10","%r11"};
 
-
-void
-Instrument::encode_lea_instruction (string file_name, string mnemonic,
-				    string op1,uint64_t loc)
+/*
+string
+Instrument::leaInstrumentation (string mnemonic,string op1,uint64_t loc)
 {
-  ofstream ofile;
-  ofile.open (file_name, ofstream::out | ofstream::app);
+  string inst_code = "";
   size_t pos = op1.find (",");
   string pointer = op1.substr (0, pos);
   string reg = op1.substr (pos + 2);
@@ -18,58 +16,52 @@ Instrument::encode_lea_instruction (string file_name, string mnemonic,
   bool rdx_saved = false;
   string scratch_reg = "%rax";
   if (reg.compare (scratch_reg) == 0)
-    {
-      scratch_reg = "%rcx";
-    }
+  {
+    scratch_reg = "%rcx";
+  }
 
   string new_reg = reg;
   if (reg.compare ("%rdx") != 0)
-    {
-      rdx_saved = true;
-      ofile << "\tpush %rdx\n";
-    }
+  {
+    rdx_saved = true;
+    inst_code += "\tpush %rdx\n";
+  }
   else
-    {
-      ofile << "\tpush %rcx\n";
-      new_reg = "%rcx";
-    }
+  {
+    inst_code += "\tpush %rcx\n";
+    new_reg = "%rcx";
+  }
 
-  ofile << "\tpush " << scratch_reg << "\n";
-  ofile << "\tmov " << reg << ",%rdx\n";
-  ofile << "\tmov $0x0010000000000001," << scratch_reg << "\n";
-  ofile << "\tmulx " << scratch_reg << "," << new_reg << "," << scratch_reg <<
+  inst_code += "\tpush " + scratch_reg + "\n";
+  inst_code += "\tmov " + reg + ",%rdx\n";
+  inst_code += "\tmov $0x0010000000000001," + scratch_reg + "\n";
+  inst_code += "\tmulx " + scratch_reg + "," + new_reg + "," + scratch_reg +
     "\n";
-  ofile << "\tpop " << scratch_reg << "\n";
+  inst_code += "\tpop " + scratch_reg + "\n";
   if (rdx_saved == true)
-    {
-      ofile << "\tpop %rdx\n";
-    }
+  {
+    inst_code += "\tpop %rdx\n";
+  }
   else
-    {
-      ofile << "\tmov %rcx,%rdx\n";
-      ofile << "\tpop %rcx\n";
-    }
+  {
+    inst_code += "\tmov %rcx,%rdx\n";
+    inst_code += "\tpop %rcx\n";
+  }
 
-  ofile.close ();
-
+  return inst_code;
 }
-
+*/
 string
 Instrument::getIcfReg(string op1) {
   string reg("-16(%rsp)");
   return reg;
 }
 
-void
-Instrument::decode_icf_target (string file_name, string mnemonic, string op1,
-			       uint64_t loc)
+/*
+string
+Instrument::icfInstrumentation (string mnemonic, string op1,uint64_t loc)
 {
-  ofstream ofile;
-  ofile.open (file_name, ofstream::out | ofstream::app);
   op1.replace (0, 1, "");
-
-  const char *exe = file_name.c_str();
-  uint64_t exePtr = (uint64_t)exe;
 
   if (op1.find ("rsp") != string::npos)
     {
@@ -103,10 +95,9 @@ Instrument::decode_icf_target (string file_name, string mnemonic, string op1,
   //inst_code += "\tpopf\n";
   //inst_code += "\t" + mnemonic + " *-16(%rsp)\n";
 
-  ofile << inst_code;
-
-  ofile.close ();
+  return inst_code;
 }
+*/
 
 string 
 Instrument::moveZeros(string op1, uint64_t loc, string file_name) {
@@ -121,31 +112,6 @@ Instrument::moveZeros(string op1, uint64_t loc, string file_name) {
   return instCode;
 }
 
-void
-Instrument::set_encode (bool to_encode)
-{
-  encode = to_encode;
-}
-
-
-bool
-Instrument::get_encode ()
-{
-  return encode;
-}
-
-void
-Instrument::set_decode (bool to_decode)
-{
-  decode = to_decode;
-}
-
-
-bool
-Instrument::get_decode ()
-{
-  return decode;
-}
 
 void 
 Instrument::registerInstrumentation(InstPoint p,string
