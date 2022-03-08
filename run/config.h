@@ -103,7 +103,7 @@
 
 //#define ZJR_BASIC_BLOCK_RANDOMIZATION
 
-#define ENCODE 0
+#define ENCODE 1
 #define ENCCLASS GttAtt
 //#define OPTIMIZED_EH_METADATA
 
