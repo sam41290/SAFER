@@ -159,6 +159,8 @@ BasicBlock::split(uint64_t address) {
     targetBB_ = NULL;
     target_ = 0;
     new_bb->codeType(codeType_);
+    new_bb->type(type_);
+    new_bb->callType(callType_);
     //LOG("is code set");
     insList_ = newInsList1;
     end_ = lastIns()->location();
@@ -432,6 +434,66 @@ BasicBlock::conflict() {
 }
 
 void
+BasicBlock::inferType(unordered_set <uint64_t> &passed) {
+  if(type_ == BBType::NA || type_ == BBType::MAY_BE_RETURNING || 
+     callType() == BBType::MAY_BE_RETURNING ||
+     callType() == BBType::NA) {
+    passed.insert(start_);
+    if(targetBB_ != NULL && passed.find(target_) == passed.end()) {
+      targetBB_->inferType(passed);
+    }
+    if(fallThroughBB_ != NULL && passed.find(fallThrough_) == passed.end())
+      fallThroughBB_->inferType(passed);
+    auto ins = lastIns();
+    if(isCall()) {
+      if(targetBB_ != NULL) {
+        callType(targetBB_->type());
+        if(targetBB_->type() == BBType::NON_RETURNING) {
+          if(fallThroughBB_ != NULL)
+            fallThroughBB_->source(PointerSource::POSSIBLE_RA);
+          LOG("Marking BB non returning: "<<hex<<start_);
+          type_ = BBType::NON_RETURNING;
+          fallThrough_ = 0;
+          fallThroughBB_ = NULL;
+        }
+        else if(targetBB_->type() == BBType::MAY_BE_RETURNING)
+          type_ = BBType::MAY_BE_RETURNING;
+      }
+      if(fallThroughBB_ != NULL) {
+        if(fallThroughBB_->type() == BBType::NON_RETURNING)
+          type_ = BBType::NON_RETURNING;
+        else if(fallThroughBB_->type() == BBType::MAY_BE_RETURNING)
+          type_ = BBType::MAY_BE_RETURNING;
+      }
+    }
+    else if(ins->isUnconditionalJmp()) {
+      if(targetBB_ != NULL)
+        type_ = targetBB_->type();
+    }
+    else if(targetBB_ != NULL && fallThroughBB_ != NULL) {
+      auto tgt_type = targetBB_->type();
+      auto fall_type = fallThroughBB_->type();
+      if(tgt_type == BBType::NA && fall_type == BBType::NA)
+        type(BBType::RETURNING);
+      else if(tgt_type == BBType::NA)
+        type(fall_type);
+      else if(fall_type == BBType::NA)
+        type(tgt_type);
+      else if(fall_type != tgt_type)
+        type(BBType::MAY_BE_RETURNING);
+      else
+        type(tgt_type);
+    }
+  }
+}
+
+void
+BasicBlock::updateType() {
+  unordered_set <uint64_t> passed;
+  inferType(passed);
+}
+
+void
 BasicBlock::addTramp(uint64_t tramp_start) {
   tramp_ = new BasicBlock(tramp_start,tramp_start,source(),source());
   tramp_->isTramp(true);
@@ -457,34 +519,34 @@ BasicBlock::conflict(ConflictStatus c, uint64_t a) {
   }
 }
 
-void 
-BasicBlock::inconsistentChild(BasicBlock *bb,CFStatus c, Update u) {
-  if(bb->CFConsistency() != c) {
-    LOG("Marking child inconsistent: "<<hex<<bb->start());
-    auto p = bb->parents();
-    if(p.size() > 1 || (p[0] != NULL && p[0]->start() != start_)) //Child has other parents
-      return;
-    auto child_roots = bb->roots();
-    for(auto & r : child_roots) //Child itself is a root
-      if(r->start() == bb->start())
-        return;
-    bb->CFConsistency(c,u);
-  }
-}
-
-
-void 
-BasicBlock::CFConsistency(CFStatus c, Update u) {
-  LOG("Changing CF consistency: "<<hex<<start_<<" "<<(int)c);
-  CFConsistency_ = c;
-  if(u == Update::TRANSITIVE && c == CFStatus::INCONSISTENT) {
-    for(auto & p : parents_)
-      if(p->CFConsistency() != c) {
-        p->CFConsistency(c,Update::TRANSITIVE);
-      }
-    if(targetBB_ != NULL)
-      inconsistentChild(targetBB_,c,u);
-    if(fallThroughBB_ != NULL)
-      inconsistentChild(fallThroughBB_,c,u);
-  }
-}
+//void 
+//BasicBlock::inconsistentChild(BasicBlock *bb,CFStatus c, Update u) {
+//  if(bb->CFConsistency() != c) {
+//    auto p = bb->parents();
+//    if(p.size() > 1 || (p[0] != NULL && p[0]->start() != start_)) //Child has other parents
+//      return;
+//    auto child_roots = bb->roots();
+//    for(auto & r : child_roots) //Child itself is a root
+//      if(r->start() == bb->start())
+//        return;
+//    LOG("Marking child inconsistent: "<<hex<<bb->start());
+//    bb->CFConsistency(c,u);
+//  }
+//}
+//
+//
+//void 
+//BasicBlock::CFConsistency(CFStatus c, Update u) {
+//  LOG("Changing CF consistency: "<<hex<<start_<<" "<<(int)c);
+//  CFConsistency_ = c;
+//  if(u == Update::TRANSITIVE && c == CFStatus::INCONSISTENT) {
+//    for(auto & p : parents_)
+//      if(p->CFConsistency() != c) {
+//        p->CFConsistency(c,Update::TRANSITIVE);
+//      }
+//    if(targetBB_ != NULL)
+//      inconsistentChild(targetBB_,c,u);
+//    if(fallThroughBB_ != NULL)
+//      inconsistentChild(fallThroughBB_,c,u);
+//  }
+//}

@@ -166,6 +166,22 @@ CfgElems::markAsDefCode(uint64_t addrs) {
   fn->second->markAsDefCode(bb);
 }
 
+void
+CfgElems::markAsDefData(uint64_t addrs) {
+  auto bb = getBB(addrs);
+  if(bb == NULL) {
+    LOG("No BB for address: "<<hex<<addrs);
+    return;
+  }
+  auto fn = is_within(bb->start(),funcMap_);
+  if(fn == funcMap_.end()) {
+    LOG("No function for BB: "<<hex<<addrs);
+    return;
+  }
+  fn->second->markAsDefData(bb);
+
+}
+
 bool
 CfgElems::conflictsDefCode(uint64_t addrs) {
   auto fn = is_within(addrs, funcMap_);
@@ -636,7 +652,7 @@ CfgElems::readCfg() {
     vector<string> words = utils::split_string(str,' ');
     if(words[0] == "pointer") {
       LOG("Pointer: "<<str);
-      val = stoll(words[1]);
+      val = stoull(words[1]);
       src = (PointerSource)stoi(words[2]);
       rootsrc = (PointerSource)stoi(words[3]);
       type = (PointerType)stoi(words[4]);
@@ -713,17 +729,14 @@ CfgElems::printDeadCode() {
       if(deadcode == false) {
         unordered_set <BasicBlock *> ind_bbs = bb->indirectTgts();
         for(auto & ind_bb : ind_bbs) {
-          //vector<vector<BasicBlock *>> psbl_bb_seq = bbSeq(ind_bb);
           vector <BasicBlock *> lst = bbSeq(ind_bb);
-          //for(auto & lst : psbl_bb_seq) {
-            for(auto & bb2 : lst) {
-              vector <string> all_orig_ins = bb2->allAsm();
+          for(auto & bb2 : lst) {
+            vector <string> all_orig_ins = bb2->allAsm();
 
-              for(string & asm_ins:all_orig_ins) {
-                ofile2 <<asm_ins <<endl;
-              }
+            for(string & asm_ins:all_orig_ins) {
+              ofile2 <<asm_ins <<endl;
             }
-          //}
+          }
         }
       }
     }
@@ -740,7 +753,7 @@ CfgElems::printOriginalAsm() {
   string file_name = exePath_.substr(found + 1);
   string input_file_name1 = "tmp/" + file_name + "_defcode.s";
   string input_file_name2 = "tmp/" + file_name + "_gap.s";
-  string input_file_name3 = "tmp/" + file_name + "_data_as_code.s";
+  string input_file_name3 = "tmp/" + file_name + "_data_in_code.s";
 
   ofstream ofile1, ofile2, ofile3;
   ofile1.open(input_file_name1);
@@ -760,24 +773,11 @@ CfgElems::printOriginalAsm() {
       for(string asm_ins:all_orig_ins)
         ofile2 <<asm_ins <<endl;
     }
-    set <uint64_t> psbl_entries = fn.second->probableEntry();
-    for(auto & entry : psbl_entries) {
-      auto ptr = pointerMap_.find(entry);
-      if(ptr != pointerMap_.end() && ptr->second->type() == PointerType::DP) {
-        auto bb = getBB(entry);
-        if(bb != NULL && bb->isCode()) {
-          vector <BasicBlock *> lst = bbSeq(bb);
-          for(auto & bb2 : lst) {
-            if(bb2->isCode()) {
-              vector <string> all_orig_ins = bb2->allAsm();
-
-              for(string & asm_ins:all_orig_ins) {
-                ofile3 <<asm_ins <<endl;
-              }
-            }
-          }
-        }
-      }
+    vector<BasicBlock *> data_in_code = fn.second->getDataInCode();
+    for(auto & bb : data_in_code) {
+      vector <string> all_orig_ins = bb->allAsm();
+      for(string asm_ins:all_orig_ins)
+        ofile3 <<asm_ins <<endl;
     }
   }
 
@@ -798,6 +798,17 @@ CfgElems::withinRoSection(uint64_t addrs) {
   return false;
 }
 
+bool 
+CfgElems::readableMemory(uint64_t addrs) {
+  for(section & sec : rxSections_) {
+    if(sec.vma <= addrs && (sec.vma + sec.size) > addrs) {
+      return true;
+    }
+  }
+  if(withinRWSection(addrs))
+    return true;
+  return false;
+}
 
 bool 
 CfgElems::isMetadata(uint64_t addrs) {
@@ -826,6 +837,14 @@ CfgElems::withinRWSection(uint64_t addrs) {
   return false;
 }
 
+bool
+CfgElems::isDatainCode(uint64_t addrs) {
+  auto fn = is_within(addrs,funcMap_);
+  if(fn == funcMap_.end())
+    return false;
+  return fn->second->isDataInCode(addrs);
+}
+
 bool CfgElems::isDataPtr(Pointer * ptr) {
   /*Checks if a constant pointer lies within dats segment. If yes, marks it as
    * a data pointer.
@@ -834,7 +853,7 @@ bool CfgElems::isDataPtr(Pointer * ptr) {
   uint64_t
     val = ptr->address();
   if(val >= codeSegEnd_ || isJmpTblLoc(val) == true 
-     || withinRoSection(val) || withinRWSection(val))
+     || withinRoSection(val) || withinRWSection(val) || isDatainCode(val))
     return true;
 
   return false;
@@ -1085,6 +1104,22 @@ CfgElems::linkBBs(vector <BasicBlock *> &bbs) {
       }
       bb->fallThroughBB(fallbb);
       fallbb->parent(bb);
+    }
+  }
+}
+
+void
+CfgElems::updateBBTypes() {
+  for(auto & fn : funcMap_) {
+    vector<BasicBlock *> defBBs = fn.second->getDefCode();
+    for(auto & bb : defBBs) {
+      //LOG("Updating bb type: "<<hex<<bb->start());
+      bb->updateType();
+    }
+    vector<BasicBlock *> unknwnBBs = fn.second->getUnknwnCode();
+    for(auto & bb : unknwnBBs) {
+      //LOG("Updating bb type: "<<hex<<bb->start());
+      bb->updateType();
     }
   }
 }

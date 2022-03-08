@@ -26,12 +26,15 @@ namespace analysis {
       int64_t index_hi = 0;
    };
 
-   void setup();
+   void setup(const std::string& autoFile);
    bool load(const std::string& asmFile,
              const std::unordered_map<int64_t,int64_t>& insnSize,
              const std::unordered_map<int64_t,std::vector<int64_t>>& jumpTable,
              const std::vector<int64_t>& entry);
    bool analyze(int func_index);
+   void set_init(int init_option);
+
+   int uninit();
    bool preserved(const std::vector<std::string>& regs);
    std::vector<JumpTable> jump_table_analysis();
 

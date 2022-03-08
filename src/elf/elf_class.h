@@ -53,7 +53,7 @@ class ElfClass:public ExeManager
     { "abort", "_exit", "exit", "__stack_chk_fail", "__assert_fail",
     "__fortify_fail", "__chk_fail","err","errx","verr","verrx",
     "g_assertion_message_expr"};
-  const vector <string> mayExitSyms_ = {"__fprintf_chk","__printf_chk"};
+  const vector <string> mayExitSyms_ = {"__fprintf_chk","__printf_chk","error"};
   const unordered_set <string> metaSections_
     = {".interp",".note.gnu.property",".note.gnu.build-id",
       ".note.ABI-tag",".gnu.hash",".dynstr",".gnu.version",

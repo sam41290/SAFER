@@ -54,7 +54,7 @@ namespace SBI {
     void updateTargets(JumpTable & jt, BasicBlock *bb);
     
     //---------------------------------------------------------
-    void analyzeAddress(uint64_t entry);
+    void analyzeAddress(vector <int64_t> &entries);
     void analyzeFn(Function *fn);
     void decodeJmpTblTgts(vector<analysis::JumpTable> &j_lst);
     void readTargets (JumpTable & jt, BasicBlock *bb);

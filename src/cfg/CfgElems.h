@@ -332,9 +332,13 @@ namespace SBI {
     }
     bool isMetadata(uint64_t addrs);
     string getSymbol(uint64_t addrs);
+    void updateBBTypes();
+    void markAsDefData(uint64_t addrs);
+    bool readableMemory(uint64_t addrs);
   private:
     void readIndrctTgts(BasicBlock *bb,uint64_t fn_addrs);
     BasicBlock *readBB(ifstream & file);
+    bool isDatainCode(uint64_t addrs);
   };
 
 }

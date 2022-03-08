@@ -84,6 +84,13 @@ JmpTblAnalysis::decodeJmpTblTgts(vector<analysis::JumpTable> &j_lst) {
       LOG ("Unexpected end!!!");
       continue;
     }
+    if(readableMemory(j.location()) == false)
+      continue;
+    if(j.entrySize() > 8) {
+      LOG("Location: "<<hex<<j.location()<<" base: "<<j.base()<<" end: "<<hex<<j.end());
+      LOG("Incorrect stride: "<<j.entrySize());
+      continue;
+    }
     LOG("Decoding jump table: ");
     LOG("Location: "<<hex<<j.location()<<" base: "<<j.base()<<" end: "<<hex<<j.end());
     BasicBlock *cfbb = withinBB(jmp_ins_loc);
@@ -109,44 +116,48 @@ hasIndJmp(vector <BasicBlock *> & bb_list) {
 }
 
 void
-JmpTblAnalysis::analyzeAddress(uint64_t entry) {
-  auto bb = getBB(entry);
-  if(bb != NULL) {
-    LOG("Analyzing jump table for: "<<hex<<entry);
-    vector <BasicBlock *> fin_bb_list = bbSeq(bb);
-    if(validIns(fin_bb_list) && hasIndJmp(fin_bb_list)) {
-      string file_name = TOOL_PATH "run/jmp_table/" + to_string(entry) + ".s";
-      unordered_map<int64_t, vector<int64_t>> ind_tgts;
-      indTgts(fin_bb_list,ind_tgts);
-      dumpIndrctTgt(TOOL_PATH"run/jmp_table/" + to_string(entry)
-          + ".ind",ind_tgts);
-      genFnFile(file_name,entry,fin_bb_list);
-      unordered_map<int64_t,int64_t> ins_sz = insSizes(fin_bb_list);
-      dumpInsSizes(TOOL_PATH"run/jmp_table/" + to_string(entry)
-          + ".sz",ins_sz);
-      vector <int64_t> all_entries;
-      all_entries.push_back(entry);
-      //for(auto & bb2 : fin_bb_list) {
-      //  if(bb2->isLea())
-      //    all_entries.push_back(bb2->start());
-      //}
-      LOG("indirect targets size: "<<ind_tgts.size());
-      //if(analysis::load(file_name,ins_sz,ind_tgts,all_entries)) {
-      //  for (int func_index = 0; ; ++func_index) {
-      //    bool valid_func = analysis::analyze(func_index);
-      //    if (valid_func) {
-      //       vector<analysis::JumpTable> j_lst = analysis::jump_table_analysis();
-      //       decodeJmpTblTgts(j_lst);
-      //       linkAllBBs();
-      //    }
-      //    else
-      //       break;
-      //  }
-      //  //analysis::reset();
-      //}
+JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
+  vector <BasicBlock *> fin_bb_list;
+  vector <int64_t> entries_to_analyze;
+  for(auto & entry : entries) {
+    auto bb = getBB(entry);
+    if(bb != NULL) {
+      LOG("Analyzing jump table for: "<<hex<<entry);
+      vector <BasicBlock *> bb_list = bbSeq(bb);
+      if(validIns(bb_list)) {
+        fin_bb_list.insert(fin_bb_list.end(),bb_list.begin(),bb_list.end());
+        entries_to_analyze.push_back(entry);
+      }
     }
-    else
-      LOG("Invalid entry");
+  }
+  if(hasIndJmp(fin_bb_list)) {
+    string file_name = TOOL_PATH "run/jmp_table/" + to_string(entries_to_analyze[0]) + ".s";
+    unordered_map<int64_t, vector<int64_t>> ind_tgts;
+    indTgts(fin_bb_list,ind_tgts);
+    dumpIndrctTgt(TOOL_PATH"run/jmp_table/" + to_string(entries_to_analyze[0])
+        + ".ind",ind_tgts);
+    genFnFile(file_name,entries_to_analyze[0],fin_bb_list);
+    unordered_map<int64_t,int64_t> ins_sz = insSizes(fin_bb_list);
+    dumpInsSizes(TOOL_PATH"run/jmp_table/" + to_string(entries_to_analyze[0])
+        + ".sz",ins_sz);
+    //vector <int64_t> all_entries;
+    //all_entries.push_back(entry);
+    LOG("indirect targets size: "<<ind_tgts.size());
+    /*
+    if(analysis::load(file_name,ins_sz,ind_tgts,entries_to_analyze)) {
+      for (int func_index = 0; ; ++func_index) {
+        bool valid_func = analysis::analyze(func_index);
+        if (valid_func) {
+           vector<analysis::JumpTable> j_lst = analysis::jump_table_analysis();
+           decodeJmpTblTgts(j_lst);
+           linkAllBBs();
+        }
+        else
+           break;
+      }
+      //analysis::reset();
+    }
+    */
   }
 }
 
@@ -158,9 +169,11 @@ JmpTblAnalysis::analyzeFn(Function * fn) {
     set <uint64_t> entries = fn->entryPoints();
     set <uint64_t> psbl_entries = fn->probableEntry();
     entries.insert(psbl_entries.begin(),psbl_entries.end());
+    vector <int64_t> to_analyze;
     for (auto & entry : entries) {
       if(alreadyAnalyzed.find(entry) == alreadyAnalyzed.end())
-        analyzeAddress(entry);
+        to_analyze.push_back(entry);
+        //analyzeAddress(entry);
     }
     vector <BasicBlock *> all_leas = fn->leaBBs();
     for(auto & lea_bb : all_leas) {
@@ -168,12 +181,14 @@ JmpTblAnalysis::analyzeFn(Function * fn) {
         auto ins_list = lea_bb->insList();
         for(auto & ins : ins_list) {
           if(ins->isLea() && isJmpTblLoc(ins->ripRltvOfft()) == false) {
-            analyzeAddress(lea_bb->start());
+            //analyzeAddress(lea_bb->start());
+            to_analyze.push_back(lea_bb->start());
             break;
           }
         }
       }
     }
+    analyzeAddress(to_analyze);
     if (jumpTableCnt() == size) {
       for(auto & entry : entries)
         if(getBB(entry) != NULL)
@@ -213,8 +228,8 @@ JmpTblAnalysis::analyze() {
    * discovered.
    */
 
-  jmpTblAnalysis();
-  return;
+  //jmpTblAnalysis();
+  //return;
 
   LOG("Analyzing jump table");
 #ifdef NOJMPTBLANALYSIS

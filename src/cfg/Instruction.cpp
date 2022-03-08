@@ -79,6 +79,7 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
   op1(operand);
   isRltvAccess(address + size);
   chkConstOp();
+  chkConstPtr();
   asmIns(prefix_ + asm_opcode + " " + op1_);
   fallThrgh_ = address + size;  
 }
@@ -97,6 +98,36 @@ Instruction::chkConstOp() {
       else
         constOp_ = stoull(s);
       break;
+    }
+  }
+}
+
+void
+Instruction::chkConstPtr() {
+  if(mnemonic_.find("lea") == string::npos && 
+     op1_.find("(,") != string::npos) {
+    //LOG("Checking for mem access: "<<mnemonic_<<" "<<op1_);
+    vector <string> words =  utils::split_string(op1_,',');
+    for(auto & w : words) {
+      if(w.find("(") != string::npos) {
+        if(w.find("%") == string::npos) {
+          if(w.find("*") == 0)
+            w.replace(0,1,"");
+          else if(w.find(" ") == 0)
+            w.replace(0,1,"");
+          w.replace(w.find("("),1,"");
+          if(w.length() > 0) {
+            if(w.find("0x") != string::npos || utils::checkHex(w))
+              constPtr_ = stoull(w,0,16);
+            else
+              constPtr_ = stoull(w);
+          }
+          //LOG("mem access: "<<hex<<constPtr_);
+          break;
+        }
+        else
+          break;
+      }
     }
   }
 }

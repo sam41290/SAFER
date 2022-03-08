@@ -52,6 +52,8 @@ class PointerAnalysis : public virtual SaInput, public virtual CFValidity,
 {
   vector <Reloc> allConstRelocs_;
   unordered_set <uint64_t> conflictingBBs_;
+  vector <Property> propList_;
+  unordered_set <uint64_t> possibleRAs_;
 public:
   PointerAnalysis (uint64_t memstrt, uint64_t memend);
   void cfgConsistencyAnalysis();
@@ -73,9 +75,9 @@ private:
   void classifyPsblFn(Function *fn);
   void jmpTblConsistency();
   bool CFDensityChk(vector <BasicBlock *> &bbList);
-  bool validInit(uint64_t entry, vector <BasicBlock *> fin_bb_lis);
+  bool validInit(uint64_t entry, vector <BasicBlock *> &fin_bb_lis);
   bool regPreserved(uint64_t entry,
-    vector <BasicBlock *> fin_bb_list,const vector <string> &reg_list);
+    vector <BasicBlock *> &fin_bb_list,const vector <string> &reg_list);
   bool aligned(Pointer *ptr);
   bool immOperand(Pointer *ptr);
   bool relocatedConst(Pointer *ptr);
@@ -95,17 +97,25 @@ private:
   void symbolizeIfSymbolArray(Pointer *ptr);
   void callTgtsAsDefCode(vector <BasicBlock *> &bb_list);
   void symbolizeConst(Pointer *ptr);
-  CFStatus callsValidFns(BasicBlock *bb);
-  CFStatus reachableFromValidRoot(BasicBlock *bb);
   void cfConsistency(map <uint64_t, Function *> &funMap);
   void resolveConflict(uint64_t p1, uint64_t p2);
-  void resolvePossiblyExits(BasicBlock *bb);
+  bool resolvePossiblyExits(BasicBlock *entry_bb, BasicBlock *bb);
   void classifyCode();
-  void resolveAllPossibleExits();
+  //void resolveAllPossibleExits();
   void resolveAndClassify(ResolutionType t);
   void filterJmpTblTgts(Function *fn);
   bool conflictingSeqs(vector <BasicBlock *> &seq1,
                        vector <BasicBlock *> &seq2);
+  void checkIndTgts(unordered_map<int64_t, vector<int64_t>> & ind_tgts,
+                    vector <BasicBlock *> & fin_bb_list);
+  void classifyEntry(uint64_t entry);
+  bool codeByProperty(BasicBlock *bb);
+  bool dataByProperty(BasicBlock *bb);
+  void propertyCheck(BasicBlock *entry_bb, vector<BasicBlock *> &bb_list);
+  void resolveAllNoRetCalls();
+  void resolveNoRetCall(BasicBlock *entry);
+  void classifyPossibleRAs();
+  void validateIndTgts(vector <BasicBlock *> &entry_lst, BasicBlock *entry_bb, BasicBlock *ind_bb);
 };
 }
 #endif

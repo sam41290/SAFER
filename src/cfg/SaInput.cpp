@@ -80,21 +80,24 @@ SaInput::genFnFile(string file_name,uint64_t entry,vector<BasicBlock *> &bbList)
   map <uint64_t,string> all_ins;
   LOG("Generating asm file for: "<<hex<<entry);
   for(auto & bb : bbList) {
-    vector <string> all_asm = bb->allAsm();
-    if(bb->isCall() && bb->callType() == BBType::NON_RETURNING) {
-      string last_ins = all_asm[all_asm.size() - 1];
-      vector <string> words = utils::split_string(last_ins,' ');
-      string loc = words[0];
-      last_ins = loc + " hlt";
-      all_asm[all_asm.size() - 1] = last_ins;
+    if(all_ins.find(bb->start()) == all_ins.end()) {
+      vector <string> all_asm = bb->allAsm();
+      if(bb->isCall() && bb->callType() == BBType::NON_RETURNING) {
+        string last_ins = all_asm[all_asm.size() - 1];
+        vector <string> words = utils::split_string(last_ins,' ');
+        string loc = words[0];
+        last_ins = loc + " hlt";
+        //LOG("Replacing not returning call with hlt: "<<hex<<bb->start());
+        all_asm[all_asm.size() - 1] = last_ins;
+      }
+      addIns(all_ins,all_asm);
     }
-    addIns(all_ins,all_asm);
   }
   vector <BasicBlock *> new_bbs;
   for(auto & bb : bbList) {
     if(bb->isCall() == false && bb->target() != 0 &&
        all_ins.find(bb->target()) == all_ins.end()) {
-      //LOG("Adding dummy tgt: "<<hex<<bb->target());
+      LOG("Adding dummy tgt: "<<hex<<bb->target());
       uint8_t b[] = {0xf4};
       char mne[] = "hlt";
       char op[] = "";
@@ -108,7 +111,7 @@ SaInput::genFnFile(string file_name,uint64_t entry,vector<BasicBlock *> &bbList)
     }
     if(bb->fallThrough() != 0 &&
        all_ins.find(bb->fallThrough()) == all_ins.end()) {
-      //LOG("Adding dummy fall: "<<hex<<bb->fallThrough());
+      LOG("Adding dummy fall: "<<hex<<bb->fallThrough());
       uint8_t b[] = {0xf4};
       char mne[] = "hlt";
       char op[] = "";

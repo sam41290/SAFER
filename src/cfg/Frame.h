@@ -30,6 +30,7 @@ class Frame
   vector <BasicBlock *> defCodeBBs_ ;
   //Basic block starts that are not definite code.
   vector <BasicBlock *> unknwnCodeBBs_;	
+  vector <BasicBlock *> defDataInCode_;
   unordered_map <uint64_t, bool> overlapping_;
 public:
   Frame(){}
@@ -49,6 +50,8 @@ public:
   
   vector <BasicBlock *> getDefCode();
   vector <BasicBlock *> getUnknwnCode();
+  vector <BasicBlock *> getDataInCode();
+  bool isDataInCode(uint64_t addrs);
   bool isValidIns(uint64_t address); 
   bool bbExists(uint64_t addrs);
   BasicBlock *getBB(uint64_t addrs);
@@ -58,6 +61,7 @@ public:
   bool withinDefCode(uint64_t addrs);
   void removeDuplicates();
   void markAsDefCode(BasicBlock *bb);
+  void markAsDefData(BasicBlock *bb);
   bool misaligned(uint64_t start);
   uint64_t nxtDefCode(uint64_t addrs);
   void removeBB(BasicBlock *bb);

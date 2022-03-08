@@ -22,7 +22,10 @@ class Function:public Frame
   set <uint64_t> probableEntry_;
   set <uint64_t> jmpTblAnalyzed_;
   vector <uint64_t> exitBlocks_;
-  unordered_map <uint64_t, bool> passedPropertyCheck_;
+  
+  unordered_map <uint64_t, vector <BasicBlock *>> nonReturningCalls_;
+
+  //unordered_map <uint64_t, bool> passedPropertyCheck_;
   bool hasJmpTbl_ = false;
   bool isLeaf_ = false;
 public:
@@ -32,40 +35,60 @@ public:
   void jmpTblAnalyzed(uint64_t entry) { jmpTblAnalyzed_.insert(entry); }
   set <uint64_t> jmpTblAnalyzed() { return jmpTblAnalyzed_; }
 
-  bool passedPropertyCheck(uint64_t entry) { 
-    if(passedPropertyCheck_.find(entry) != passedPropertyCheck_.end())
-      return passedPropertyCheck_[entry];
-    return false;
-  }
+  //bool passedPropertyCheck(uint64_t entry) { 
+  //  if(passedPropertyCheck_.find(entry) != passedPropertyCheck_.end())
+  //    return passedPropertyCheck_[entry];
+  //  return false;
+  //}
 
-  void passedPropertyCheck(uint64_t entry, bool val) {
-    passedPropertyCheck_[entry] = val;
-    auto bb = getBB(entry);
-    if(val)
-      bb->CFConsistency(CFStatus::CONSISTENT,TRANSITIVECF);
-    else
-      bb->CFConsistency(CFStatus::INCONSISTENT,TRANSITIVECF);
-  }
+  //void passedPropertyCheck(uint64_t entry, bool val) {
+  //  passedPropertyCheck_[entry] = val;
+  //  auto bb = getBB(entry);
+  //  if(val)
+  //    bb->CFConsistency(CFStatus::CONSISTENT,TRANSITIVECF);
+  //  else
+  //    bb->CFConsistency(CFStatus::INCONSISTENT,TRANSITIVECF);
+  //}
 
-  bool propertyChecked(uint64_t entry) {
-    if(passedPropertyCheck_.find(entry) != passedPropertyCheck_.end())
-      return true;
-    return false;
+  //bool propertyChecked(uint64_t entry) {
+  //  if(passedPropertyCheck_.find(entry) != passedPropertyCheck_.end())
+  //    return true;
+  //  return false;
+  //}
+
+  vector <BasicBlock *> nonReturningCalls(uint64_t entry) { return nonReturningCalls_[entry]; }
+  void nonReturningCalls(uint64_t entry, vector <BasicBlock *> calls) { nonReturningCalls_[entry] = calls; }
+ 
+  vector <uint64_t> allEntries() {
+    vector <uint64_t> entries;
+    entries.insert(entries.end(),entryPoints_.begin(),entryPoints_.end());
+    entries.insert(entries.end(),probableEntry_.begin(),probableEntry_.end());
+    return entries;
   }
-  
   vector <uint64_t> allValidEntries() {
     vector <uint64_t> entries;
+    entries.insert(entries.end(),entryPoints_.begin(),entryPoints_.end());
+    for(auto & e : probableEntry_) {
+      auto bb = getBB(e);
+      if(bb != NULL && bb->somePropPassed())
+        entries.push_back(e);
+    }
+    /*
     for(auto & e : passedPropertyCheck_)
       if(e.second == true)
         entries.push_back(e.first);
+    */
     return entries;
   }
 
   bool validEntry(uint64_t entry) {
     if(isValidIns(entry))
       return true;
-    else if(propertyChecked(entry))
-      return passedPropertyCheck_[entry];
+    else {
+      auto bb = getBB(entry);
+      if(bb != NULL && bb->somePropPassed())
+        return true;
+    }
     return false;
   }
 

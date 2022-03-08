@@ -155,14 +155,19 @@ unordered_set <string> utils::debug_reg {
 unordered_set <string> utils::priviledge_ins {
   "lgdt",
   "lldt",
+  "lidt",
   "ltr",
   "lmsw",
   "clts",
   "invd",
   "invlpg",
   "wbinvd",
+  "wbnoinvd",
   "rdmsr",
   "wrmsr",
   "rdpmc",
-  "rdtsc"
+  "rdtsc",
+  "in",
+  "out",
+  "swapgs"
 };
