@@ -23,12 +23,21 @@ enum class BBType
   NA
 };
 
-enum class CFStatus {
-  CONSISTENT,
-  INCONSISTENT,
-  UNDER_EXAMINATION,
-  NOT_EXAMINED
+//enum class CFStatus {
+//  CONSISTENT,
+//  INCONSISTENT,
+//  UNDER_EXAMINATION,
+//  NOT_EXAMINED
+//};
+
+enum class Property {
+  VALIDINS,
+  VALID_CF,
+  VALIDINIT,
+  SP_PRESERVED,
+  ABI_REG_PRESERVED
 };
+
 
 enum class ConflictStatus {
   CONFLICT,
@@ -69,19 +78,57 @@ private:
   PointerSource source_;
   PointerSource rootSrc_;
   bool isTramp_ = false;
-  CFStatus jmpTblConsistency_ = CFStatus::NOT_EXAMINED;
-  CFStatus CFConsistency_ = CFStatus::NOT_EXAMINED;
+  //CFStatus jmpTblConsistency_ = CFStatus::NOT_EXAMINED;
+  //CFStatus CFConsistency_ = CFStatus::NOT_EXAMINED;
   unordered_set <BasicBlock *> roots_;
   vector <BasicBlock *> entries_;
   bool rootsComputed_ = false;
   unordered_set <uint64_t> conflicts_;
+  unordered_set <int> passedProps_;
+  unordered_set <int> failedProps_;
+
+  unordered_map <int, bool> props_;
+
+  //vector <BasicBlock *> defExitCalls_;
+
 public:
+  void clearProps() { props_.clear(); }
+  bool somePropPassed() { 
+    //if(passedProps_.size() > 0) return true; return false; 
+
+    for(auto & p : props_)
+      if(p.second == true)
+        return true;
+    return false;
+  }
+  vector <Property> failedProps() {
+    vector <Property> p_list;
+    for(auto & p : props_)
+      if(p.second == false)
+        p_list.push_back((Property)p.first);
+    return p_list; 
+  }
+  vector <Property> passedProps() { 
+    vector <Property> p_list;
+    for(auto & p : props_)
+      if(p.second == true)
+        p_list.push_back((Property)p.first);
+    return p_list; 
+  }
+  void passedProp(Property p) { 
+    //passedProps_.insert((int)p);
+    //if(failedProps_.find((int)p) != failedProps_.end())
+    //  failedProps_.erase(failedProps_.find((int)p));
+    props_[(int)p] = true;
+  }
+  void failedProp(Property p) { 
+    if(props_.find((int)p) == props_.end()) 
+      props_[(int)p] = false; 
+  }
+
   ConflictStatus checkConflict(unordered_set <uint64_t> &passed);
   ConflictStatus conflict();
   void conflict(ConflictStatus c, uint64_t a); 
-  void inconsistentChild(BasicBlock *bb,CFStatus c, Update u);
-  void CFConsistency(CFStatus c, Update u);
-  CFStatus CFConsistency() { return CFConsistency_; }
   BasicBlock(uint64_t start, uint64_t end, PointerSource src,
 		 PointerSource root,vector <Instruction *> &insList);
 
@@ -102,8 +149,6 @@ public:
     entries_.push_back(b); 
   }
   vector <BasicBlock *> entries() { return entries_; }
-  void jmpTblConsistency(CFStatus c) { jmpTblConsistency_ = c; }
-  CFStatus jmpTblConsistency() { return jmpTblConsistency_; }
   void parent(BasicBlock * p) { if(p != NULL) parents_.push_back(p); }
   vector <BasicBlock *> parents() { return parents_; }
   void callType(BBType t) { callType_ = t; }
@@ -134,6 +179,7 @@ public:
   void target(uint64_t tgt) { target_ = tgt; }
   uint64_t target() { return target_; };
   PointerSource source() { return source_; };
+  void source(PointerSource src) { source_ = src; };
   PointerSource rootSrc() { return rootSrc_; };
   void fallThrough(uint64_t tgt) { fallThrough_ = tgt; }
   uint64_t fallThrough() { return fallThrough_; }
@@ -214,6 +260,9 @@ public:
   void addTramp(uint64_t tramp_start);
   BasicBlock *tramp() { return tramp_; }
   bool noConflict(uint64_t addrs);
+  void updateType();
+private:
+  void inferType(unordered_set <uint64_t> &passed);
 };
 }
 #endif

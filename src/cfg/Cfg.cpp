@@ -25,6 +25,7 @@ Cfg::disassemble() {
     createFuncFrPtr(ptr.second);
   }
 
+  LOG("Functions created for all pointers");
 
   vector <Reloc> all_const_relocs = picConstReloc();
   all_const_relocs.insert(all_const_relocs.end(),xtraConstReloc().begin(),xtraConstReloc().end());
@@ -53,9 +54,9 @@ Cfg::scanMemForPtr (uint64_t start,uint64_t start_addr, uint64_t size) {
         auto bb = withinBB(psbl_ptr);
         if(bb != NULL)
           LOG("Withing bb: "<<hex<<bb->start()<<" code: "<<(int)bb->isCode());
-        newPointer(psbl_ptr, PointerType::UNKNOWN,
-            PointerSource::STOREDCONST,PointerSource::STOREDCONST,start_addr);
         if(bb == NULL || bb->isCode() == false || bb->isValidIns(psbl_ptr)) {
+          newPointer(psbl_ptr, PointerType::UNKNOWN,
+            PointerSource::STOREDCONST,PointerSource::STOREDCONST,start_addr);
           createFn(true, psbl_ptr,psbl_ptr,code_type::UNKNOWN);
           disasmRoots_.push(psbl_ptr);
         }
@@ -69,9 +70,9 @@ Cfg::scanMemForPtr (uint64_t start,uint64_t start_addr, uint64_t size) {
           auto bb = withinBB(addr);
           if(bb != NULL)
             LOG("Withing bb: "<<hex<<bb->start()<<" code: "<<(int)bb->isCode());
-          newPointer((uint64_t)psbl_ptr32, PointerType::UNKNOWN,
-              PointerSource::STOREDCONST,PointerSource::STOREDCONST,start_addr);
           if(bb == NULL || bb->isCode() == false || bb->isValidIns(addr)) {
+            newPointer((uint64_t)psbl_ptr32, PointerType::UNKNOWN,
+              PointerSource::STOREDCONST,PointerSource::STOREDCONST,start_addr);
             createFn(true, addr,addr,code_type::UNKNOWN);
             disasmRoots_.push(psbl_ptr32);
           }
@@ -262,6 +263,8 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
     else
       bb->type(tgt_type);
   }
+  if(bb->isCall() && bb->type() != BBType::NON_RETURNING && fall_through_type == BBType::NON_RETURNING)
+    bb->type(BBType::NON_RETURNING);
 
   LOG("BB created: "<<hex<<bb->start()<<" target: "<<hex<<bb->target()<<" fall: "
       <<hex<<bb->fallThrough()<<" "<<hex<<bb->targetBB()<<" "
@@ -461,6 +464,8 @@ Cfg::jmpTblGroundTruth(int type) {
 
 void
 Cfg::groundTruthDisasm() {
+
+  LOG("Starting ground truth disasm");
 
   ignoreRoots_.insert(PointerSource::SYMTABLE);
   ignoreRoots_.insert(PointerSource::DEBUGINFO);
@@ -915,7 +920,6 @@ Cfg::checkForPtr(Instruction *ins) {
   }
   if(type_ == exe_type::NOPIE) {
     uint64_t ptr_val = ins->constOp();
-    LOG("Const op: "<<hex<<ptr_val);
     if(ptr_val != 0 && withinCodeSec(ptr_val)) {
       LOG("Creating ptr: "<<hex<<ptr_val);
       newPointer(ptr_val, PointerType::UNKNOWN,
@@ -930,6 +934,12 @@ Cfg::checkForPtr(Instruction *ins) {
           t = code_type::CODE;
         createFn(true, ptr_val,ptr_val,t);
       }
+    }
+    uint64_t const_mem = ins->constPtr();
+    if(const_mem != 0) {
+      LOG("Creating data ptr: "<<hex<<ptr_val);
+      newPointer(const_mem, PointerType::DP,
+          PointerSource::CONSTOP,rootSrc_, ins->location());
     }
   }
 }

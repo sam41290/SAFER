@@ -30,6 +30,21 @@ Frame::getUnknwnCode()
   return unknwnCodeBBs_;
 }
 
+vector <BasicBlock *> 
+Frame::getDataInCode()
+{
+  sort(defDataInCode_.begin (), defDataInCode_.end (),compareBB);
+  return defDataInCode_;
+}
+
+bool
+Frame::isDataInCode(uint64_t addrs) {
+  for(auto & bb : defDataInCode_)
+    if(addrs >= bb->start() && addrs < bb->boundary())
+      return true;
+  return false;
+}
+
 BasicBlock*
 Frame::withinBB(uint64_t addrs) {
   //LOG("Within BB for: "<<hex<<addrs);
@@ -130,6 +145,9 @@ Frame::getBB(uint64_t addrs) {
     if(addrs == bb->start())
       return bb;
   }
+  //for(auto & bb : defDataInCode_)
+  //  if(addrs == bb->start())
+  //    return bb;
   return NULL;
 }
 
@@ -273,7 +291,7 @@ Frame::removeDuplicates() {
 
 void
 Frame::markAsDefCode(BasicBlock *bb) {
-  LOG("Marking as def code BB: "<<hex<<bb->start());
+  //LOG("Marking as def code BB: "<<hex<<bb->start());
   if(bb->isCode() == false) {
     bb->codeType(code_type::CODE);
 
@@ -288,7 +306,18 @@ Frame::markAsDefCode(BasicBlock *bb) {
     defCodeBBs_.push_back(bb);
     unknwnCodeBBs_.erase(std::remove(unknwnCodeBBs_.begin(),
           unknwnCodeBBs_.end(), bb), unknwnCodeBBs_.end());
+    defDataInCode_.erase(std::remove(defDataInCode_.begin(),
+          defDataInCode_.end(), bb), defDataInCode_.end());
   }
+}
+
+void
+Frame::markAsDefData(BasicBlock *bb) {
+  LOG("Marking as def data BB: "<<hex<<bb->start());
+  bb->codeType(code_type::DATA);
+  defDataInCode_.push_back(bb);
+  unknwnCodeBBs_.erase(std::remove(unknwnCodeBBs_.begin(),
+        unknwnCodeBBs_.end(), bb), unknwnCodeBBs_.end());
 }
 
 void

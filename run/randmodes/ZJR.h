@@ -35,38 +35,55 @@
 #define SYMBOLIZERLTV(ptr) symbolizeRltvPtr(ptr)
 #define SYMBOLIZENONSTRING(ptr) symbolizeNonString(ptr)
 
+#define SYMBOLIZE(ptr)
+/*
 #define SYMBOLIZE(ptr) { \
   SYMBOLIZENONSTRING(ptr); \
   SYMBOLIZEIMMOP(ptr); \
   SYMBOLIZERLTV(ptr); \
 }
+*/
+
 #define SYMBOLIZABLE(BB) isSymbolizable(BB->start())
 
-#define CFVALIDITY(BBLIST) validCF(BBLIST)
 
-#define FNSIGNATURECHECK(BB) signatureChk(BB)
+#define INSVALIDITY vector <InsValidityRules> {InsValidityRules::VLD_OP,InsValidityRules::VLD_MEM,InsValidityRules::VLD_PRFX}
 
-#define DENSITYCHECK(BBLIST) CFDensityChk(BBLIST)
+#define PROPERTIES {Property::VALIDINS, Property::VALID_CF}
 
-#define CFTODEFCODECHK(BBLIST) callsDefCode(BBLIST)
+#define DEFDATA(p) \
+  ((p == Property::VALIDINS) ? true :\
+   (p == Property::VALID_CF) ? true :\
+   (p == Property::VALIDINIT) ? true : false)
 
-#define SPCHECK(BB,BBLIST) regPreserved(BB->start(),BBLIST, vector<string>{"sp"})
-#define CALLEESAVEDREGCHECK(BB,BBLIST) regPreserved(BB->start(),BBLIST, vector<string>{"sp","bx","bp","r12","r13","r14","r15"})
+#define DEFCODE(p) \
+  ((p == Property::SP_PRESERVED) ? true :\
+   (p == Property::VALID_CF) ? true :\
+   (p == Property::ABI_REG_PRESERVED) ? true : false)
 
-#define INSVALIDITY vector <InsValidityRules> {InsValidityRules::VLD_OP,InsValidityRules::VLD_MEM}
+#define TRANSITIVECF Update::LOCAL
 
-#define FNCHECK(BB,BBLIST)\
-  CFVALIDITY(BBLIST)
-
-#define TRANSITIVECF Update::TRANSITIVE
 #define CFTODEFCODE 0
 
 #define CFTRANSFERDENSITY 0.1
 
 #else
-#define INSVALIDITY vector <InsValidityRules> {InsValidityRules::VLD_OP,InsValidityRules::VLD_MEM}
-#define TRANSITIVECF Update::TRANSITIVE
 #define SYMBOLIZING_COND(ptr) false
+#define SYMBOLIZABLE(BB) isSymbolizable(BB->start())
+
+#define INSVALIDITY vector <InsValidityRules> {InsValidityRules::VLD_OP,InsValidityRules::VLD_MEM,InsValidityRules::VLD_PRFX}
+
+#define PROPERTIES {Property::VALIDINS, Property::VALID_CF}
+#define DEFDATA(p) \
+  ((p == Property::VALIDINS) ? true :\
+   (p == Property::VALID_CF) ? true :\
+   (p == Property::VALIDINIT) ? true : false)
+
+#define DEFCODE(p) \
+  ((p == Property::SP_PRESERVED) ? true :\
+   (p == Property::ABI_REG_PRESERVED) ? true : false)
+
+#define TRANSITIVECF Update::LOCAL
 
 #define SYMBOLIZE(ptr)
 
@@ -83,7 +100,7 @@
 #define INST_CODE_PATH TOOL_PATH"run/instrumentation_code_here/"
 #define INST_BINARY "tutorial"
 
-//#define FUNCTION_RANDOMIZATION
+#define FUNCTION_RANDOMIZATION
 
 //#define NO_BASIC_BLOCK_RANDOMIZATION
 
@@ -95,9 +112,9 @@
 #define PBR_COMMON_CONSTANT_VALUE 20    //Number of blocks
 
 #define ZJR_BASIC_BLOCK_RANDOMIZATION
-//
 
-#define ENCODE 0
+#define ENCODE 1
+#define ENCCLASS GttAtt
 
 //#define OPTIMIZED_EH_METADATA
 

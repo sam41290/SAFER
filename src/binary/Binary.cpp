@@ -139,15 +139,18 @@ Binary::disassemble() {
         it->second->encodable(false);
       else {
         string sym = codeCFG_->getSymbol(it->first);
-        manager_->addAttEntry(it->first,".8byte " + to_string(it->first),sym);
+        manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
+            ".8byte " + sym + " - " + ".elf_header_start");
         manager_->ptrsToEncode(it->first);
       }
     }
     else if(it->second->type() == PointerType::UNKNOWN){
       string sym = codeCFG_->getSymbol(it->first);
       if(sym != "") {
-        manager_->addAttEntry(it->first,".8byte " + to_string(it->first),sym);
-        manager_->addAttEntry(it->first,".8byte ." + to_string(it->first) + " - " + ".elf_header_start",sym);
+        manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
+            ".8byte " + sym + " - " + ".elf_header_start");
+        manager_->addAttEntry(it->first,".8byte ." + to_string(it->first) + " - " + ".elf_header_start",
+            ".8byte " + sym + " - " + ".elf_header_start");
       }
     }
   }

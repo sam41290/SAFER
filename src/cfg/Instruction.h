@@ -46,6 +46,7 @@ private:
   bool isHlt_ = false;
   uint64_t ripRltvOfft_ = 0;
   uint64_t constOp_ = 0;
+  uint64_t constPtr_ = 0;
   string label_;
   string asmIns_;
   string prefix_ = "";
@@ -204,6 +205,7 @@ public:
   isLea() { return isLea_; }
 
   uint64_t constOp() { return constOp_; }
+  uint64_t constPtr() { return constPtr_; }
   string
   mnemonic() { return mnemonic_;} 
   vector <uint8_t> insBinary() { return insBinary_;}
@@ -217,6 +219,7 @@ public:
   void chkConstOp();
   void isRltvAccess(int RIP);
   void setRltvAccess(bool val) { isRltvAccess_ = val; }
+  void chkConstPtr();
 private:
   uint64_t calcTarget();
   string prefixChk(char *mne);

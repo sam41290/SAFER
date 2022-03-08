@@ -9,7 +9,9 @@ using namespace SBI;
 PointerAnalysis::PointerAnalysis (uint64_t memstrt, uint64_t memend) :
                  CFValidity(memstrt,memend,INSVALIDITY),
                  JmpTblAnalysis(memstrt,memend) {
-  //analysis::setup();
+  propList_ = PROPERTIES;
+  //analysis::setup(TOOL_PATH"auto/output.auto");
+  //analysis::set_init(1);
 }
 
 set <string> calleeSaved{"%r12", "%r13", "%r14", "%r15", "%rbx", "%rsp",
@@ -146,7 +148,7 @@ PointerAnalysis::rltvPtr(Pointer *ptr) {
 bool
 PointerAnalysis::jmpTblTgt(Pointer *ptr) {
   auto bb = getBB(ptr->address());
-  if(bb != NULL && bb->CFConsistency() == CFStatus::CONSISTENT)
+  if(bb != NULL && codeByProperty(bb))
     return ptr->symbolizable(SymbolizeIf::JMP_TBL_TGT);
   return false;
 }
@@ -261,15 +263,36 @@ extern bool compareBB(BasicBlock *A, BasicBlock *B);
 
 
 int counter = 0;
+/*
+bool
+bbInList(BasicBlock *bb, vector <BasicBlock *> &bb_list) {
+  for(auto & b : bb_list)
+    if(b->start() == bb->start())
+      return true;
+  return false;
+}
+*/
+void
+PointerAnalysis::checkIndTgts(unordered_map<int64_t, vector<int64_t>> & ind_tgts,
+                              vector <BasicBlock *> & fin_bb_list) {
+  for(auto & bb : fin_bb_list) {
+    auto ind_tgt_set = bb->indirectTgts();
+    for(auto & ind_bb : ind_tgt_set) {
+      if(bbInList(ind_bb,fin_bb_list))
+        ind_tgts[bb->end()].push_back(ind_bb->start());
+    }
+  }
+}
 
 bool
 PointerAnalysis::regPreserved(uint64_t entry,
-    vector <BasicBlock *> fin_bb_list,
+    vector <BasicBlock *> &fin_bb_list,
     const vector <string> &reg_list) {
   LOG("Checking SP preserved property for: "<<hex<<entry);
   if(validIns(fin_bb_list)) {
     unordered_map<int64_t, vector<int64_t>> ind_tgts;
-    indTgts(fin_bb_list,ind_tgts);
+    checkIndTgts(ind_tgts,fin_bb_list);
+    //indTgts(fin_bb_list,ind_tgts);
     dumpIndrctTgt(TOOL_PATH"run/tmp/" + to_string(entry)
         + ".ind",ind_tgts);
     string file_name = TOOL_PATH"run/tmp/" + to_string(entry) + "_" + to_string(counter) + ".s";
@@ -280,28 +303,30 @@ PointerAnalysis::regPreserved(uint64_t entry,
     vector <int64_t> all_entries;
     all_entries.push_back(entry);
     LOG("indirect targets size: "<<ind_tgts.size());
-    //if(analysis::load(file_name,ins_sz,ind_tgts,all_entries)) {
-    //  for (int func_index = 0; ; ++func_index) {
-    //     bool valid_func = analysis::analyze(func_index);
-    //     if (valid_func) {
-    //        bool ret = analysis::preserved(reg_list);
-    //        return ret;
-    //     }
-    //     else
-    //        break;
-    //  }
-    //  //analysis::reset();
-    //}
+    /*
+    if(analysis::load(file_name,ins_sz,ind_tgts,all_entries)) {
+      for (int func_index = 0; ; ++func_index) {
+         bool valid_func = analysis::analyze(func_index);
+         if (valid_func) {
+            bool ret = analysis::preserved(reg_list);
+            return ret;
+         }
+         else
+            break;
+      }
+    }
+    */
   }
   return false;
 }
 
 bool
 PointerAnalysis::validInit(uint64_t entry, 
-    vector <BasicBlock *> fin_bb_list) {
+    vector <BasicBlock *> &fin_bb_list) {
   if(validIns(fin_bb_list)) {
     unordered_map<int64_t, vector<int64_t>> ind_tgts;
-    indTgts(fin_bb_list,ind_tgts);
+    checkIndTgts(ind_tgts,fin_bb_list);
+    //indTgts(fin_bb_list,ind_tgts);
     dumpIndrctTgt(TOOL_PATH"run/tmp/" + to_string(entry)
         + ".ind",ind_tgts);
     string file_name = TOOL_PATH"run/tmp/" + to_string(entry) + "_" + to_string(counter) + ".s";
@@ -311,13 +336,19 @@ PointerAnalysis::validInit(uint64_t entry,
         + to_string(counter) + ".sz",ins_sz);
     vector <int64_t> all_entries;
     all_entries.push_back(entry);
-    //if(analysis::load(file_name,ins_sz,ind_tgts,all_entries)) {
-    //  //unordered_set<string> invalid_init = analysis::invalid_regs();
-    //  ////analysis::reset();
-    //  //if(invalid_init.size() > 0)
-    //  //  return false;
-    //  return true;
-    //}
+    /*
+    if(analysis::load(file_name,ins_sz,ind_tgts,all_entries)) {
+      for (int func_index = 0; ; ++func_index) {
+         bool valid_func = analysis::analyze(func_index);
+         if (valid_func) {
+            if(analysis::uninit() == 0)
+              return true;
+         }
+         else
+            break;
+      }
+    }
+    */
   }
   return false;
 }
@@ -379,63 +410,147 @@ hasPossibleCode(vector <BasicBlock *> &bb_list) {
 }
 
 void
-PointerAnalysis::resolvePossiblyExits(BasicBlock *bb) {
-  LOG("Resolving possible exit calls for function entry: "<<hex<<bb->start());
-  auto exitCalls = psblExitCalls(bb);
-  LOG("Obtained all possible exit calls");
-  map <uint64_t, Pointer *> ptr_map = pointers();
+setProperty(vector<BasicBlock *> &bb_list, Property p, bool pass) {
+  for(auto & bb : bb_list) {
+    if(pass) {
+      //LOG("Pass property: "<<(int)p<<" bb: "<<hex<<bb->start()<<" "<<bb);
+      bb->passedProp(p);
+    }
+    else {
+      //LOG("Fail property: "<<(int)p<<" bb: "<<hex<<bb->start()<<" "<<bb);
+      bb->failedProp(p);
+    }
+  }
+}
+
+void
+PointerAnalysis::propertyCheck(BasicBlock *entry_bb, vector<BasicBlock *> &bb_list) {
+  for(auto & p : propList_) {
+    switch (p) {
+      case Property::VALIDINS :
+        setProperty(bb_list, Property::VALIDINS, validIns(bb_list));
+        break;
+      case Property::VALID_CF :
+        setProperty(bb_list,Property::VALID_CF,validCF(bb_list));
+        break;
+      case Property::VALIDINIT :
+        setProperty(bb_list,Property::VALIDINIT,validInit(entry_bb->start(),bb_list));
+        break;
+      case Property::SP_PRESERVED :
+        setProperty(bb_list,Property::SP_PRESERVED,
+                    regPreserved(entry_bb->start(),bb_list, vector<string>{"sp"}));
+        break;
+      case Property::ABI_REG_PRESERVED :
+        setProperty(bb_list,Property::ABI_REG_PRESERVED,
+                    regPreserved(entry_bb->start(),bb_list,vector<string>{"sp","bx","bp","r12","r13","r14","r15"}));
+        break;
+    }
+  }
+}
+
+unordered_set <uint64_t> resolving_done;
+
+void
+PointerAnalysis::resolveNoRetCall(BasicBlock *entry) {
+  auto exitCalls = psblExitCalls(entry);
   while(exitCalls.empty() == false) {
     BasicBlock *call_bb = exitCalls.top();
     exitCalls.pop();
-    LOG("Resolving possible exit call: "<<hex<<call_bb->start());
-    vector <pair<uint64_t,vector <BasicBlock *>>> all_paths
-      = allPathsTo(call_bb);
-    LOG("Obtained all paths");
-    vector <BasicBlock *> fall = bbSeq(call_bb,SEQTYPE::INTRAFN);
-    LOG("Obtained all fall through paths");
-    for(auto & lst : all_paths) {
-      if(lst.second.size() > 0) {
-        lst.second.insert(lst.second.end(),fall.begin(),fall.end());
-        if(FNCHECK(getBB(lst.first),lst.second)) {
+
+    if(call_bb->callType() == BBType::MAY_BE_RETURNING &&
+       resolving_done.find(call_bb->start()) == resolving_done.end()) {
+      LOG("Resolving possible exit call: "<<hex<<call_bb->start());
+      vector <BasicBlock *> fall = bbSeq(call_bb,SEQTYPE::INTRAFN);
+      if(entry->isCode()) {
+        auto paths_to_call  = pathsFromTo(entry,call_bb);
+        paths_to_call.insert(paths_to_call.end(), fall.begin(), fall.end());
+        propertyCheck(entry,paths_to_call);
+        if(codeByProperty(call_bb)) {
           call_bb->callType(BBType::RETURNING);
-          break;
+          resolving_done.insert(call_bb->start());
         }
       }
-    }
-    if(call_bb->callType() == BBType::MAY_BE_RETURNING) {
-      //check if it has a jump table root
-
-      auto roots = call_bb->roots();
-      for(auto & r : roots) {
-        if(if_exists(r->start(),ptr_map) &&
-           ptr_map[r->start()]->symbolizable(SymbolizeIf::JMP_TBL_TGT)) {
-          vector <BasicBlock *> bb_list = path(r,call_bb,SEQTYPE::INTRAFN);
-          if(bb_list.size() > 0 && validCF(bb_list)) {
-            call_bb->callType(BBType::RETURNING);
+      else {
+        bool check_pass = true;
+        auto all_paths = allPathsTo(call_bb);
+        auto fall = bbSeq(call_bb, SEQTYPE::INTRAFN);
+        for(auto & p : all_paths) {
+          auto path = p.second;
+          path.insert(path.end(), fall.begin(), fall.end());
+          auto entry_bb = getBB(p.first);
+          propertyCheck(entry_bb, path);
+          if(codeByProperty(entry_bb) == false) {
+            check_pass = false;
+            for(auto & bb : path)
+              bb->clearProps();
             break;
           }
+          for(auto & bb : path)
+            bb->clearProps();
         }
+        if(check_pass == false) {
+          auto fall_path = bbSeq(call_bb->fallThroughBB(),SEQTYPE::INTRAFN);
+          propertyCheck(call_bb->fallThroughBB(), fall_path);
+          if(dataByProperty(call_bb->fallThroughBB()) ||
+             codeByProperty(call_bb->fallThroughBB())) {
+            LOG("Marking non-returning: "<<hex<<call_bb->start());
+            possibleRAs_.insert(call_bb->fallThrough());
+            call_bb->callType(BBType::NON_RETURNING);
+            call_bb->fallThrough(0);
+            call_bb->fallThroughBB(NULL);
+          }
+          else
+            call_bb->callType(BBType::RETURNING);
+        }
+        else
+          call_bb->callType(BBType::RETURNING);
+        resolving_done.insert(call_bb->start());
       }
-      if(call_bb->callType() == BBType::MAY_BE_RETURNING) {
-        LOG("Marking non-returning: "<<hex<<call_bb->start());
-        call_bb->callType(BBType::NON_RETURNING);
-        call_bb->fallThrough(0);
-        call_bb->fallThroughBB(NULL);
+    }
+  }
+}
+
+void
+PointerAnalysis::resolveAllNoRetCalls() {
+  LOG("Resolving no ret calls");
+  map <uint64_t, Function *>funMap = funcMap();
+  for(auto & fn : funMap) {
+    set <uint64_t> defEntries = fn.second->entryPoints();
+    for(auto & e : defEntries) {
+      auto bb = getBB(e);
+      if(bb != NULL) {
+        resolveNoRetCall(bb);
       }
     }
   }
 
+  for(auto & fn : funMap) {
+    set <uint64_t> possibleEntries = fn.second->probableEntry();
+
+    for(auto & e : possibleEntries) {
+      auto bb = getBB(e);
+      if(bb != NULL) {
+        resolveNoRetCall(bb);
+      }
+    }
+  }
+  auto jmp_tbls = jumpTables();
+  for(auto & j : jmp_tbls) {
+    vector <BasicBlock *> targets = j.targetBBs();
+    for(auto & tgt : targets) {
+      resolveNoRetCall(tgt);
+    }
+  }
 }
 
 void
 PointerAnalysis::classifyPsblFn(Function *fn) {
+  set <uint64_t> def_entries = fn->entryPoints();
   set <uint64_t> possibleEntries = fn->probableEntry();
-  //set <uint64_t> defEntries = fn->entryPoints();
   set <uint64_t> allEntries;
-  //allEntries.insert(defEntries.begin(),defEntries.end());
   allEntries.insert(possibleEntries.begin(), possibleEntries.end());
+  allEntries.insert(def_entries.begin(), def_entries.end());
   set <uint64_t> invalidPtrs = invalidPtr();
-  //bool resolved = true;
   for(auto & entry : allEntries) {
     LOG("Analyzing function entry: "<<hex<<entry);
     if(invalidPtrs.find(entry) == invalidPtrs.end() /*&& entry == 0xf6890*/) {
@@ -443,28 +558,22 @@ PointerAnalysis::classifyPsblFn(Function *fn) {
       if(bb == NULL)
         LOG("No BB: "<<hex<<entry);
       else {
-        if(bb->CFConsistency() != CFStatus::NOT_EXAMINED) {
-          LOG("Function entry pre-validated");
-          continue;
-        }
-        vector <BasicBlock *> lst = bbSeq(bb,SEQTYPE::INTRAFN);
+        vector <BasicBlock *> lst = bbSeq(bb, SEQTYPE::INTRAFN);
         counter = 0;
         if(hasPossibleCode(lst)) {
-          if(FNCHECK(bb,lst)) {
+          propertyCheck(bb,lst);
+          if(codeByProperty(bb))
             LOG("Validity check passed!!");
-            fn->passedPropertyCheck(entry,true);
-          }
-          else {
-            LOG("Valid code criteria certification failed: "<<hex<<entry);
-            fn->passedPropertyCheck(entry,false);
-          }
+          //else if(dataByProperty(bb) == false && resolvePossiblyExits(bb,bb))
+          //  LOG("Validity check passed!!");
+          else
+            LOG("Property check failed: "<<hex<<entry);
         }
       }
     }
     else
       LOG("Invalid entry point: "<<hex<<entry);
   }
-  //return resolved;
 }
 
 bool
@@ -482,53 +591,92 @@ PointerAnalysis::conflictingSeqs(vector <BasicBlock *> &seq1,
 }
 
 void
-PointerAnalysis::filterJmpTblTgts(Function *fn) {
-  auto bb_list = fn->getDefCode();
-  auto bb_list2 = fn->getUnknwnCode();
-  bb_list.insert(bb_list.end(),bb_list2.begin(),bb_list2.end());
+PointerAnalysis::validateIndTgts(vector <BasicBlock *> &entry_lst, BasicBlock *entry_bb,
+                                 BasicBlock *ind_bb) {
+  LOG("Validating jump table target: "<<hex<<ind_bb->start());
+  auto ind_seq = bbSeq(ind_bb);
+  entry_lst.insert(entry_lst.end(), ind_seq.begin(), ind_seq.end());
+  propertyCheck(entry_bb, entry_lst);
+  if(codeByProperty(ind_bb)) {
+    for(auto & bb : ind_seq) {
+      auto inds = bb->indirectTgts();
+      if(inds.size() > 0) {
+        for(auto & ind_bb2 : inds) {
+          if(codeByProperty(ind_bb2) == false) {
+            vector <BasicBlock *> bb_list = entry_lst;
+            validateIndTgts(bb_list, entry_bb, ind_bb2);
+          }
+        }
+      }
+    }
+  }
+}
 
+void
+PointerAnalysis::filterJmpTblTgts(Function *fn) {
   set <uint64_t> possibleEntries = fn->probableEntry();
   set <uint64_t> defEntries = fn->entryPoints();
   set <uint64_t> allEntries;
   allEntries.insert(defEntries.begin(),defEntries.end());
   allEntries.insert(possibleEntries.begin(), possibleEntries.end());
-  for(auto & bb : bb_list) {
-    auto ind_tgts = bb->indirectTgts();
-    BasicBlock *prev_bb = NULL;
-    for(auto & ind_bb : ind_tgts) { 
-      auto ind_seq = bbSeq(ind_bb);
-      LOG("Validating indirect target: "<<hex<<ind_bb->start());
-      bool valid_entry = false;
-      for (auto & e : allEntries) {
-        LOG("Entry: "<<hex<<e);
-        auto entry_bb = getBB(e);
-        if(entry_bb != NULL) {
-          auto entry_seq = bbSeq(entry_bb);
-          if(conflictingSeqs(entry_seq,ind_seq) == false) {
-            valid_entry = true;
-            break;
-          }
-          else
-            LOG("conflicts with entry");
-        }
-      }
-      if(valid_entry == false) {
-        LOG("Invalid jump table target (entry collision): "<<hex<<ind_bb->start());
-        ind_bb->CFConsistency(CFStatus::INCONSISTENT,TRANSITIVECF);
-        ind_bb->jmpTblConsistency(CFStatus::INCONSISTENT);
-      }
-      else if(prev_bb != NULL &&
-             (prev_bb->noConflict(ind_bb->start()) == false || 
-              ind_bb->noConflict(prev_bb->start()) == false)) {
-        LOG("Invalid jump table target (prev tgt collision): "<<hex<<ind_bb->start());
-        ind_bb->CFConsistency(CFStatus::INCONSISTENT,TRANSITIVECF);
-        ind_bb->jmpTblConsistency(CFStatus::INCONSISTENT);
-      }
-      else
-        prev_bb = ind_bb;
-
+  
+  vector <BasicBlock *> entry_bb_lst;
+  for(auto & e : allEntries) {
+    auto entry_bb = getBB(e);
+    if(entry_bb != NULL && (entry_bb->isCode() || codeByProperty(entry_bb))) {
+      entry_bb_lst.push_back(entry_bb);
     }
   }
+
+  
+  for(auto & p : possibleRAs_) {
+    auto bb = fn->getBB(p);
+    if(bb != NULL && codeByProperty(bb)) {
+      entry_bb_lst.push_back(bb);
+    }
+  }
+
+/*
+  for(auto & e : entry_bb_lst) {
+    LOG("Validating jump table target for entry: "<<hex<<e->start());
+    auto bb_list = bbSeq(e);
+    for(auto & bb : bb_list) {
+      auto inds = bb->indirectTgts();
+      if(inds.size() > 0) {
+        for(auto & ind_bb : inds) {
+          if(codeByProperty(ind_bb) == false) {
+            vector <BasicBlock *> entry_lst = bb_list;
+            validateIndTgts(entry_lst, e, ind_bb);
+          }
+        }
+      }
+    }
+  }
+*/
+  auto ind_tgts = allIndTgts(entry_bb_lst);
+  unordered_set <BasicBlock *> ind_set;
+  ind_set.insert(ind_tgts.begin(),ind_tgts.end());
+
+  for(auto & tgt : ind_set) {
+    LOG("Validating jump table target: "<<hex<<tgt->start());
+    auto bb_lst = bbSeq(tgt);
+    if(validIns(bb_lst)) {
+      if(codeByProperty(tgt) == false) {
+        for(auto & e : entry_bb_lst) {
+          auto exit_routes = allRoutes(e, tgt);
+          if(exit_routes.size() > 0) {
+            LOG("Validating with entry: "<<hex<<e->start());
+            propertyCheck(e,exit_routes);
+            if(codeByProperty(tgt))
+              break;
+          }
+        }
+      }
+    }
+    else
+      setProperty(bb_lst, Property::VALIDINS, false);
+  }
+
 }
 
 void
@@ -538,7 +686,7 @@ PointerAnalysis::jmpTblConsistency() {
   for(auto & fn : funMap) {
     filterJmpTblTgts(fn.second);
   }
-
+/*
   auto jmp_tbls = jumpTables();
   for(auto & j : jmp_tbls) {
     vector <BasicBlock *> targets = j.targetBBs();
@@ -550,11 +698,6 @@ PointerAnalysis::jmpTblConsistency() {
       }
       if(tgt->jmpTblConsistency() == CFStatus::INCONSISTENT) {
         LOG("Target pre-marked inconsistent");
-        continue;
-      }
-      auto tgt_fn = is_within(tgt->start(),funMap);
-      if(tgt_fn->first != j.function()) {
-        LOG("Jump table target: "<<hex<<tgt->start()<<" out of function "<<hex<<j.function());
         continue;
       }
       if(tgt->CFConsistency() != CFStatus::NOT_EXAMINED)
@@ -573,6 +716,7 @@ PointerAnalysis::jmpTblConsistency() {
       }
     }
   }
+*/
 }
 
 vector <pair<uint64_t,uint64_t>>
@@ -584,11 +728,11 @@ PointerAnalysis::getConflicts(uint64_t fn_start,Function *fn) {
   LOG("Function: "<<hex<<fn_start);
   auto next_it = next_iterator(fn_start,funMap);
   for(unsigned int i = 0; i < bb_cnt; i++) {
-    if(bb_list[i]->CFConsistency() != CFStatus::INCONSISTENT) {
+    if(codeByProperty(bb_list[i])) {
       auto j = i + 1;
       while(j < bb_cnt && bb_list[i]->boundary() > bb_list[j]->start()) {
         if(bb_list[i]->noConflict(bb_list[j]->start()) == false) {
-          if(bb_list[j]->CFConsistency() != CFStatus::INCONSISTENT)
+          if(codeByProperty(bb_list[j]))
             all_conflicts.push_back(make_pair(bb_list[i]->start(),bb_list[j]->start()));
           else
             bb_list[i]->conflict(ConflictStatus::NOCONFLICT,bb_list[j]->start());
@@ -599,7 +743,7 @@ PointerAnalysis::getConflicts(uint64_t fn_start,Function *fn) {
       while(it != funMap.end() && bb_list[i]->boundary() > it->first) {
         auto cnflcts = next_it->second->conflictingBBs(bb_list[i]->boundary());
         for(auto & cnf : cnflcts) {
-          if(cnf->CFConsistency() != CFStatus::INCONSISTENT)
+          if(codeByProperty(cnf))
             all_conflicts.push_back(make_pair(bb_list[i]->start(),cnf->start()));
           else
             bb_list[i]->conflict(ConflictStatus::NOCONFLICT,cnf->start());
@@ -633,7 +777,7 @@ PointerAnalysis::spatialResolver(BasicBlock *b1, BasicBlock *b2) {
      && ptr_map[b2->start()]->type() == PointerType::DEF_PTR) {
     conflictingBBs_.erase(b2->start());
     conflictingBBs_.insert(b1->start());
-    b1->CFConsistency(CFStatus::INCONSISTENT,Update::TRANSITIVE);
+    //b1->CFConsistency(CFStatus::INCONSISTENT,Update::TRANSITIVE);
     b1->conflict(ConflictStatus::CONFLICT,b2->start());
     b2->conflict(ConflictStatus::NOCONFLICT,b1->start());
   }
@@ -641,7 +785,7 @@ PointerAnalysis::spatialResolver(BasicBlock *b1, BasicBlock *b2) {
      && ptr_map[b1->start()]->type() == PointerType::DEF_PTR) {
     conflictingBBs_.erase(b1->start());
     conflictingBBs_.insert(b2->start());
-    b2->CFConsistency(CFStatus::INCONSISTENT,Update::TRANSITIVE);
+    //b2->CFConsistency(CFStatus::INCONSISTENT,Update::TRANSITIVE);
     b1->conflict(ConflictStatus::NOCONFLICT,b2->start());
     b2->conflict(ConflictStatus::CONFLICT,b1->start());
   }
@@ -670,14 +814,14 @@ PointerAnalysis::symbolizabilityResolver(BasicBlock *b1, BasicBlock *b2) {
   if(hasSymbolizableRoot(b1) && !(hasSymbolizableRoot(b2))) {
     conflictingBBs_.erase(b1->start());
     conflictingBBs_.insert(b2->start());
-    b2->CFConsistency(CFStatus::INCONSISTENT,Update::TRANSITIVE);
+    //b2->CFConsistency(CFStatus::INCONSISTENT,Update::TRANSITIVE);
     b1->conflict(ConflictStatus::NOCONFLICT,b2->start());
     b2->conflict(ConflictStatus::CONFLICT,b1->start());
   }
   else if(hasSymbolizableRoot(b2) && !(hasSymbolizableRoot(b1))) {
     conflictingBBs_.erase(b2->start());
     conflictingBBs_.insert(b1->start());
-    b1->CFConsistency(CFStatus::INCONSISTENT,Update::TRANSITIVE);
+    //b1->CFConsistency(CFStatus::INCONSISTENT,Update::TRANSITIVE);
     b1->conflict(ConflictStatus::CONFLICT,b2->start());
     b2->conflict(ConflictStatus::NOCONFLICT,b1->start());
   }
@@ -688,7 +832,7 @@ PointerAnalysis::symbolizabilityResolver(BasicBlock *b1, BasicBlock *b2) {
     b2->conflict(ConflictStatus::CONFLICT,b1->start());
   }
 }
-
+/*
 void
 PointerAnalysis::resolveAllPossibleExits() {
   map <uint64_t, Function *>funMap = funcMap();
@@ -712,26 +856,60 @@ PointerAnalysis::resolveAllPossibleExits() {
     }
   }
 }
+*/
 
+bool
+PointerAnalysis::codeByProperty(BasicBlock *bb) {
+  auto passed_props = bb->passedProps();
+  for(auto & p : passed_props) {
+    if(DEFCODE(p)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+bool
+PointerAnalysis::dataByProperty(BasicBlock *bb) {
+  //LOG("Checking if data: "<<hex<<bb->start());
+  auto failed_props = bb->failedProps();
+  for(auto & p : failed_props) {
+    if(DEFDATA(p)) {
+      //LOG("Definitely data by property: "<<(int)p<<" bb: "<<hex<<bb->start()<<" "<<bb);
+      return true;
+    }
+  }
+  return false;
+}
+
+void
+PointerAnalysis::classifyEntry(uint64_t entry) {
+  auto bb = getBB(entry);
+  if(bb != NULL) {
+    vector <BasicBlock *> lst = bbSeq(bb,SEQTYPE::INTRAFN);
+    for(auto & bb2 : lst) {
+      if(bb2->isCode() == false) {
+        if(dataByProperty(bb2))
+          markAsDefData(bb2->start());
+        else if(codeByProperty(bb2))
+          markAsDefCode(bb2->start());
+      }
+    }
+  }
+}
 
 void
 PointerAnalysis::classifyCode() {
   map <uint64_t, Function *>funMap = funcMap();
   for(auto & fn : funMap) {
-    vector <uint64_t> valid_entries = fn.second->allValidEntries();
-    for(auto & e : valid_entries) {
-      if(fn.second->validEntry(e)) {
-        auto bb = getBB(e);
-        if(bb != NULL && bb->conflict() != ConflictStatus::CONFLICT) {
-          LOG("Marking entry as defcode: "<<hex<<e);
-          vector <BasicBlock *> lst = bbSeq(bb,SEQTYPE::INTRAFN);
-          for(auto & bb2 : lst)
-            markAsDefCode(bb2->start());
-        }
-      }
+    vector <uint64_t> entries = fn.second->allEntries();
+    for(auto & e : entries) {
+      classifyEntry(e);
     }
   }
+
 }
+
 
 void
 PointerAnalysis::resolveAndClassify(ResolutionType t) {
@@ -745,13 +923,9 @@ PointerAnalysis::resolveAndClassify(ResolutionType t) {
     for(auto & j : jmp_tbls) {
       vector <BasicBlock *> targets = j.targetBBs();
       for(auto & tgt : targets) {
-        if(tgt->isCode() == false && tgt->CFConsistency() == CFStatus::CONSISTENT
-           && tgt->conflict() != ConflictStatus::CONFLICT) {
-          LOG("Marking jmp tbl tgt as defcode: "<<hex<<tgt->start());
-          auto lst = bbSeq(tgt);
-          for(auto & bb2 : lst) {
-            markAsDefCode(bb2->start());
-          }
+        auto lst = bbSeq(tgt);
+        for(auto & bb2 : lst) {
+          classifyEntry(bb2->start());
         }
       }
     }
@@ -765,24 +939,51 @@ PointerAnalysis::resolveAndClassify(ResolutionType t) {
 }
 
 void
+PointerAnalysis::classifyPossibleRAs() {
+  map <uint64_t, Pointer *> ptrMap = pointers ();
+  map <uint64_t, Function *>funMap = funcMap();
+  for(auto & p : ptrMap)
+    if(p.second->source() == PointerSource::POSSIBLE_RA)
+      possibleRAs_.insert(p.second->address());
+
+  for(auto & p : possibleRAs_) {
+    auto bb = getBB(p);
+    if(bb != NULL) {
+      auto bb_list = bbSeq(bb);
+      propertyCheck(bb,bb_list);
+    }
+  }
+
+  for(auto & fn : funMap) {
+    auto psbl_code_lst = fn.second->getUnknwnCode();
+    for(auto & bb : psbl_code_lst) {
+      if(bb->source() == PointerSource::POSSIBLE_RA &&
+         codeByProperty(bb) == false) {
+        auto bb_list = bbSeq(bb);
+        propertyCheck(bb,bb_list);
+        possibleRAs_.insert(bb->start());
+      }
+    }
+  }
+}
+
+void
 PointerAnalysis::cfgConsistencyAnalysis() {
   LOG("Checking CF consistency");
   propagateAllRoots();
-  resolveAllPossibleExits();
+  updateBBTypes();
 
-  //After resolving all possible exit calls, mark all code reachable from known
-  //code pointers as definite code
-  classifyCode(); 
+  resolveAllNoRetCalls();
 
-  //re-classify pointers to get more definite pointers
-
-  classifyPtrs();
   map <uint64_t, Function *>funMap = funcMap();
   for(auto & fn : funMap)
     classifyPsblFn(fn.second);
+  classifyPossibleRAs(); 
   jmpTblConsistency();
-  resolveAndClassify(ResolutionType::SPATIAL);
-  resolveAndClassify(ResolutionType::SYMBOLIZABILITY);
+  resolveAndClassify(ResolutionType::NONE);
+  for(auto & p : possibleRAs_) {
+    classifyEntry(p);
+  }
 }
 
 
