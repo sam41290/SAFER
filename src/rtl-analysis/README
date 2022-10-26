@@ -1,0 +1,289 @@
+/*
+    Copyright (C) 2018 - 2021 by Huan Nguyen in Secure Systems Lab,
+    Stony Brook University, Stony Brook, NY 11794.
+*/
+
+
+The framework assumes accurate disassembly and function boundary identification.
+
+--------------------------------------------------------------------------------
+                                  interface.h
+--------------------------------------------------------------------------------
+The interface between customized analyses and core features of the
+framework. User must provide asm of function body, abstract domains
+and minimal architecture specification. The framework proceeds
+information and once it's done, user can write analysis code based
+on complete control of the framework. For example, it is capable to
+traverse control flow graph, track data flow in given domains, do
+symbolic execution, and be able to modify, insert, remove some
+instructions. It helps our framework adapt to changes by binary
+instrumentation instead of starting all over again.
+
+(0) Interface(const int _nDomain);
+    -> specify number of abstract domain to initialize cache
+
+(1) Function* get_func(const int64 _offset);
+    -> return function at specific _offset, return nullptr if not found
+
+(2) template <class ARCH> void add_func(const string& _asmFile);
+    -> load a new function
+    -> specify ARCH to create Reg objects
+
+(3) static void ocaml_train_imap(const string& _imapFile1, const string& _imapFile2);
+    -> train imap files
+    -> pass _imapFile2 as "" to train 1 file
+
+(4) static void ocaml_load_auto(const string& _autoFile);
+    -> load an pre-trained automaton file
+
+(5) static void ocaml_lift_asm(string& _asmFile, string& _rtlFile);
+    -> lift asm to RTL
+    -> can only be invoked by Interface::add_func()
+
+(6) static void prepare_file(const string& _fileName, int _id);
+    -> symlink fileName to a temporary file
+    -> invoked by all ocaml-interact methods
+
+--------------------------------------------------------------------------------
+                                   function.h
+--------------------------------------------------------------------------------
+Construct control flow graph (e.g., loop detection, topological order), and
+manage use/def basic block chain. Track value of register or memory within
+current function scope.
+
+(0) Function(Interface* _interface, const vector<pair<int64,RTL*>>& _pairList);
+    -> construct a function from a list of <offset,RTL*>
+
+(1) BasicBlock* get_bb(const int64 _offset);
+    -> return basic block at specific offset, return nullptr if not found
+
+(2) template <class DOMAIN> DOMAIN* track_input_to(BasicBlock* _bb, const int _uid);
+    -> return value of unique identifier _uid before reaching _bb in specific DOMAIN
+    -> cache result for basic block if not yet cached
+    -> able to distinguish "tracked with no result" vs "not tracked yet"
+    -> this method uses Insn::track()
+
+(3) void compute_loop_index();
+    -> grouping basic blocks by loop
+
+(4) void compute_topo_order();
+    -> compute topological order, required compute_loop_index() already run
+    -> [optional] needed for forward data-flow
+
+(5) void compute_bb_depth();
+    -> compute tree depth for all basic blocks
+
+--------------------------------------------------------------------------------
+                                   basicblock.h
+--------------------------------------------------------------------------------
+Support move forward and backward on control flow graph, and manage use/def
+instruction chain. Track value of register or memory within current basic
+block scope.
+
+(0) BasicBlock(Function* _f);
+    -> initialize an empty basic block
+
+(1) Insn* get_insn(const int64 _offset);
+    -> return insn at specific offset, return nullptr if not found
+
+(2) void add_insn(Insn* _insn);
+    -> add a new insn in order
+    -> can only be invoked by Function's constructor (currently)
+
+(3) Insn* get_terminator_insn();
+    -> return the last insn
+
+(4) template <class DOMAIN> DOMAIN* track_input_to(Insn* _insn, const int _uid);
+    -> return value of unique identifier _uid before reaching _insn in specific DOMAIN
+    -> this method uses Function::track_input_to() and Insn::track()
+
+(5) void process_transfers();
+    -> extract transfer targets and convert them to vector<BasicBlock*> and Expr*
+
+(6) void generate_uid_def_use_insn();
+    -> synthesize multimap from unique identifier to Insn* that defines or uses it
+    -> this method uses Insn::get_uid_use() and Insn::get_uid_def()
+
+--------------------------------------------------------------------------------
+                                     insn.h
+--------------------------------------------------------------------------------
+Find list of unique identifiers for Expr objects defined or used by current
+instruction. Track value of of a register or memory at current instruction
+(after execution). Cache only if needed to address memory usage concern. This
+class is responsible for all caching requirement at all tracking levels.
+
+(0) Insn(int64 _offset, RTL* _rtl, int64 _nextOffset);
+    -> construct an insn from _offset and _rtl
+    -> initialize cache with total Function::nDomain
+    -> specify _nextOffset to substitute for "pc"
+
+(1) char is_empty_insn();
+    -> check if current insn is empty (unable to lift)
+
+(2) char is_terminator_insn();
+    -> check if current insn is terminator: check if it has transfer
+
+(3) string to_string();
+    -> return RTL string of current insn
+
+(4) void process_transfers(int _nextOffset);
+    -> extract typeTransfer, opTransfer,
+               directTargets (vector<int64>), indirectTarget (Expr*)
+    -> can only be invoked by Insn's constructor
+    -> this method uses RTL::find()
+
+(5) template<DOMAIN> DOMAIN* track(const int _uid);
+    -> return value of unique identifier _uid after executing current insn
+    -> cache _uid for (a) terminator insn, (b) insn that defines _uid
+    -> Insn is the only class responsible for caching at all tracking levels
+    -> this method uses BasicBlock::track_input_to()
+
+(6) const vector<int>& get_uid_use();
+    -> return a list of unique identifiers used by current insn
+
+(7) const vector<int>& get_uid_def();
+    -> return a list of unique identifiers defined by current insn
+
+(8) void generate_uid_def_use();
+    -> synthesize {<def1, use11, use12,...>, <def2, use21, use22>,...>}
+
+(9) Insn::TRANSFER_TYPE get_transfer_type();
+    -> return DIRECT, INDIRECT or NONE
+
+(10) Insn::TRANSFER_OPCODE get_transfer_opcode();
+     -> return CALL, JUMP or RET
+
+--------------------------------------------------------------------------------
+                         rtl.h;  expr.h;  arithmetic.h
+--------------------------------------------------------------------------------
+*----------------------*
+|  RTL classification  |
+*----------------------*
+RTL
+ | --- Statement
+ |         | --- Set
+ |         | --- Call
+ |         | --- Parallel
+ |          
+ | --- Expr
+ |         | --- Const
+ |         | --- Var
+ |         |      | --- Mem
+ |         |      | --- Reg
+ |         | --- Arithmetic
+ |         |      | --- BinaryOp
+ |         |      | --- UnaryOp
+ |         | --- Compare
+ |         | --- SubReg
+ |         | --- If_Else
+ |         | --- Conversion
+ |         | --- Uncategorized
+
+These tree structures keep RTL contents. They are not associated to any specific
+abstract domains, which are given by users. Since RTL subclasses cannot reason
+what input abstract domains take and the implementation of Expr subclasses is
+fixed, it's the user's responsibility to support input from all Expr subclasses.
+
+*-----------------------*
+|      RTL methods      |
+*-----------------------*
+(1) virtual string to_string();
+    -> return RTL string of current expression
+
+(2) virtual char equal(RTL_EQUAL _typeEqual, RTL* _v);
+    -> return 1 if _v is equivalent to current expression using _typeEqual metric
+    -> _typeEqual:
+             | --- STRICT:  same expression and mode
+             | --- RELAXED: same expression
+             | --- PARTIAL: allow partial arguments to be unknown
+             | --- OPCODE:  same opcode
+
+(3) virtual vector<RTL*> find(RTL_EQUAL _typeEqual, RTL* _v);
+    -> return a list of subexpressions equal to _v using _typeEqual metric
+    -> this method uses RTL::find_helper() and RTL::equal()
+
+(4) void find_helper(RTL_EQUAL _typeEqual, RTL* _v, vector<RTL*>& _vList);
+    -> invoke find(_typeEqual, _v) and append output to _vList
+
+*----------------------*
+|     Expr methods     |
+*----------------------*
+(1) static string mode_string(EXPR_MODE _modeExpr);
+    -> return string equivalent to _modeExpr, used by to_string() methods
+
+(2) virtual vector<int> get_unique_id();
+    -> return a list of unique identifiers in current expr and sub-expr
+
+(3) EXPR_TYPE get_expr_type();
+    -> return CONSTANT, REG, MEM, etc
+
+(4) EXPR_MODE get_expr_mode();
+    -> return DI, SI, NONE, etc
+
+--------------------------------------------------------------------------------
+                                     arch.h
+--------------------------------------------------------------------------------
+The framework requires some architecture knowledge in some static analysis. For
+example, it needs to know the register name of stack pointer, or how to generate
+unique identifier for a register. That said, the required knowledge should be
+minimal, and there are not that many platforms: just X86_64 and ARM64.
+
+(1) static int get_unique_id(X86_64::REG _reg);
+    -> generate unique identifier for _reg
+
+(2) static string to_string(X86_64::REG _reg);
+    -> convert REG to register name, used by to_string() methods
+
+(3) static X86_64::REG from_string(const string &_reg);
+    -> convert register name to REG, e.g., convert "rsp" to REG::SP
+
+(4) static X86_64::REG get_sp();
+    -> return REG of stack pointer
+
+--------------------------------------------------------------------------------
+                                   domain.h
+--------------------------------------------------------------------------------
+This class is subject to significant changes, to be updated.
+
+
+--------------------------------------------------------------------------------
+                              analysis code example
+--------------------------------------------------------------------------------
+********************************************************************************
+(1) track register "ax" after executing instruction X, up to function start
+    registers = bottom at function start, DOMAIN name is BaseLH
+********************************************************************************
+
+Insn<X86>* X;
+BaseLH* val_ax = X->track_register<>(X86::REG::AX);
+
+// given (set (ax) (plus (bx) (const 5))), let's track ax!
+//
+// the framework internally does following things: (a) tracking val_bx,
+// (b) initialize a new DOMAIN object with Expr* of (plus (bx) (const 5)),
+// (c) subtitute bx with val_bx, and (d) call simplify() to apply the operator
+
+// DOMAIN object holds Expr* whose methods are fixed; if framework has to pass
+// concrete data DOMAIN needs, then framework's implementation is not generic.
+// e.g., if we have constructor BaseLH(int base, int l, int h), then from the
+// framework's perspective, it has no idea how to create a BaseLH object.
+
+********************************************************************************
+(2) print RTL string of terminators in all basic blocks in function X
+********************************************************************************
+
+Function* X;
+for (int i = 0; i < X->get_bb_count(); ++i)
+    cout << X->get_bb_using_id(i)->get_terminator_insn()->to_string() << endl;
+
+********************************************************************************
+(3) iterate all basic blocks in same loop with basic block Y in function X
+    print first instruction of each basic block
+********************************************************************************
+
+Function *X;
+BasicBlock *Y;
+vector<BasicBlock*> Z = X->get_bb_in_loop(Y->get_loop_id());
+
+for (int i = 0; i < Z.size(); ++i)
+    cout << Z.at(i)->get_insn_using_id(0)->to_string() << endl;

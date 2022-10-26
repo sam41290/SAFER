@@ -253,14 +253,20 @@ Rand::brkBasicBlk(vector <uint64_t> &bigBlks,set <uint64_t> &brkPoints,
 }
 
 void
+Rand::addTrampForBB(BasicBlock *bb) {
+  LOG("Adding tramp for bb: "<<hex<<bb->start());
+  bb->addTramp(programEnd_ + 1);
+  programEnd_++;
+}
+
+void
 Rand::addTramps(vector <BasicBlock *> &bbList) {
   //uint64_t tramp_start = programEnd_ + 1;
   vector <BasicBlock *> tramp_bbs;
   for(auto & bb : bbList) {
     if(pointerMap_.find(bb->start()) != pointerMap_.end()) {
-      bb->addTramp(programEnd_ + 1);
+      addTrampForBB(bb);
       tramp_bbs.push_back(bb->tramp());
-      programEnd_++;
     }
   }
   bbList.insert(bbList.end(),tramp_bbs.begin(),tramp_bbs.end());

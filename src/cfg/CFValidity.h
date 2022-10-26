@@ -39,11 +39,7 @@ namespace SBI {
       InsValidators_[(int)InsValidityRules::VLD_PRFX] = &validPrfx;
       InsValidators_[(int)InsValidityRules::VLD_USRMODE_INS] = &validUsrModeIns;
     }
-    bool validCF(vector <BasicBlock *> &bb_list) { 
-      return (zeroDefCodeConflict(bb_list) && validIns(bb_list) && validCFTransfer(bb_list));
-    }
     static bool validIns(vector <BasicBlock *> &bb_list);
-  private:
     static bool validOpCode(Instruction *ins);
     static bool validMem(Instruction *ins);
     static bool validPrfx(Instruction *ins) {
@@ -61,7 +57,11 @@ namespace SBI {
       }
       return true;
     }
-    bool validCFTransfer(vector <BasicBlock *> &bb_list);
+    static bool validCFTransfer(vector <BasicBlock *> &bb_list);
+    bool validCF(vector <BasicBlock *> &bb_list) { 
+      return (zeroDefCodeConflict(bb_list) && validIns(bb_list) && validCFTransfer(bb_list));
+    }
+  private:
   };
 }
 

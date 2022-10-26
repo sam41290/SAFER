@@ -1,6 +1,26 @@
 #include "libutils.h"
 
 using namespace std;
+
+set <uint8_t> utils::all_jmp_opcodes {
+  0x70,0x71,0x78,0x79,0x74,0x75,0x72,0x73,0x76,0x77,
+  0x7c,0x7d,0x7e,0x7f,0x7a,0x7b,0xe3,0xeb,0xe9
+};
+
+set <uint8_t> utils::unconditional_jmp_opcodes {
+  0xeb,0xe9
+};
+
+set <uint8_t> utils::conditional_jmp_opcodes {
+  0x70,0x71,0x78,0x79,0x74,0x75,0x72,0x73,0x76,0x77,
+  0x7c,0x7d,0x7e,0x7f,0x7a,0x7b,0xe3
+};
+
+set <uint8_t> utils::conditional_long_jmp_opcodes {
+  0x80,0x81,0x88,0x89,0x84,0x85,0x82,0x83,0x86,0x87,0x8c,0x8d,0x8e,0x8f,0x8a,0x8b
+};
+
+
 unordered_map <uint64_t, string> utils::sym_bindings;
 set <string> utils::cf_ins_set {
    "jb",
@@ -38,16 +58,23 @@ set <string> utils::cf_ins_set {
    "jz",
    "je",
    "loop",
+   "loopq",
    "loopnz",
    "loopne",
+   "loopneq",
    "loopz",
    "loope",
+   "loopeq",
    "call",
    "callf",
    "callq",
    "jmpq",
    "ret",
-   "retq" };
+   "retq",
+   "iret",
+   "iretl",
+   "iretq"
+};
 
 
 set <string> utils::uncond_cf_ins_set {
@@ -124,7 +151,10 @@ unordered_set <string> utils::prefix_ops {
   {"fs"      },
   {"gs"      },
   {"cs"      },
-  {"ds"      }
+  {"ds"      },
+  {"addr32"  },
+  {"bnd"  },
+  {"data16"  }
 };
 unordered_set <string> utils::invalid_prefixes {
   "ss",
@@ -166,8 +196,21 @@ unordered_set <string> utils::priviledge_ins {
   "rdmsr",
   "wrmsr",
   "rdpmc",
-  "rdtsc",
   "in",
   "out",
-  "swapgs"
+  "inl",
+  "inb",
+  "insb",
+  "insl",
+  "outb",
+  "outl",
+  "outsl",
+  "outsb",
+  "outs",
+  "swapgs",
+  "ljmp",
+  "ljmpl",
+  "iret",
+  "iretq",
+  "iretl"
 };

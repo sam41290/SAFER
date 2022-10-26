@@ -1,6 +1,7 @@
 #include "BasicBlock.h"
 #include "disasm.h"
 #include "libutils.h"
+#include "CFValidity.h"
 
 using namespace SBI;
 
@@ -66,31 +67,12 @@ BasicBlock::deleteIns(uint64_t address) {
 bool
 BasicBlock::isValidIns(uint64_t addrs) {
   for(auto & ins : insList_) { 
-    if(addrs == ins->location())
+    if(addrs == ins->location() && CFValidity::validOpCode(ins))
       return true;
   }
   return false;
 }
 
-
-bool
-BasicBlock::noConflict(uint64_t addrs) {
-  if(addrs > start_ && addrs < boundary()) {
-    for(auto & ins : insList_) { 
-      if(addrs == ins->location())
-        return true;
-      else if((addrs - ins->location()) == 1 
-               && ins->insSize() > 1) {
-        auto bin = ins->insBinary();
-        if(bin.size() > 0 && utils::is_prefix(bin[0]))
-          return true;
-      }
-    }
-    return false;
-  }
-  else
-    return true;
-}
 
 bool
 BasicBlock::indirectCFWithReg() {
@@ -227,17 +209,6 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
   }
   for(auto & it:insList_) {
     it->isCode(isCode());
-    uint64_t rip_rltv_offset = it->ripRltvOfft();
-    if(ENCODE == 1 && rip_rltv_offset != 0 && 
-        map_of_pointer[rip_rltv_offset]->type() == PointerType::CP 
-        && map_of_pointer[rip_rltv_offset]->encodable() == true)
-      it->encode(true);
-    if(it->location() == end_ && isJmpTblBlk_ == true
-        && ENCODE == 1) {
-      it->asmIns(moveZeros(it->op1(),it->location(),file_name)
-          + it->asmIns());
-      it->decode(false);
-    }
     if((it->isJump() || it->isCall()) && targetBB_ != NULL) {
       it->asmIns(it->mnemonic() + " " + targetBB_->label());
       it->op1(targetBB_->label());
@@ -411,28 +382,6 @@ BasicBlock::roots() {
   return roots_;
 }
 
-ConflictStatus
-BasicBlock::checkConflict(unordered_set <uint64_t> &passed) {
-  if(conflicts_.size() > 0) {
-    return ConflictStatus::CONFLICT;
-  }
-  passed.insert(start_);
-  if(targetBB_ != NULL && passed.find(target_) == passed.end()) 
-    if(targetBB_->checkConflict(passed) == ConflictStatus::CONFLICT)
-      return ConflictStatus::CONFLICT;
-  if(fallThroughBB_ != NULL && passed.find(fallThrough_) == passed.end()) 
-    if(fallThroughBB_->checkConflict(passed) == ConflictStatus::CONFLICT)
-      return ConflictStatus::CONFLICT;
-
-  return ConflictStatus::NOCONFLICT;
-}
-
-ConflictStatus
-BasicBlock::conflict() {
-  unordered_set <uint64_t> passed;
-  return checkConflict(passed);
-}
-
 void
 BasicBlock::inferType(unordered_set <uint64_t> &passed) {
   if(type_ == BBType::NA || type_ == BBType::MAY_BE_RETURNING || 
@@ -446,24 +395,32 @@ BasicBlock::inferType(unordered_set <uint64_t> &passed) {
       fallThroughBB_->inferType(passed);
     auto ins = lastIns();
     if(isCall()) {
-      if(targetBB_ != NULL) {
-        callType(targetBB_->type());
-        if(targetBB_->type() == BBType::NON_RETURNING) {
-          if(fallThroughBB_ != NULL)
-            fallThroughBB_->source(PointerSource::POSSIBLE_RA);
-          LOG("Marking BB non returning: "<<hex<<start_);
-          type_ = BBType::NON_RETURNING;
-          fallThrough_ = 0;
-          fallThroughBB_ = NULL;
-        }
-        else if(targetBB_->type() == BBType::MAY_BE_RETURNING)
-          type_ = BBType::MAY_BE_RETURNING;
+      if(callType_ == BBType::NON_RETURNING) {
+        type_ = BBType::NON_RETURNING;
+        fallThrough_ = 0;
+        fallThroughBB_ = NULL;
       }
-      if(fallThroughBB_ != NULL) {
-        if(fallThroughBB_->type() == BBType::NON_RETURNING)
-          type_ = BBType::NON_RETURNING;
-        else if(fallThroughBB_->type() == BBType::MAY_BE_RETURNING)
-          type_ = BBType::MAY_BE_RETURNING;
+      else {
+        if(targetBB_ != NULL) {
+          callType(targetBB_->type());
+          if(targetBB_->type() == BBType::NON_RETURNING) {
+            if(fallThroughBB_ != NULL)
+              fallThroughBB_->source(PointerSource::POSSIBLE_RA);
+            DEF_LOG("Marking BB non returning: "<<hex<<start_);
+            type_ = BBType::NON_RETURNING;
+            fallThrough_ = 0;
+            fallThroughBB_ = NULL;
+          }
+          else if(targetBB_->type() == BBType::MAY_BE_RETURNING)
+            type_ = BBType::MAY_BE_RETURNING;
+        }
+        if(fallThroughBB_ != NULL) {
+          if(fallThroughBB_->type() == BBType::NON_RETURNING)
+            type_ = BBType::NON_RETURNING;
+          else if(fallThroughBB_->type() == BBType::MAY_BE_RETURNING &&
+                  type_ != BBType::NON_RETURNING)
+            type_ = BBType::MAY_BE_RETURNING;
+        }
       }
     }
     else if(ins->isUnconditionalJmp()) {
@@ -485,6 +442,7 @@ BasicBlock::inferType(unordered_set <uint64_t> &passed) {
         type(tgt_type);
     }
   }
+  //LOG("BB Type: "<<hex<<start_<<"-"<<(int)type());
 }
 
 void
@@ -495,58 +453,36 @@ BasicBlock::updateType() {
 
 void
 BasicBlock::addTramp(uint64_t tramp_start) {
-  tramp_ = new BasicBlock(tramp_start,tramp_start,source(),source());
-  tramp_->isTramp(true);
-  tramp_->codeType(codeType_);
-  Instruction *ins = new Instruction();
-  ins->label(insList_[0]->label());
-  insList_[0]->label(insList_[0]->label() + "_tramp");
-  ins->isJump(true);
-  ins->mnemonic("jmp");
-  ins->asmIns("jmp " + label());
-  tramp_->addIns(ins);
-}
-
-void 
-BasicBlock::conflict(ConflictStatus c, uint64_t a) {
-  if(c == ConflictStatus::CONFLICT) {
-    LOG("BB: "<<hex<<start_<<" adding conflict: "<<hex<<a);
-    conflicts_.insert(a);
-  }
-  else {
-    LOG("BB: "<<hex<<start_<<" removing conflict: "<<hex<<a);
-    conflicts_.erase(a);
+  if(tramp_ == NULL) {
+    auto bb = new BasicBlock(tramp_start,tramp_start,source(),source());
+    bb->codeType(codeType_);
+    Instruction *ins = new Instruction();
+    ins->label(insList_[0]->label());
+    insList_[0]->label(insList_[0]->label() + "_tramp");
+    ins->isJump(true);
+    ins->mnemonic("jmp");
+    ins->asmIns("jmp " + label());
+    bb->addIns(ins);
+    tramp_ = bb;
+    tramp_->isTramp(true);
   }
 }
 
-//void 
-//BasicBlock::inconsistentChild(BasicBlock *bb,CFStatus c, Update u) {
-//  if(bb->CFConsistency() != c) {
-//    auto p = bb->parents();
-//    if(p.size() > 1 || (p[0] != NULL && p[0]->start() != start_)) //Child has other parents
-//      return;
-//    auto child_roots = bb->roots();
-//    for(auto & r : child_roots) //Child itself is a root
-//      if(r->start() == bb->start())
-//        return;
-//    LOG("Marking child inconsistent: "<<hex<<bb->start());
-//    bb->CFConsistency(c,u);
-//  }
-//}
-//
-//
-//void 
-//BasicBlock::CFConsistency(CFStatus c, Update u) {
-//  LOG("Changing CF consistency: "<<hex<<start_<<" "<<(int)c);
-//  CFConsistency_ = c;
-//  if(u == Update::TRANSITIVE && c == CFStatus::INCONSISTENT) {
-//    for(auto & p : parents_)
-//      if(p->CFConsistency() != c) {
-//        p->CFConsistency(c,Update::TRANSITIVE);
-//      }
-//    if(targetBB_ != NULL)
-//      inconsistentChild(targetBB_,c,u);
-//    if(fallThroughBB_ != NULL)
-//      inconsistentChild(fallThroughBB_,c,u);
-//  }
-//}
+bool
+BasicBlock::noConflict(uint64_t addrs) {
+  if(addrs > start_ && addrs < boundary()) {
+    for(auto & ins : insList_) {
+      if(addrs == ins->location())
+        return true;
+      else if((addrs - ins->location()) == 1
+               && ins->insSize() > 1) {
+        auto bin = ins->insBinary();
+        if(bin.size() > 0 && utils::is_prefix(bin[0]))
+          return true;
+      }
+    }
+    return false;
+  }
+  else
+    return true;
+}

@@ -8,12 +8,16 @@ void addIns(map <uint64_t,string> &all_ins,vector <string> &allstr) {
     string loc = words[0];
     loc.replace(0,1,"");
     loc.replace(loc.find(":"),1,"");
-    uint64_t addrs = stoll(loc);
+    uint64_t addrs = stoull(loc);
     if(words[1].find("ret") != string::npos)
       str = words[0] + " ret";
+    if(words[1].find("rep") != string::npos && 
+       words.size() > 2 && words[2].find("ret") != string::npos)
+      str = words[0] + " ret";
     if(words[1].find("ud2") != string::npos)
-      str = words[0] + " nop";
+      str = words[0] + " hlt";
     all_ins[addrs] = str;
+
   }
 }
 
@@ -59,7 +63,7 @@ SaInput::indTgts(vector <BasicBlock *> & bb_list,
 
   for(auto & bb : bb_list) {
     if(ind_tgts.find(bb->end()) == ind_tgts.end()) {
-      unordered_set <BasicBlock *> ind_bbs = bb->indirectTgts();
+      auto ind_bbs = bb->indirectTgts();
 
       for(auto & ind_bb : ind_bbs) {
         vector <BasicBlock *> lst = bbSeq(ind_bb);

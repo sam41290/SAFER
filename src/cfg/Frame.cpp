@@ -1,5 +1,6 @@
 #include "Frame.h"
 #include "libutils.h"
+#include "PointerAnalysis.h"
 
 using namespace SBI;
 
@@ -21,6 +22,15 @@ Frame::getDefCode()
 {
   sort(defCodeBBs_.begin(),defCodeBBs_.end(),compareBB);
   return defCodeBBs_;
+}
+
+uint64_t
+Frame::firstCodeAddress() {
+  if(defCodeBBs_.size() > 0) {
+    sort(defCodeBBs_.begin(),defCodeBBs_.end(),compareBB);
+    return defCodeBBs_[0]->start();
+  }
+  return 0;
 }
 
 vector <BasicBlock *> 
@@ -49,6 +59,15 @@ BasicBlock*
 Frame::withinBB(uint64_t addrs) {
   //LOG("Within BB for: "<<hex<<addrs);
   for(auto & bb:defCodeBBs_) {
+    if(addrs >= bb->start() && addrs < bb->boundary()
+       && bb->isValidIns(addrs))
+      return bb;
+  }
+  for(auto & bb:unknwnCodeBBs_)
+    if(addrs >= bb->start() && addrs < bb->boundary()
+       && bb->isValidIns(addrs))
+      return bb;
+  for(auto & bb:defCodeBBs_) {
     //LOG("BB: "<<hex<<bb->start()<<" - "<<bb->boundary());
     if(addrs >= bb->start() && addrs < bb->boundary())
       return bb;
@@ -61,9 +80,12 @@ Frame::withinBB(uint64_t addrs) {
 
 bool
 Frame::definiteCode(uint64_t addrs) {
-  for(auto & bb : defCodeBBs_)
+  for(auto & bb : defCodeBBs_) {
     if(bb->start() == addrs)
       return true;
+    else if(bb->start() <= addrs && bb->boundary() > addrs && bb->isValidIns(addrs))
+      return true;
+  }
   return false;
 }
 
@@ -113,9 +135,13 @@ Frame::splitAndGet(uint64_t addrs) {
     uint64_t end = bb->boundary();
     if(addrs >= start && addrs < end) {
       //LOG("Within BB: "<<hex<<bb->start());
+      if(bb->start() == addrs)
+        return bb;
       BasicBlock * newbb = bb->split(addrs);
-      if(newbb != NULL)
-        defCodeBBs_.push_back(newbb);
+      if(newbb != NULL) { 
+        addDefCodeBB(newbb);
+        //bb->fallThroughBB(getBB(addrs));
+      }
       return newbb;
     }
   }
@@ -125,13 +151,24 @@ Frame::splitAndGet(uint64_t addrs) {
 
     if(addrs >= start && addrs < end) {
       //LOG("Within BB: "<<hex<<bb->start());
+      if(bb->start() == addrs)
+        return bb;
       BasicBlock * newbb = bb->split(addrs);
       if(newbb != NULL) {
-        unknwnCodeBBs_.push_back(newbb);
+        addUnknwnCodeBB(newbb);
+        //bb->fallThroughBB(getBB(addrs));
         return newbb;
       }
     }
   }
+  return NULL;
+}
+
+BasicBlock *
+Frame::getDataBlock(uint64_t addrs) {
+  for(auto & bb : defDataInCode_)
+    if(addrs == bb->start())
+      return bb;
   return NULL;
 }
 
@@ -172,6 +209,7 @@ Frame::splitBBs(uint64_t addrs, Frame *f, bool defCode,
       BasicBlock * newbb = (*it)->split(addrs);
       if(newbb != NULL) {
         ADDBB(f,newbb,defCode);
+        (*it)->fallThroughBB(f->getBB(addrs));
       }
     }
     else {
@@ -203,10 +241,13 @@ Frame::conflictsCnsrvtvCode(uint64_t addrs) {
     uint64_t start = bb->start();
     uint64_t end = bb->boundary();
     if(start <= addrs && end > addrs) {
-      if(bb->noConflict(addrs))
+      if(bb->noConflict(addrs)) {
         return false;
-      else
+      }
+      else {
+        LOG("address: "<<hex<<bb->start()<<" conflicts def code");
         return true;
+      }
     }
   }
   return false;
@@ -214,7 +255,7 @@ Frame::conflictsCnsrvtvCode(uint64_t addrs) {
 
 vector <BasicBlock * >
 Frame::conflictingBBs(uint64_t addrs) {
-  LOG("getting conflicting bbs: "<<hex<<addrs);
+  LOG("getting conflicting bbs: "<<hex<<addrs<<" frame: "<<hex<<start_);
   vector <BasicBlock *> bb_list;
   for(auto & bb : defCodeBBs_) {
     if(bb->start() < addrs && bb->boundary() > addrs &&
@@ -274,6 +315,7 @@ Frame::misaligned(uint64_t start) {
 
 void
 Frame::removeDuplicates() {
+  //DEF_LOG("Removing duplicates for fn: "<<hex<<start_);
   sort(unknwnCodeBBs_.begin (), unknwnCodeBBs_.end (),compareBB);
   vector<BasicBlock *> newBBs;
   BasicBlock *prevBB = NULL;
@@ -287,16 +329,20 @@ Frame::removeDuplicates() {
     prevBB = bb;
   }
   unknwnCodeBBs_ = newBBs;
+  //DEF_LOG("Removing duplicates complete for fn: "<<hex<<start_);
 }
 
 void
 Frame::markAsDefCode(BasicBlock *bb) {
-  //LOG("Marking as def code BB: "<<hex<<bb->start());
   if(bb->isCode() == false) {
+    //DEF_LOG("Marking as def code BB: "<<hex<<bb->start());
     bb->codeType(code_type::CODE);
 
     for(auto & bb2 : defCodeBBs_) {
+      if(bb2->start() == bb->start())
+        return;
       if(bb->isValidIns(bb2->start())) {
+        //DEF_LOG("Splitting bb: "<<hex<<bb->start()<<" at "<<hex<<bb2->start());
         auto newbb = bb->split(bb2->start());
         bb->fallThroughBB(bb2);
         delete(newbb);
@@ -309,11 +355,12 @@ Frame::markAsDefCode(BasicBlock *bb) {
     defDataInCode_.erase(std::remove(defDataInCode_.begin(),
           defDataInCode_.end(), bb), defDataInCode_.end());
   }
+  //DEF_LOG("Def code bb added");
 }
 
 void
 Frame::markAsDefData(BasicBlock *bb) {
-  LOG("Marking as def data BB: "<<hex<<bb->start());
+  //DEF_LOG("Marking as def data BB: "<<hex<<bb->start());
   bb->codeType(code_type::DATA);
   defDataInCode_.push_back(bb);
   unknwnCodeBBs_.erase(std::remove(unknwnCodeBBs_.begin(),
@@ -337,6 +384,17 @@ Frame::removeBB(BasicBlock *bb) {
             defCodeBBs_.end(), bb2), defCodeBBs_.end());
       break;
     }
+  /*
+  for(auto & bb2 : unknwnCodeBBs_)
+    if(bb2->fallThrough() == bb->start()) {
+      bb->fallThrough(0);
+    }
+
+  for(auto & bb2 : defCodeBBs_)
+    if(bb2->fallThrough() == bb->start()) {
+      bb->fallThrough(0);
+    }
+    */
 }
 
 uint64_t
@@ -350,5 +408,47 @@ Frame::nxtDefCode(uint64_t addrs) {
     return 0;
   else
     return nxtCode;
+}
+
+void
+Frame::addIndrctTgt(uint64_t ins_loc, BasicBlock *tgt) {
+  for(auto & bb2 : defCodeBBs_) {
+    if(bb2->end() == ins_loc)
+      bb2->addIndrctTgt(tgt);
+  }
+  for(auto & bb2 : unknwnCodeBBs_) {
+    if(bb2->end() == ins_loc)
+      bb2->addIndrctTgt(tgt);
+  }
+}
+
+vector <pair <uint64_t, uint64_t>>
+Frame::gaps() {
+  auto bb_list = defCodeBBs_;
+  bb_list.insert(bb_list.end(), unknwnCodeBBs_.begin(), unknwnCodeBBs_.end());
+  sort(bb_list.begin(),bb_list.end(),compareBB);
+  
+  uint64_t prev_bb_end = 0;
+  vector <pair <uint64_t, uint64_t>> all_gaps;
+  for(auto & bb : bb_list) {
+    if(prev_bb_end != 0) {
+      if((bb->start() - prev_bb_end) > 10)
+        all_gaps.push_back(make_pair(prev_bb_end,bb->start()));
+    }
+    prev_bb_end = bb->boundary();
+  }
+  return all_gaps;
+}
+
+vector <BasicBlock *>
+Frame::allBBs() {
+  //DEF_LOG("getting all bbs for fn "<<hex<<start_);
+  auto bb_list = defCodeBBs_;
+  //for(auto & bb : unknwnCodeBBs_)
+  //  if(PointerAnalysis::codeByProperty(bb))
+  //    bb_list.push_back(bb);
+  bb_list.insert(bb_list.end(), unknwnCodeBBs_.begin(), unknwnCodeBBs_.end());
+  sort(bb_list.begin(),bb_list.end(),compareBB);
+  return bb_list;
 }
 

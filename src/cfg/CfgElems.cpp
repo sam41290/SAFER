@@ -1,7 +1,698 @@
 #include "CfgElems.h"
-
+#include "CFValidity.h"
+#include "disasm.h"
+#include <math.h>
+#include "PointerAnalysis.h"
 using namespace SBI;
 
+
+bool
+validJumpForScore(Instruction *ins) {
+  if(ins->target() == 0)
+    return false;
+  uint64_t fall = ins->location() + ins->insSize();
+  int32_t offt = (int32_t)(ins->target()) - (int32_t)(fall);
+  if(ins->insSize() >= 5 && abs(offt) <= 128)
+    return false;
+  if(ins->insSize() == 2 && abs(offt) == 0)
+    return false;
+  
+  return true;
+}
+
+void
+CfgElems::markCallTgtAsDefCode(BasicBlock *bb) {
+  auto parents = bb->parents();
+  if(parents.size() > 0) {
+    auto cnf_bbs = conflictingBBs(bb->start());
+    auto exitCalls = psblExitCalls(bb);
+    if(cnf_bbs.size() > 0 || exitCalls.size() > 0)
+      return;
+    int call_cnt = 0;
+    for(auto & parent : parents) {
+      if(parent->target() == bb->start() &&
+         parent->fallThrough() != bb->start() &&
+         parent->isCall() && cnf_bbs.size() == 0 &&
+         validJumpForScore(parent->lastIns())) {
+        call_cnt++;
+        if(call_cnt == 2)
+          break;
+      }
+    }
+    if(call_cnt >= 1) {
+      DEF_LOG("Marking call target as def code: "<<hex<<bb->start());
+      auto bb_list = bbSeq(bb);
+      for(auto & bb2 : bb_list) {
+        if(bb2->isCode() == false) {
+          markAsDefCode(bb2->start());
+        }
+      }
+    }
+  }
+}
+
+void
+CfgElems::markAllCallTgtsAsDefCode() {
+  map <uint64_t, Pointer *> ptrMap = pointers ();
+  map <uint64_t, Function *>funMap = funcMap();
+  for(auto & p : ptrMap) {
+    if(p.second->type() == PointerType::UNKNOWN) {
+      auto bb = getBB(p.first);
+      if(bb != NULL) {
+        markCallTgtAsDefCode(bb);
+      }
+    }
+  }
+  for(auto & fn : funMap) {
+    auto possibleEntries = fn.second->probableEntry();
+    for(auto & e : possibleEntries) {
+      auto bb = getBB(e);
+      if(bb != NULL && bb->isCode() == false)
+        markCallTgtAsDefCode(bb);
+    }
+  }
+}
+void
+CfgElems::phase1NonReturningCallResolution() {
+  auto fn_map = funcMap();
+  unordered_set <uint64_t> entry_checked;
+  unordered_set <uint64_t> call_checked;
+  long double threshold = REJECT_THRESHOLD;
+  for(auto & fn : fn_map) {
+    auto entries = fn.second->allEntries();
+    for(auto & e : entries) {
+      if(entry_checked.find(e) != entry_checked.end())
+        continue;
+      auto entry_bb = getBB(e);
+      auto bb_lst = bbSeq(entry_bb);
+      for(auto & bb : bb_lst)
+        entry_checked.insert(bb->start());
+      if(entry_bb != NULL) {
+        DEF_LOG("Resolving exit calls for function: "<<hex<<entry_bb->start());
+        auto exitCalls = psblExitCalls(entry_bb);
+        vector <BasicBlock *> terminate_at;
+        while(exitCalls.empty() == false) {
+          auto exit_call = exitCalls.top();
+          exitCalls.pop();
+          if(call_checked.find(exit_call->start()) != call_checked.end()) {
+            terminate_at.push_back(exit_call);
+            continue;
+          }
+          call_checked.insert(exit_call->start());
+          DEF_LOG("Resolving exit call: "<<hex<<exit_call->start());
+          auto fall_through = exit_call->fallThroughBB();
+          if(fall_through != NULL) {
+            auto bb_list = bbSeq(fall_through);
+            auto score = probScore(fall_through->start());
+            //DEF_LOG("Fall through score: "<<dec<<score);
+            if(CFValidity::validIns(bb_list) == false) {
+              newPointer(exit_call->fallThrough(), PointerType::UNKNOWN,
+                         PointerSource::POSSIBLE_RA,PointerSource::POSSIBLE_RA,exit_call->end());
+              DEF_LOG("Marking BB non returning: "<<hex<<exit_call->start());
+              exit_call->callType(BBType::NON_RETURNING);
+              exit_call->type(BBType::NON_RETURNING);
+              exit_call->fallThrough(0);
+              exit_call->fallThroughBB(NULL);
+            }
+            else if(score >= threshold) {
+              bool common_ancestor = false;
+              //DEF_LOG("Checking for common ancestors");
+              auto fall_graph_parents = subGraphParents(fall_through);
+              for(auto & p : fall_graph_parents) {
+                if(p->start() != exit_call->start() && 
+                   p->isCall() == false && checkPath(p, exit_call)) {
+                  //DEF_LOG("Common ancestor found: "<<hex<<p->start());
+                  common_ancestor = true;
+                  break;
+                }
+              }
+              if(common_ancestor || checkPath(fall_through, exit_call)) { 
+                DEF_LOG("Marking returning: "<<hex<<exit_call->start());
+                exit_call->callType(BBType::RETURNING);
+              }
+              else
+                terminate_at.push_back(exit_call);
+            }
+            else
+              terminate_at.push_back(exit_call);
+          }
+          else {
+            DEF_LOG("Marking BB non returning: "<<hex<<exit_call->start());
+            exit_call->callType(BBType::NON_RETURNING);
+            exit_call->type(BBType::NON_RETURNING);
+            exit_call->fallThrough(0);
+            exit_call->fallThroughBB(NULL);
+          }
+        }
+      }
+    }
+  }
+}
+
+uint64_t
+CfgElems::jumpTgt(uint8_t *bytes, int size, uint64_t ins_addrs) {
+  uint64_t tgt = 0;
+  if(size == 2) {
+    int8_t offset = *((int8_t *)(bytes + 1));
+    if(abs(offset) > 0)
+      tgt = (int64_t)ins_addrs + size + offset;
+  }
+  else if(size == 5) {
+    int32_t offset = *((int32_t *)(bytes + 1));
+    if(abs(offset) > 128)
+      tgt = (int64_t)ins_addrs + size + offset;
+  }
+  else if(size == 6) {
+    int32_t offset = *((int32_t *)(bytes + 2));
+    if(abs(offset) > 128)
+      tgt = (int64_t)ins_addrs + size + offset;
+  }
+  if(tgt != 0 && withinCodeSec(tgt))
+    return tgt;
+  return 0;
+}
+
+unordered_set <string> calleeSaved{"%r12", "%r13", "%r14", "%r15", "%rbx",
+       "%rbp"};
+
+unordered_map <uint64_t, long double>
+CfgElems::fnSigInGap(uint64_t g_start, uint64_t g_end) {
+  //DEF_LOG("Getting function signatures for gap: "<<hex<<g_start);
+  unordered_map <uint64_t, long double> sig_locs;
+  uint64_t size = g_end - g_start;
+  uint8_t *bytes = (uint8_t *)malloc(g_end - g_start);
+  uint64_t start_offt = utils::GET_OFFSET(exePath_,g_start);
+  if(start_offt == 0) {
+    free(bytes);
+    return sig_locs;
+  }
+  utils::READ_FROM_FILE(exePath_,(void *) bytes, start_offt, size);
+  for(uint64_t i = 0; i < size;) {
+    if(*(bytes + i) == 0x41 ||
+       *(bytes + i) == 0x55 ||
+       *(bytes + i) == 0x53 ||
+       *(bytes + i) == 0x54 ||
+       ((size - i) >=3  && *(bytes + i) == 0x48 && 
+        *(bytes + i + 1) == 0x83 && *(bytes + i + 2) == 0xec)) {
+      auto ins_list = disassembler_->getIns(g_start + i, 20);
+      bool invalid = false;
+      long double score = 0;
+      unordered_set <string> saved_reg;
+      for(auto & ins : ins_list) {
+        if(CFValidity::validOpCode(ins) == false) {
+          invalid = true;
+          break;
+        }
+        if(ins->isJump() || ins->asmIns().find("ret") != string::npos)
+          break;
+        if(ins->asmIns().find("push") != string::npos) {
+          string reg = ins->op1();
+          if(saved_reg.find(reg) != saved_reg.end()) {
+            //Repeated saves...invalid address
+            invalid = true;
+            break;
+          }
+          if(calleeSaved.find(ins->op1()) != calleeSaved.end()) {
+            if(score == 0)
+              score = powl(2,7);
+            else
+              score *= powl(2,7);
+            saved_reg.insert(reg);
+          }
+        }
+        else if(ins->asmIns().find("sub") != string::npos) {
+          string operand = ins->op1();
+          if(saved_reg.find("%rsp") == saved_reg.end() && operand.find(",%rsp") != string::npos) {
+            if(score == 0)
+              score = powl(2,7);
+            else
+              score *= powl(2,7);
+            saved_reg.insert("%rsp");
+          }
+        }
+        if(saved_reg.size() == 7)
+          break;
+      }
+      if(invalid == false && score > 0) {
+        sig_locs[g_start + i] = score;
+        i+=20;
+      }
+      i++;
+    }
+    else
+      break;
+  }
+  free(bytes);
+  return sig_locs;
+}
+
+void
+CfgElems::jumpTgtsInGap(uint64_t g_start, uint64_t g_end) {
+  uint64_t size = g_end - g_start;
+  uint8_t *bytes = (uint8_t *)malloc(g_end - g_start);
+  uint64_t start_offt = utils::GET_OFFSET(exePath_,g_start);
+  if(start_offt == 0) {
+    free(bytes);
+    return;
+  }
+  //DEF_LOG("reading file from: " <<hex<<start_offt <<" size " <<dec<<size);
+  utils::READ_FROM_FILE(exePath_,(void *) bytes, start_offt, size);
+  for(uint64_t i = 0; i < size; i++) {
+    if(utils::isUnconditionalShortJmp(bytes + i, size - i)) {
+      uint64_t tgt = jumpTgt(bytes + i, 2, g_start + i);
+      if(tgt != 0) {
+        if(cftTgtsInGaps_[tgt] == 0)
+          cftTgtsInGaps_[tgt] = powl(2,8);
+        else
+          cftTgtsInGaps_[tgt] *= powl(2,8);
+        cftsInGaps_[g_start + i] = JumpType::SUJ;
+      }
+    }
+    else if(utils::isUnconditionalJmp(bytes + i, size - i) ||
+            *(bytes + i) == 0xe8) {
+      uint64_t tgt = jumpTgt(bytes + i, 5, g_start + i);
+      if(tgt != 0) {
+        if(cftTgtsInGaps_[tgt] == 0)
+          cftTgtsInGaps_[tgt] = powl(2,15);
+        else
+          cftTgtsInGaps_[tgt] *= powl(2,15);
+        cftsInGaps_[g_start + i] = JumpType::LUJ;
+      }
+    }
+    else if(utils::isConditionalShortJmp(bytes + i, size - i)) {
+      uint64_t tgt = jumpTgt(bytes + i, 2, g_start + i);
+      if(tgt != 0) {
+        if(cftTgtsInGaps_[tgt] == 0)
+          cftTgtsInGaps_[tgt] = powl(2,4);
+        else
+          cftTgtsInGaps_[tgt] *= powl(2,4);
+        cftsInGaps_[g_start + i] = JumpType::SCJ;
+      }
+    }
+    else if(utils::isConditionalLongJmp(bytes + i, size - i)) {
+      uint64_t tgt = jumpTgt(bytes + i, 6, g_start + i);
+      if(tgt != 0) {
+        if(cftTgtsInGaps_[tgt] == 0)
+          cftTgtsInGaps_[tgt] = powl(2,44);
+        else
+          cftTgtsInGaps_[tgt] *= powl(2,44);
+        cftsInGaps_[g_start + i] = JumpType::LCJ;
+      }
+    }
+  }
+  free(bytes);
+}
+
+vector <uint64_t>
+CfgElems::crossingCftsInGap(uint64_t g_start, uint64_t g_end) {
+  vector <uint64_t> crossing_cfts;
+  for(uint64_t i = g_start; i < g_end; i++) {
+    if(cftsInGaps_.find(i) != cftsInGaps_.end()) {
+      uint64_t next_addr = i;
+      if(cftsInGaps_[i] == JumpType::LUJ) {
+        next_addr = i + 5;
+      }
+      else if(cftsInGaps_[i] == JumpType::SUJ) {
+        next_addr = i + 2;
+      }
+      auto ins_list = disassembler_->getIns(next_addr,50);
+      for(auto & ins : ins_list) {
+        if(ins->asmIns().find("nop") == string::npos)
+          break;
+        next_addr = ins->location();
+      }
+      if(cftTgtsInGaps_.find(next_addr) != cftTgtsInGaps_.end())
+        crossing_cfts.push_back(i);
+    }
+  }
+  return crossing_cfts;
+}
+
+void
+CfgElems::gapScore(Gap &g) {
+  auto fn_sigs = fnSigInGap(g.start_, g.end_);
+  for(auto & sig : fn_sigs) {
+    Hint h(sig.first,sig.second);
+    g.hintQ_.push(h);
+    g.score_ += sig.second;
+    if(g.minScore_ == 0)
+      g.minScore_ = g.score_;
+  }
+  vector <uint64_t> def_code_cfts = defCodeCFTs(g.start_, g.end_);
+  for(auto & c : def_code_cfts) {
+    Hint h(c,powl(2,15));
+    g.hintQ_.push(h);
+    g.score_ += powl(2,15);
+    if(g.minScore_ == 0)
+      g.minScore_ = g.score_;
+  }
+  
+  auto crossing_cfts = crossingCftsInGap(g.start_,g.end_);
+  long double cft_score =  powl(2,12);
+  for(auto & c : crossing_cfts) {
+    Hint h(c,powl(2,cft_score));
+    g.hintQ_.push(h);
+    g.score_ += cft_score;
+    if(g.minScore_ == 0)
+      g.minScore_ = g.score_;
+    else if(cft_score < g.minScore_)
+      g.minScore_ = cft_score;
+  }
+  for(uint64_t i = g.start_; i < g.end_; i++) {
+    if(cftTgtsInGaps_.find(i) != cftTgtsInGaps_.end()) {
+      g.score_ += cftTgtsInGaps_[i];
+      Hint h(i,cftTgtsInGaps_[i]);
+      g.hintQ_.push(h);
+      if(g.minScore_ == 0)
+        g.minScore_ = cftTgtsInGaps_[i];
+      else if(cftTgtsInGaps_[i] < g.minScore_)
+        g.minScore_ = cftTgtsInGaps_[i];
+    }
+  }
+}
+
+vector <uint64_t>
+CfgElems::defCodeCFTs(uint64_t g_start, uint64_t g_end) {
+  uint64_t size = g_end - g_start;
+  vector <uint64_t> cfts;
+  uint8_t *bytes = (uint8_t *)malloc(g_end - g_start);
+  uint64_t start_offt = utils::GET_OFFSET(exePath_,g_start);
+  if(start_offt == 0) {
+    free(bytes);
+    return cfts;
+  }
+  utils::READ_FROM_FILE(exePath_,(void *) bytes, start_offt, size);
+  for(uint64_t i = 0; i < size; i++) {
+    if(utils::isUnconditionalShortJmp(bytes + i, size - i)) {
+      uint64_t tgt = jumpTgt(bytes + i, 2, g_start + i);
+      auto tgt_bb = getBB(tgt);
+      if(tgt_bb != NULL && (tgt_bb->isCode() || PointerAnalysis::codeByProperty(tgt_bb)))
+        cfts.push_back(g_start + i);
+    }
+    else if(utils::isUnconditionalJmp(bytes + i, size - i) ||
+            *(bytes + i) == 0xe8) {
+      uint64_t tgt = jumpTgt(bytes + i, 2, g_start + i);
+      auto tgt_bb = getBB(tgt);
+      if(tgt_bb != NULL && (tgt_bb->isCode() || PointerAnalysis::codeByProperty(tgt_bb)))
+        cfts.push_back(g_start + i);
+    }
+  }
+  free(bytes);
+  return cfts;
+}
+
+
+bool
+CfgElems::conflicts(uint64_t addrs) {
+  auto fn = is_within(addrs, funcMap_);
+  if(fn != funcMap_.end()) {
+    auto cnf_bbs = fn->second->conflictingBBs(addrs);
+    if(cnf_bbs.size() > 0)
+      return true;
+  }
+  return false;
+}
+
+vector <BasicBlock *>
+CfgElems::conflictingBBs(uint64_t addrs) {
+  vector <BasicBlock *> conflict_bbs;
+  auto fn = is_within(addrs, funcMap_);
+  if(fn != funcMap_.end()) {
+    auto cnf_bbs = fn->second->conflictingBBs(addrs);
+    conflict_bbs.insert(conflict_bbs.end(), cnf_bbs.begin(), cnf_bbs.end());
+  }
+  auto bb = getBB(addrs);
+  if(bb != NULL) {
+    for(auto i = bb->start(); i < bb->boundary(); i++) {
+      if(!bb->isValidIns(i)) {
+        auto cnf_bb = getBB(i);
+        if(cnf_bb != NULL)
+          conflict_bbs.push_back(cnf_bb);
+      }
+    }
+  }
+  return conflict_bbs;
+}
+
+long double
+CfgElems::crossingCft(vector <BasicBlock *> &bb_lst) {
+  long double score = 0;
+  for(auto & bb : bb_lst) {
+    auto last_ins = bb->lastIns();
+    if(last_ins->isJump() && last_ins->isCall() == false
+       && last_ins->isUnconditionalJmp() && bb->target() != 0
+       && last_ins->asmIns().find("ret") == string::npos &&
+       validJumpForScore(last_ins)) {
+      auto next_addr = last_ins->location() + last_ins->insSize();
+      int ctr = 0;
+      auto next_bb = getBB(next_addr);
+      while(next_bb == NULL && ctr < 30) {
+        next_addr++;
+        next_bb = getBB(next_addr);
+        ctr++;
+      }
+      if(next_bb != NULL) {
+        auto parents = next_bb->parents();
+        for (auto & p : parents) {
+          if(p->target() == next_bb->start()) {
+            auto p_last_ins = p->lastIns();
+            if(p_last_ins->isCall() == false &&
+               p_last_ins->isJump() && 
+               p_last_ins->asmIns().find("ret") == string::npos && validJumpForScore(p_last_ins)) {
+              score += powl(2,12);
+              //////DEF_LOG("Crossing CFT: "<<hex<<bb->start()<<"->"<<next_bb->start());
+              break;
+            }
+          }
+        }
+      }
+    }
+  }
+  //DEF_LOG("Crossing CFT score: "<<dec<<score);
+  return score;
+}
+
+long double
+CfgElems::jumpScore(vector <BasicBlock *> &bb_lst) {
+  long double score = 0;
+  long double bb_score_ceil = powl(2,50);
+  for(auto & bb : bb_lst) {
+    auto last_ins = bb->lastIns();
+    long double bb_score = 0;
+    if(bb->target() != 0 && bb->target() != bb->fallThrough() && validJumpForScore(last_ins)) {
+      if(last_ins->isUnconditionalJmp() && last_ins->insSize() == 2 && 
+         last_ins->asmIns().find("ret") == string::npos && bb->target() != 0) {
+        //DEF_LOG("Short unconditional jump target: "<<hex<<bb->start());
+        /*
+        if(bb_score == 0)
+          bb_score = powl(2,8);
+        else
+          bb_score = bb_score * powl(2,8);
+          */
+        score +=  powl(2,8);
+      }
+      else if(last_ins->isJump() && last_ins->insSize() == 2 &&
+              last_ins->asmIns().find("ret") == string::npos) {
+        //DEF_LOG("Short conditional jump target: "<<hex<<bb->start());
+        /*
+        if(bb_score == 0)
+          bb_score = powl(2,4);
+        else
+          bb_score = bb_score * powl(2,4);
+        */
+        score += powl(2,4);
+      }
+      else if(last_ins->isUnconditionalJmp() && last_ins->insSize() >= 5 && !last_ins->isCall()
+              && bb->target() != 0) {
+        //DEF_LOG("Long unconditional jump target: "<<hex<<bb->start());
+        /*
+        if(bb_score == 0)
+          bb_score = powl(2,15);
+        else
+          bb_score = bb_score * powl(2,15);
+        */
+        score += powl(2,15);
+      }
+      else if(last_ins->isJump() && last_ins->insSize() >= 6) {
+        //DEF_LOG("Long conditional jump target: "<<hex<<bb->start());
+        /*
+        if(bb_score == 0)
+          bb_score = powl(2,17);
+        else
+          bb_score = bb_score * powl(2,17);
+        */
+        score += powl(2,17);
+      }
+    }
+  }
+  //DEF_LOG("Jump target score: "<<dec<<score);
+  return score;
+}
+
+long double
+CfgElems::fnSigScore(vector <Instruction *> &ins_list) {
+  long double score = 0;
+  unordered_set <string> saved_reg;
+  int ctr = 0;
+  for(auto & ins : ins_list) {
+    if(CFValidity::validOpCode(ins) == false) {
+      score = 0;
+      break;
+    }
+    if(ins->isJump() || ins->asmIns().find("ret") != string::npos)
+      break;
+    if(ins->asmIns().find("push") != string::npos) {
+      string reg = ins->op1();
+      if(saved_reg.find(reg) != saved_reg.end()) {
+        //Repeated saves...invalid address
+        //DEF_LOG("Repeated saves..making sig score 0");
+        score = 0;
+        break;
+      }
+      if(calleeSaved.find(ins->op1()) != calleeSaved.end()) {
+        long double sig_score = 0;
+        if(ins->insSize() == 2)
+          sig_score = powl(2,14);
+        else
+          sig_score = powl(2,7);
+        if(score == 0)
+          score = sig_score;
+        else
+          score *= sig_score;
+        saved_reg.insert(reg);
+      }
+    }
+    else if(ins->asmIns().find("sub") != string::npos) {
+      string operand = ins->op1();
+      if(saved_reg.find("%rsp") == saved_reg.end() && operand.find(",%rsp") != string::npos) {
+        if(score == 0)
+          score = powl(2,17);
+        else
+          score *= powl(2,17);
+        saved_reg.insert("%rsp");
+      }
+    }
+    if(ctr == 0 && score == 0) {
+      //DEF_LOG("First instruction not a valid sig start: "<<ins->asmIns());
+      break;
+    }
+    if(saved_reg.size() == 7)
+      break;
+    ctr++;
+  }
+  
+  return score;
+}
+
+long double
+CfgElems::fnSigScore(BasicBlock *bb) {
+  long double score = 0;
+  auto ins_list = bb->insList();
+  score = fnSigScore(ins_list);
+  auto parents = bb->parents();
+  long double call_score = 0;
+  for(auto & p : parents) {
+    auto last_ins = p->lastIns();
+    if(p->target() == bb->start() &&
+       last_ins->isCall() && validJumpForScore(last_ins)) {
+      if(call_score == 0)
+        call_score = powl(2,15);
+      else
+        call_score *= powl(2,15);
+    }
+  }
+  score += call_score;
+  //DEF_LOG("Fn sig score: "<<hex<<bb->start()<<"-"<<dec<<score);
+  return score;
+}
+
+long double
+CfgElems::defCodeCftScore(vector <BasicBlock *> &bb_lst) {
+  long double score = 0;
+  long double score_unit = powl(2,15);
+  for(auto & bb : bb_lst) {
+    if(bb->isCall() && bb->targetBB() != NULL && 
+      (bb->targetBB()->isCode()))
+      score += score_unit;
+  }
+  return score;
+}
+
+long double
+CfgElems::probScore(uint64_t addrs) {
+
+  //Calculates score of a function entry address.
+
+  auto bb = getBB(addrs);
+  if(bb != NULL) {
+    auto bb_lst = bbSeq(bb);
+    //DEF_LOG("bb seq size: "<<bb_lst.size());
+    if(CFValidity::validIns(bb_lst)) {
+      //return powl(2,4);
+      double score = crossingCft(bb_lst);
+      //DEF_LOG("Crossing cft score: "<<dec<<score);
+      score += jumpScore(bb_lst);
+      //DEF_LOG("jump target score: "<<dec<<score);
+      score += fnSigScore(bb);
+      //DEF_LOG("signature score: "<<dec<<score);
+      score += defCodeCftScore(bb_lst);
+      //DEF_LOG("Def code CFT score: "<<dec<<score);
+      
+      auto p = ptr(addrs);
+      if(p != NULL) {
+        //if(p->source() == PointerSource::RIP_RLTV)
+        //  score += powl(2,7);
+        //else if(p->source() != PointerSource::GAP_PTR)
+        //  score += powl(2,4);
+        if(p->source() == PointerSource::POSSIBLE_RA)
+          score += powl(2,4);
+      }
+
+      DEF_LOG("Entry: "<<hex<<addrs<<" score: "<<dec<<score);
+
+      return score;
+    }
+    else
+      return -1;
+
+  }
+
+  return -1;
+}
+
+long double
+CfgElems::regionScore(vector <BasicBlock *> &bb_lst) {
+  //Gives score of a region defined by a set of consecutive basic blocks. the
+  //basic blocks may or may not form a complete function
+
+  double score = crossingCft(bb_lst);
+  score += jumpScore(bb_lst);
+  for(auto & bb : bb_lst)
+    score += fnSigScore(bb);
+  score += defCodeCftScore(bb_lst);
+   
+  return score;
+}
+
+uint64_t
+CfgElems::sectionEnd(uint64_t addrs) {
+  for(auto & sec : rxSections_) {
+    if(addrs >= sec.vma && addrs < (sec.vma + sec.size)) {
+      return sec.vma + sec.size;
+    }
+  }
+  for(auto & sec : rwSections_) {
+    if(addrs >= sec.vma && addrs < (sec.vma + sec.size)) {
+      return sec.vma + sec.size;
+    }
+  }
+  for(auto & sec : roSections_) {
+    if(addrs >= sec.vma && addrs < (sec.vma + sec.size)) {
+      return sec.vma + sec.size;
+    }
+  }
+  return 0;
+}
 
 bool
 CfgElems::isString(uint64_t addrs) {
@@ -151,19 +842,45 @@ CfgElems::accessConflict(uint64_t addrs) {
   return false;
 }
 
+BasicBlock *
+CfgElems::getDataBlock(uint64_t addrs) {
+  auto fn = is_within(addrs,funcMap_);
+  if(fn == funcMap_.end())
+    return NULL;
+  return fn->second->getDataBlock(addrs);
+}
+
 void
-CfgElems::markAsDefCode(uint64_t addrs) {
+CfgElems::markAsDefCode(uint64_t addrs, bool force) {
   auto bb = getBB(addrs);
   if(bb == NULL) {
     LOG("No BB for address: "<<hex<<addrs);
-    exit(0);
+    if(force) {
+      bb = getDataBlock(addrs);
+      if(bb == NULL) {
+        LOG("No data BB for address: "<<hex<<addrs);
+        exit(0);
+      }
+    }
+    else
+      exit(0);
   }
-  auto fn = is_within(bb->start(),funcMap_);
-  if(fn == funcMap_.end()) {
-    LOG("No function for BB: "<<hex<<addrs);
-    exit(0);
+  auto frame = bb->frame();
+  Function *fn = NULL;
+  if(frame != 0)
+    fn = funcMap_[frame];
+  else {
+    auto fn_it = is_within(bb->start(), funcMap_);
+    if(fn_it == funcMap_.end()) {
+      LOG("No function for BB: "<<hex<<addrs);
+      return;
+      //exit(0);
+    }
+    
+    fn = fn_it->second;
   }
-  fn->second->markAsDefCode(bb);
+  
+  fn->markAsDefCode(bb);
 }
 
 void
@@ -194,8 +911,10 @@ bool
 CfgElems::zeroDefCodeConflict(vector <BasicBlock *> &bb_list) {
   for(auto & bb : bb_list) {
     if(bb->isCode() == false && (conflictsDefCode(bb->start()) ||
-          conflictsDefCode(bb->boundary())))
+          conflictsDefCode(bb->boundary()))) {
+      LOG("bb: "<<hex<<bb->start()<<" conflicts def code");
       return false;
+    }
   }
   return true;
 }
@@ -276,7 +995,14 @@ CfgElems::withinBB(uint64_t addrs) {
   auto fn = is_within(addrs,funcMap_);
   if(fn == funcMap_.end())
     return NULL;
-  return fn->second->withinBB(addrs);
+  auto bb = fn->second->withinBB(addrs);
+  if(bb == NULL) {
+    fn = prev(fn);
+    if(fn == funcMap_.end())
+      return NULL;
+    return fn->second->withinBB(addrs);
+  }
+  return bb;
 }
 
 void
@@ -328,7 +1054,17 @@ CfgElems::isValidRoot(uint64_t addrs, code_type t) {
   //LOG("Within function: "<<hex<<fn->first);
   BasicBlock *bb = fn->second->getBB(addrs);
   if(bb == NULL) {
-    if(t == code_type::CODE || 
+#ifdef GROUND_TRUTH
+    if(fn->second->misaligned(addrs)) {
+      LOG("Possibly invalid jump table target. Rejecting "<<hex<<addrs);
+      return 0;
+    }
+#endif
+    //if(t == code_type::GAP)
+    //  return 1;
+    if(t == code_type::CODE && fn->second->misaligned(addrs))
+      return 0;
+    else if(t == code_type::CODE || 
         fn->second->misaligned(addrs) == false) {
 
       //Try to split an existing BB
@@ -342,10 +1078,6 @@ CfgElems::isValidRoot(uint64_t addrs, code_type t) {
         return 1; //No BB found, Disassemble.
       }
     }
-    //else if(t == code_type::JUMPTABLE && fn->second->misaligned(addrs)) {
-    //  LOG("Possibly invalid jump table target. Rejecting "<<hex<<addrs);
-    //  return 0;
-    //}
     else
       return 1; //If misaligned and code type is unknown, Disassemble
   }
@@ -354,7 +1086,7 @@ CfgElems::isValidRoot(uint64_t addrs, code_type t) {
  
   return 1;
 }
-
+/*
 uint64_t CfgElems::nextPtr(uint64_t addrs) {
   //Returns the next pointer, given the address
 
@@ -376,6 +1108,27 @@ uint64_t CfgElems::nextPtr(uint64_t addrs) {
       chunk_end = codeSegEnd_;
   }
   return chunk_end;
+}
+*/
+uint64_t 
+CfgElems::nextCodeBlock(uint64_t addrs) {
+  if(addrs > codeSegEnd_)
+    return 0;
+  auto fn = funcMap_.lower_bound(addrs);
+
+  if(fn->first == addrs)
+    fn++;
+  while(fn != funcMap_.end()) {
+    auto bbs = fn->second->getDefCode();
+    if(bbs.size() == 0)
+      fn++;
+    else {
+      return bbs[0]->start();
+    }
+  }
+  if(fn == funcMap_.end())
+    return codeSegEnd_;
+  return codeSegEnd_;
 }
 
 void
@@ -492,21 +1245,40 @@ CfgElems::readBB(ifstream & ifile) {
     else if(words[0] == "ins") {
       uint64_t loc = stoll(words[1]);
       uint64_t size = stoll(words[2]);
+      Instruction * in = new Instruction();
       string ins = "";
-      string mne = words[3];
+      string mne = "";
       string operand = "";
+      set <string> cf_ins_set = utils::get_cf_ins_set();
+      set <string> uncond_cf_ins_set = utils::get_uncond_cf_ins_set();
+      bool mne_found = false;
       for(unsigned int i = 3; i < words.size(); i++) {
         ins += words[i] + " ";
+        if(i >= 3 && utils::prefix_ops.find(words[i]) != utils::prefix_ops.end())
+          continue;
+        else if(i >= 3 && mne_found == false) {
+          mne = words[i];
+          mne_found = true;
+          if(cf_ins_set.find(mne) != cf_ins_set.end()) {
+            in->isJump(true);
+          }
+          if(uncond_cf_ins_set.find(mne) != uncond_cf_ins_set.end())
+            in->isUnconditionalJmp(true);
+        }
+        else if(i >= 3)
+          operand += words[i];
       }
-      for(unsigned int i = 4; i < words.size(); i++) {
-        operand += words[i] + " ";
-      }
-      Instruction * in = new Instruction();
+      //for(unsigned int i = 4; i < words.size(); i++) {
+      //  operand += words[i] + " ";
+      //}
+      //DEF_LOG("Reading ins: "<<hex<<loc<<": "<<mne<<" "<<operand);
       in->location(loc);
       in->label("." + to_string(loc));
       in->op1(operand);
+      in->mnemonic(mne);
       in->insSize(size);
       in->chkConstOp();
+      in->chkConstPtr();
       //in->isRltvAccess();
       int pos = operand.find("(%rip)");
       if(pos != string::npos) {
@@ -521,17 +1293,10 @@ CfgElems::readBB(ifstream & ifile) {
           in->isLea(true);
       }
       in->asmIns(ins);
-      set <string> cf_ins_set = utils::get_cf_ins_set();
-      set <string> uncond_cf_ins_set = utils::get_uncond_cf_ins_set();
-      if(cf_ins_set.find(mne) != cf_ins_set.end()) {
-        in->isJump(true);
-      }
-      if(uncond_cf_ins_set.find(mne) != uncond_cf_ins_set.end())
-        in->isUnconditionalJmp(true);
-      if(mne.find("call") != string::npos)
+      if(ins.find("call") != string::npos)
         in->isCall(true);
 
-      if(mne.find("ret") != string::npos) {
+      if(ins.find("ret") != string::npos) {
         in->isFuncExit(true);
         in->isJump(true);
         in->isUnconditionalJmp(true);
@@ -687,6 +1452,59 @@ CfgElems::dump() {
   ofile.close();
 }
 
+vector<Gap>
+CfgElems::getGaps() {
+  vector<Gap> all_gaps;
+  for(auto & fn : funcMap_) {
+    auto all_bbs = fn.second->allBBs();
+    if(all_bbs.size() == 0) //If the function contains no basic blocks, then its already covered as gap from previous function
+      continue;
+    //DEF_LOG("Received all bbs");
+    BasicBlock *prev_bb = NULL;
+    for(auto & bb : all_bbs) {
+      if(prev_bb != NULL) {
+        if(bb->start() > prev_bb->boundary()) {
+          uint64_t gap_end = bb->start();
+          DEF_LOG("Intra fn gap: "<<hex<<prev_bb->boundary()<<" - "<<gap_end);
+          Gap g(prev_bb->boundary(), gap_end);
+          jumpTgtsInGap(g.start_,g.end_);
+          all_gaps.push_back(g);
+        }
+      }
+      prev_bb = bb;
+    }
+    auto fn_it = funcMap_.find(fn.first);
+    uint64_t next_fn_start = 0;
+    fn_it++;
+    while(fn_it != funcMap_.end()) {
+      auto bbs = fn_it->second->allBBs();
+      if(bbs.size() == 0)
+        fn_it++;
+      else {
+        next_fn_start = bbs[0]->start();
+        break;
+      }
+    }
+    auto sec_end = sectionEnd(fn.first);
+    if(fn_it == funcMap_.end() || next_fn_start == 0 || next_fn_start >  sec_end)
+      next_fn_start = sec_end;
+
+    uint64_t fn_end = fn.first;
+    if(prev_bb != NULL && prev_bb->boundary() > fn_end)
+      fn_end = prev_bb->boundary();
+    if(next_fn_start > fn_end /*&& (next_fn_start - fn_end) > 20*/) {
+      DEF_LOG("Inter fn gap: "<<hex<<fn_end<<" - "<<next_fn_start);
+      uint64_t gap_end = next_fn_start;
+      Gap g(fn_end, gap_end);
+      jumpTgtsInGap(g.start_,g.end_);
+      all_gaps.push_back(g);
+    }
+  }
+  //for(auto & g : all_gaps)
+  //  gapScore(g);
+  return all_gaps;
+}
+
 void
 CfgElems::printDeadCode() {
   string key("/");
@@ -694,20 +1512,25 @@ CfgElems::printDeadCode() {
   string file_name = exePath_.substr(found + 1);
   string input_file_name = "tmp/" + file_name + "_deadcode.s";
   string psbl_jmp_tbl = "tmp/" + file_name + "_jmptbl.s";
-  ofstream ofile1, ofile2;
+  string dead_code_regions = "tmp/" + file_name + "_deadcode.data";
+  ofstream ofile1, ofile2, ofile3;
   ofile1.open(input_file_name);
   ofile2.open(psbl_jmp_tbl);
+  ofile3.open(dead_code_regions);
   for(auto fn : funcMap_) {
     vector <BasicBlock *> bbList = fn.second->getDefCode();
     bool deadcode = false;
     for(auto & bb : bbList) {
       if(bb->source() == PointerSource::SYMTABLE ||
          bb->rootSrc() == PointerSource::SYMTABLE || deadcode) {
-        if(deadcode == false)
+        if(deadcode == false) {
           deadcode = true;
+        }
         vector <string> all_orig_ins = bb->allAsm();
         for(string & asm_ins:all_orig_ins)
           ofile1 <<asm_ins <<endl;
+        for(auto i = bb->start(); i < bb->boundary(); i++)
+          ofile3<<dec<<i<<endl;
       }
       else if(bb->source() == PointerSource::JUMPTABLE ||
          bb->source() == PointerSource::EXTRA_RELOC_PCREL ||
@@ -725,9 +1548,11 @@ CfgElems::printDeadCode() {
         vector <string> all_orig_ins = bb->allAsm();
         for(string & asm_ins:all_orig_ins)
           ofile1 <<asm_ins <<endl;
+        for(auto i = bb->start(); i < bb->boundary(); i++)
+          ofile3<<dec<<i<<endl;
       }
       if(deadcode == false) {
-        unordered_set <BasicBlock *> ind_bbs = bb->indirectTgts();
+        auto ind_bbs = bb->indirectTgts();
         for(auto & ind_bb : ind_bbs) {
           vector <BasicBlock *> lst = bbSeq(ind_bb);
           for(auto & bb2 : lst) {
@@ -737,12 +1562,14 @@ CfgElems::printDeadCode() {
               ofile2 <<asm_ins <<endl;
             }
           }
+          ofile2<<"----------------------------------------------\n";
         }
       }
     }
   }
   ofile1.close();
   ofile2.close();
+  ofile3.close();
 }
 
 void
@@ -754,11 +1581,14 @@ CfgElems::printOriginalAsm() {
   string input_file_name1 = "tmp/" + file_name + "_defcode.s";
   string input_file_name2 = "tmp/" + file_name + "_gap.s";
   string input_file_name3 = "tmp/" + file_name + "_data_in_code.s";
+  string input_file_name4 = "tmp/" + file_name + "_gap_size.dat";
 
-  ofstream ofile1, ofile2, ofile3;
+  ofstream ofile1, ofile2, ofile3, ofile4;
   ofile1.open(input_file_name1);
   ofile2.open(input_file_name2);
   ofile3.open(input_file_name3);
+  ofile4.open(input_file_name4);
+
 
   for(auto & fn : funcMap_) {
     vector<BasicBlock *> defBBs = fn.second->getDefCode();
@@ -781,9 +1611,15 @@ CfgElems::printOriginalAsm() {
     }
   }
 
+  //auto all_gaps = getGaps();
+
+  //for(auto & g : all_gaps)
+  //  ofile4<<dec<<g.start_<<" "<<g.end_<<endl;
+
   ofile1.close();
   ofile2.close();
   ofile3.close();
+  ofile4.close();
 
 }
 
@@ -813,9 +1649,11 @@ CfgElems::readableMemory(uint64_t addrs) {
 bool 
 CfgElems::isMetadata(uint64_t addrs) {
   for(section & sec : rxSections_) {
-    if(sec.vma <= addrs && (sec.vma + sec.size) > addrs
-       && sec.is_metadata) {
-      return true;
+    if(sec.vma <= addrs && (sec.vma + sec.size) > addrs) {
+      if(sec.is_metadata)
+        return true;
+      else
+        return false;
     }
   }
   //for(section & sec : rwSections_) {
@@ -824,7 +1662,7 @@ CfgElems::isMetadata(uint64_t addrs) {
   //    return true;
   //  }
   //}
-  return false;
+  return true;
 }
 
 bool 
@@ -913,7 +1751,7 @@ CfgElems::classifyPtrs() {
       }
     }
   }
-  LOG("Classifying pointers complete");
+  //DEF_LOG("Classifying pointers complete");
 }
 
 bool CfgElems::isCodePtr(Pointer * ptr) {
@@ -1084,26 +1922,31 @@ CfgElems::propagateAllRoots() {
 void
 CfgElems::linkBBs(vector <BasicBlock *> &bbs) {
   //LOG("Linking BBs");
-  for(auto bb : bbs) {
+  for(auto & bb : bbs) {
     if(bb->target() != 0 && bb->targetBB() == NULL) {
       auto tgtbb = getBB(bb->target());
       if(tgtbb == NULL) {
-        LOG("No BB for address "<<hex<<bb->target());
-        exit(0);
+        //LOG("No BB for target address "<<hex<<bb->target());
+        //exit(0);
       }
-      bb->targetBB(tgtbb);
-      if(tgtbb->start() != bb->start()) {
-        tgtbb->parent(bb);
+      else {
+        bb->targetBB(tgtbb);
+        if(tgtbb->start() != bb->start()) 
+          tgtbb->parent(bb);
       }
     }
     if(bb->fallThrough() != 0 && bb->fallThroughBB() == NULL) {
       auto fallbb = getBB(bb->fallThrough());
       if(fallbb == NULL) {
-        LOG("No BB for address "<<hex<<bb->fallThrough());
-        exit(0);
+        //LOG("No BB for fall-through address "<<hex<<bb->fallThrough()<<" bb "<<hex<<bb->start());
+        //exit(0);
+        //bb->fallThrough(0);
       }
-      bb->fallThroughBB(fallbb);
-      fallbb->parent(bb);
+      else {
+        //LOG("Adding fall through: "<<hex<<bb->fallThrough()<<" bb "<<hex<<bb->start());
+        bb->fallThroughBB(fallbb);
+        fallbb->parent(bb);
+      }
     }
   }
 }
@@ -1114,19 +1957,27 @@ CfgElems::updateBBTypes() {
     vector<BasicBlock *> defBBs = fn.second->getDefCode();
     for(auto & bb : defBBs) {
       //LOG("Updating bb type: "<<hex<<bb->start());
+      auto fall = bb->fallThrough();
       bb->updateType();
+      if(bb->isCall() && bb->callType() == BBType::NON_RETURNING)
+        newPointer(fall, PointerType::UNKNOWN,
+            PointerSource::POSSIBLE_RA,PointerSource::POSSIBLE_RA,bb->end());
+
     }
     vector<BasicBlock *> unknwnBBs = fn.second->getUnknwnCode();
     for(auto & bb : unknwnBBs) {
       //LOG("Updating bb type: "<<hex<<bb->start());
+      auto fall = bb->fallThrough();
       bb->updateType();
+      if(bb->isCall() && bb->callType() == BBType::NON_RETURNING)
+        newPointer(fall, PointerType::UNKNOWN,
+            PointerSource::POSSIBLE_RA,PointerSource::POSSIBLE_RA,bb->end());
     }
   }
 }
 
 void
 CfgElems::linkAllBBs() {
-  LOG("linking BBs");
   for(auto & fn : funcMap_) {
     fn.second->removeDuplicates();
     vector<BasicBlock *> defBBs = fn.second->getDefCode();
@@ -1134,7 +1985,6 @@ CfgElems::linkAllBBs() {
     vector<BasicBlock *> unknwnBBs = fn.second->getUnknwnCode();
     linkBBs(unknwnBBs);
   }
-  LOG("Linking BBs complete");
 }
 void
 CfgElems::instrument() {
@@ -1217,4 +2067,28 @@ CfgElems::getSymbol(uint64_t addrs) {
   if(bb != NULL && bb->isValidIns(addrs))
     sym = "." + to_string(addrs) + bb->lblSuffix();
   return sym;
+}
+
+void
+CfgElems::addIndrctTgt(uint64_t ins_loc, BasicBlock *tgt) {
+  auto fn = is_within(ins_loc, funcMap_);
+  if(fn != funcMap_.end())
+    fn->second->addIndrctTgt(ins_loc, tgt);
+}
+
+bool
+CfgElems::isData(uint64_t addrs) {
+  auto bb = withinBB(addrs);
+  if(bb == NULL)
+    return false; //If no BB found, it could possibly be code
+  
+  auto ins_list = bb->insList();
+  bool loc_found = false;
+  for(auto & ins : ins_list) {
+    if(ins->location() == addrs)
+      loc_found = true;
+    if(loc_found && CFValidity::validOpCode(ins) == false)
+      return true;
+  }
+  return false;
 }

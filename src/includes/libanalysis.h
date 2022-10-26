@@ -10,34 +10,32 @@
 #include <vector>
 #include <unordered_set>
 #include <unordered_map>
+#include "../rtl-analysis/external.h"
 
 namespace analysis {
+   /* JTable structures */
+   struct JTableBase;
+   struct JTableRange;
+   struct JTableAddr;
+   struct JTableMem;
+   struct JTableOffsetMem;
+   struct JTable;
 
-   struct JumpTable {
-      int64_t jumpLoc = 0;
-      char type = 0;
-      int64_t base1 = 0;
-      int64_t base2 = 0;
-      char op1 = 0;
-      char op2 = 0;
-      int stride = 0;
-      bool detect_index = false;
-      int64_t index_lo = 0;
-      int64_t index_hi = 0;
-   };
-
+   /* Settings */
    void setup(const std::string& autoFile);
    bool load(const std::string& asmFile,
              const std::unordered_map<int64_t,int64_t>& insnSize,
-             const std::unordered_map<int64_t,std::vector<int64_t>>& jumpTable,
+             const std::unordered_map<int64_t, std::vector<int64_t>>& jumpTable,
              const std::vector<int64_t>& entry);
    bool analyze(int func_index);
    void set_init(int init_option);
+   void print_stats();
 
+   /* Analysis */
    int uninit();
+   int64_t first_used_redef();
    bool preserved(const std::vector<std::string>& regs);
-   std::vector<JumpTable> jump_table_analysis();
-
+   analysis::JTable jump_table_analysis();
 }
 
 #endif

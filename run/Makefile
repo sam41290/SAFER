@@ -1,6 +1,6 @@
 PROJDIR := $(realpath $(CURDIR)/..)
 SOURCEDIR := $(PROJDIR)/src
-BUILDDIR := $(PROJDIR)/run
+BUILDDIR := $(realpath $(CURDIR))
 
 TARGET = demo
 
@@ -72,7 +72,7 @@ all: directories $(TARGET)
 
 $(TARGET): $(OBJS)
 	$(HIDE)echo Linking $@
-	$(HIDE)$(CXX) $(INCLUDES) -L../src/rtl-analysis/ $(OBJS) -o $(TARGET) -lcapstone
+	$(HIDE)$(CXX) $(INCLUDES) -L../src/rtl-analysis/ $(OBJS) -o $(TARGET) -lcapstone -lanalysis
 
 $(OBJS): $(foreach targetdir, $(TARGETDIRS), $(eval $(call generateRules, $(targetdir))))
 

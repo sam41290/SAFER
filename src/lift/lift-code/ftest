@@ -1,0 +1,147 @@
+#!/bin/bash
+
+# rm -rf test/output
+mkdir -p test/output
+
+# generate ./learnopt
+makeoutput=$(make)
+# if learnopt isn't changed, no need for re-train and re-test
+# otherwise, train and test again
+if [[ $makeoutput == "make: 'learnopt' is up to date." ]]
+then
+	echo "skip generating auto & dot files ..."
+else
+	./learnopt -tr test/x64/train1.imap -sa test/output/train1.auto &> test/output/train1.log
+	./learnopt -tr test/x64/train1.imap -dotf test/output/train1.dot &> /dev/null
+	grep -E 'FAIL|MEASURE|Success(%)|Parse error' test/output/train1.log &> /tmp/tmp.txt
+	mv /tmp/tmp.txt test/output/train1.log
+
+	./learnopt -tr test/x64/train2.imap -sa test/output/train2.auto &> test/output/train2.log
+	./learnopt -tr test/x64/train2.imap -dotf test/output/train2.dot &> /dev/null
+	grep -E 'FAIL|MEASURE|Success(%)|Parse error' test/output/train2.log &> /tmp/tmp.txt
+	mv /tmp/tmp.txt test/output/train2.log
+
+	./learnopt -tr test/x64/train3.imap -sa test/output/train3.auto &> test/output/train3.log
+	./learnopt -tr test/x64/train3.imap -dotf test/output/train3.dot &> /dev/null
+	grep -E 'FAIL|MEASURE|Success(%)|Parse error' test/output/train3.log &> /tmp/tmp.txt
+	mv /tmp/tmp.txt test/output/train3.log
+
+	./learnopt -tr test/x64/train4.imap -sa test/output/train4.auto &> test/output/train4.log
+	./learnopt -tr test/x64/train4.imap -dotf test/output/train4.dot &> /dev/null
+	grep -E 'FAIL|MEASURE|Success(%)|Parse error' test/output/train4.log &> /tmp/tmp.txt
+	mv /tmp/tmp.txt test/output/train4.log
+
+	./learnopt -tr test/x64/train5.imap -sa test/output/train5.auto &> test/output/train5.log
+	./learnopt -tr test/x64/train5.imap -dotf test/output/train5.dot &> /dev/null
+	grep -E 'FAIL|MEASURE|Success(%)|Parse error' test/output/train5.log &> /tmp/tmp.txt
+	mv /tmp/tmp.txt test/output/train5.log
+
+	./learnopt -tr test/x64/train6.imap -sa test/output/train6.auto &> test/output/train6.log
+	./learnopt -tr test/x64/train6.imap -dotf test/output/train6.dot &> /dev/null
+	grep -E 'FAIL|MEASURE|Success(%)|Parse error' test/output/train6.log &> /tmp/tmp.txt
+	mv /tmp/tmp.txt test/output/train6.log
+	echo ""
+fi
+
+
+echo "testing small tests ..."
+echo "[train1 & train1_cross]"
+if [ $# -eq 0 ]
+then
+	./learnopt -tr test/x64/train1.imap -te test/x64/train1_cross.imap &> test/output/train1_cross.log
+	grep -E 'FAIL|MEASURE|Success(%)|Parse error' test/output/train1_cross.log &> /tmp/tmp.txt
+	mv /tmp/tmp.txt test/output/train1_cross.log
+
+	diff -q test/output/train1.log test/correct/train1.log
+	diff -q test/output/train1_cross.log test/correct/train1_cross.log
+elif [ $1 == "-s" ]
+then
+	diff -q test/output/train1.dot test/correct/train1.dot
+fi
+
+echo "[train2 & train2_cross]"
+if [ $# -eq 0 ]
+then
+	./learnopt -tr test/x64/train2.imap -te test/x64/train2_cross.imap &> test/output/train2_cross.log
+	grep -E 'FAIL|MEASURE|Success(%)|Parse error' test/output/train2_cross.log &> /tmp/tmp.txt
+	mv /tmp/tmp.txt test/output/train2_cross.log
+
+	diff -q test/output/train2.log test/correct/train2.log
+	diff -q test/output/train2_cross.log test/correct/train2_cross.log
+elif [ $1 == "-s" ]
+then
+	diff -q test/output/train2.dot test/correct/train2.dot
+fi
+
+echo "[train3 & train3_cross]"
+if [ $# -eq 0 ]
+then
+	./learnopt -tr test/x64/train3.imap -te test/x64/train3_cross.imap &> test/output/train3_cross.log
+	grep -E 'FAIL|MEASURE|Success(%)|Parse error' test/output/train3_cross.log &> /tmp/tmp.txt
+	mv /tmp/tmp.txt test/output/train3_cross.log
+
+	diff -q test/output/train3.log test/correct/train3.log
+	diff -q test/output/train3_cross.log test/correct/train3_cross.log
+elif [ $1 == "-s" ]
+then
+	diff -q test/output/train3.dot test/correct/train3.dot
+fi
+
+echo "[train4 & train4_cross]"
+if [ $# -eq 0 ]
+then
+	./learnopt -tr test/x64/train4.imap -te test/x64/train4_cross.imap &> test/output/train4_cross.log
+	grep -E 'FAIL|MEASURE|Success(%)|Parse error' test/output/train4_cross.log &> /tmp/tmp.txt
+	mv /tmp/tmp.txt test/output/train4_cross.log
+
+	diff -q test/output/train4.log test/correct/train4.log
+	diff -q test/output/train4_cross.log test/correct/train4_cross.log
+elif [ $1 == "-s" ]
+then
+	diff -q test/output/train4.dot test/correct/train4.dot
+fi
+
+echo "[train5 & train5_cross]"
+if [ $# -eq 0 ]
+then
+	./learnopt -tr test/x64/train5.imap -te test/x64/train5_cross.imap &> test/output/train5_cross.log
+	grep -E 'FAIL|MEASURE|Success(%)|Parse error' test/output/train5_cross.log &> /tmp/tmp.txt
+	mv /tmp/tmp.txt test/output/train5_cross.log
+
+	diff -q test/output/train5.log test/correct/train5.log
+	diff -q test/output/train5_cross.log test/correct/train5_cross.log
+elif [ $1 == "-s" ]
+then
+	diff -q test/output/train5.dot test/correct/train5.dot
+fi
+
+echo "[train6 & train6_cross]"
+if [ $# -eq 0 ]
+then
+	./learnopt -tr test/x64/train6.imap -te test/x64/train6_cross.imap &> test/output/train6_cross.log
+	grep -E 'FAIL|MEASURE|Success(%)|Parse error' test/output/train6_cross.log &> /tmp/tmp.txt
+	mv /tmp/tmp.txt test/output/train6_cross.log
+
+	diff -q test/output/train6.log test/correct/train6.log
+	diff -q test/output/train6_cross.log test/correct/train6_cross.log
+elif [ $1 == "-s" ]
+then
+	diff -q test/output/train6.dot test/correct/train6.dot
+fi
+
+
+
+
+# exact recall
+# ./learnopt -tr test/x64/train1.imap -lf test/x64/test1.asm -e
+# cross-test
+# ./learnopt -tr test/x64/train3.imap -te test/x64/train2.imap
+# self-test
+
+
+# ./learnopt -tr test/x64/x64.glibc.imap -dotf test/output/x64.glibc.dot &> /dev/null
+# diff -q test/output/x64.glibc.dot test/correct/x64.glibc.dot
+# ./learnopt -tr test/x64/x64.glibc.imap -dotf test/output/x64.glibc.dot &> /dev/null
+# diff -q test/output/x64.glibc.dot test/correct/x64.glibc.dot
+# ./learnopt -tr test/x64/x64.binutils.imap -dotf test/output/x64.binutils.dot &> /dev/null
+# diff -q test/output/x64.binutils.dot test/correct/x64.binutils.dot

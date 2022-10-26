@@ -682,6 +682,13 @@ exception_handler::read_eh_frame (string fname)
       return;
       //exit(0);
     }
+  //cie.clear();
+  processed_lsda.clear();
+  lsda_list.clear();
+  cie.clear();
+  cie_ctr = 0;
+  cur_cie = 0;
+
   uint64_t eh_frame_offset = sh->sh_offset;
   uint64_t eh_frame_size = sh->sh_size;
 
@@ -793,7 +800,7 @@ exception_handler::read_eh_frame (string fname)
 	          //If FDE has LSDA data assosciated.
 
 	          lsda_class l (f.get_pc_begin ());
-	          l.read_lsda (fname, f.get_lsda_ptr ());
+	          l.read_lsda (fname, f.get_lsda_ptr (), elf_obj);
 	          lsda_list.push_back (l);
 	          lsda_index++;
 	          processed_lsda[f.get_lsda_ptr ()] = lsda_index;
@@ -820,6 +827,9 @@ exception_handler::read_eh_frame_hdr (string fname)
   Elf64_Shdr *sh = elf_obj.elfSectionHdr (".eh_frame_hdr").sh;
   if (sh == NULL)
     return;
+  header.eh_frame_ptr.clear();  //encoded bytes for eh_frame section address
+  header.fde_count.clear(); //encoded bytes for total number of entries in
+  header.lookup_tbl.clear();
   uint64_t eh_frame_hdr_offset = sh->sh_offset;
   uint64_t eh_frame_hdr_size = sh->sh_size;
 

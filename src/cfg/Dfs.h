@@ -25,6 +25,12 @@ using namespace std;
 
 namespace SBI {
 
+  //struct IndPath {
+  //  uint64_t entry_;
+  //  uint64_t tgt_;
+  //  vector <BasicBlock *> path_;
+  //};
+
   enum class SEQTYPE {
     INTRAFN,
     GLOBAL,
@@ -36,6 +42,11 @@ namespace SBI {
     SEQTYPE traversal_ = SEQTYPE::INTRAFN;
     vector <BasicBlock *> bbList_;
     queue <BasicBlock *> BfsQ_;
+    BasicBlock *curEntry_ = NULL;
+
+    unordered_map <uint64_t, BasicBlock *> root_;
+    //unordered_map <uint64_t, vector <BasicBlock *>> indPaths_;
+
   public:
     vector <BasicBlock *> bbSeq(BasicBlock *bb, SEQTYPE s = SEQTYPE::INTRAFN);
     vector <BasicBlock *> bbSeq(BasicBlock *bb, vector <BasicBlock *> &term_at, 
@@ -44,13 +55,16 @@ namespace SBI {
         SEQTYPE s = SEQTYPE::INTRAFN);
     stack <BasicBlock *> psblExitCalls(BasicBlock *bb);
     vector <BasicBlock *> path(BasicBlock *start, BasicBlock *end, SEQTYPE s);
-    vector <BasicBlock *> allRoutes(BasicBlock *entry, BasicBlock *through);
+    vector <BasicBlock *> allRoutes(BasicBlock *entry, BasicBlock *through,
+                                    unordered_set <uint64_t> &valid_ind_path);
     vector <BasicBlock *> allIndTgts(vector <BasicBlock *> &entry);
     bool bbInList(BasicBlock *bb, vector <BasicBlock *> &bb_list);
     vector <BasicBlock *> pathsFromTo(BasicBlock *from, BasicBlock *to);
-  private:
     bool checkPath(BasicBlock *from, BasicBlock *to);
-    void psblExitBFS(stack <BasicBlock *> &calls,
+    vector <BasicBlock *> subGraphParents(BasicBlock *bb);
+    vector <BasicBlock *> externalCallers(BasicBlock *bb, BasicBlock *entry);
+  private:
+    void psblExitDFS(BasicBlock *bb, stack <BasicBlock *> &calls,
                        unordered_set <uint64_t> &passed);
     void directlyReachableBBs(BasicBlock *bb,
                               unordered_set <uint64_t> &passed);
@@ -58,9 +72,10 @@ namespace SBI {
     bool pathExists(BasicBlock *start, BasicBlock *end,
                vector<BasicBlock *> &bbList,
                unordered_set<uint64_t> &passed);
-    bool allRouteDfs(BasicBlock *entry, BasicBlock *through,
+    void allRouteDfs(BasicBlock *through,
                      unordered_set <uint64_t> &passed,
-                     unordered_set <BasicBlock *> &path);
+                     unordered_set <BasicBlock *> &path,
+                     unordered_set <uint64_t> &valid_ind_path);
     vector <BasicBlock *> indTgtsDfs(BasicBlock *entry, 
                                      unordered_set <uint64_t> &passed);
   };

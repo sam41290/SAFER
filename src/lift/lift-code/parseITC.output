@@ -1,0 +1,671 @@
+   0  $accept : %entry% $end
+
+   1  asminsn : insns DONE
+   2          | DONE
+
+   3  insns : insn
+   4        | insn SEMICOLON insn
+   5        | insn SEMICOLON insn SEMICOLON insn
+   6        | insn SEMICOLON insn SEMICOLON insn SEMICOLON insn
+
+   7  insn : ID args
+   8       | PREFIX insn
+
+   9  args :
+  10       | arg
+  11       | arg COMMA arg
+  12       | arg COMMA arg COMMA arg
+  13       | arg COMMA arg COMMA arg COMMA arg
+
+  14  arg : nonmem_arg
+  15      | memarg
+
+  16  nonmem_arg : iconst
+  17             | reg
+
+  18  iconst : INT
+  19         | MINUS INT
+
+  20  reg : ID
+  21      | ID LPAREN iconst RPAREN
+
+  22  memarg : width_specifier LBRACK nonmem_args RBRACK
+  23         | width_specifier SEGREG COLON LBRACK nonmem_args RBRACK
+  24         | width_specifier SEGREG COLON nonmem_arg
+
+  25  width_specifier :
+  26                  | BYTE PTR
+  27                  | WORD PTR
+  28                  | DWORD PTR
+  29                  | QWORD PTR
+  30                  | XWORD PTR
+  31                  | YWORD PTR
+  32                  | ZWORD PTR
+  33                  | TBYTE PTR
+
+  34  nonmem_args : nonmem_arg
+  35              | nonmem_arg memop nonmem_args
+
+  36  memop : PLUS
+  37        | MINUS
+  38        | STAR
+
+  39  %entry% : '\001' asminsn
+
+state 0
+	$accept : . %entry% $end  (0)
+
+	'\001'  shift 1
+	.  error
+
+	%entry%  goto 2
+
+
+state 1
+	%entry% : '\001' . asminsn  (39)
+
+	ID  shift 3
+	PREFIX  shift 4
+	DONE  shift 5
+	.  error
+
+	asminsn  goto 6
+	insn  goto 7
+	insns  goto 8
+
+
+state 2
+	$accept : %entry% . $end  (0)
+
+	$end  accept
+
+
+state 3
+	insn : ID . args  (7)
+	args : .  (9)
+	width_specifier : .  (25)
+
+	INT  shift 9
+	ID  shift 10
+	MINUS  shift 11
+	BYTE  shift 12
+	WORD  shift 13
+	DWORD  shift 14
+	QWORD  shift 15
+	XWORD  shift 16
+	YWORD  shift 17
+	ZWORD  shift 18
+	TBYTE  shift 19
+	SEGREG  reduce 25
+	LBRACK  reduce 25
+	SEMICOLON  reduce 9
+	DONE  reduce 9
+
+	iconst  goto 20
+	reg  goto 21
+	arg  goto 22
+	args  goto 23
+	nonmem_arg  goto 24
+	memarg  goto 25
+	width_specifier  goto 26
+
+
+state 4
+	insn : PREFIX . insn  (8)
+
+	ID  shift 3
+	PREFIX  shift 4
+	.  error
+
+	insn  goto 27
+
+
+state 5
+	asminsn : DONE .  (2)
+
+	.  reduce 2
+
+
+state 6
+	%entry% : '\001' asminsn .  (39)
+
+	.  reduce 39
+
+
+state 7
+	insns : insn .  (3)
+	insns : insn . SEMICOLON insn  (4)
+	insns : insn . SEMICOLON insn SEMICOLON insn  (5)
+	insns : insn . SEMICOLON insn SEMICOLON insn SEMICOLON insn  (6)
+
+	SEMICOLON  shift 28
+	DONE  reduce 3
+
+
+state 8
+	asminsn : insns . DONE  (1)
+
+	DONE  shift 29
+	.  error
+
+
+state 9
+	iconst : INT .  (18)
+
+	.  reduce 18
+
+
+state 10
+	reg : ID .  (20)
+	reg : ID . LPAREN iconst RPAREN  (21)
+
+	LPAREN  shift 30
+	RBRACK  reduce 20
+	STAR  reduce 20
+	PLUS  reduce 20
+	MINUS  reduce 20
+	SEMICOLON  reduce 20
+	COMMA  reduce 20
+	DONE  reduce 20
+
+
+state 11
+	iconst : MINUS . INT  (19)
+
+	INT  shift 31
+	.  error
+
+
+state 12
+	width_specifier : BYTE . PTR  (26)
+
+	PTR  shift 32
+	.  error
+
+
+state 13
+	width_specifier : WORD . PTR  (27)
+
+	PTR  shift 33
+	.  error
+
+
+state 14
+	width_specifier : DWORD . PTR  (28)
+
+	PTR  shift 34
+	.  error
+
+
+state 15
+	width_specifier : QWORD . PTR  (29)
+
+	PTR  shift 35
+	.  error
+
+
+state 16
+	width_specifier : XWORD . PTR  (30)
+
+	PTR  shift 36
+	.  error
+
+
+state 17
+	width_specifier : YWORD . PTR  (31)
+
+	PTR  shift 37
+	.  error
+
+
+state 18
+	width_specifier : ZWORD . PTR  (32)
+
+	PTR  shift 38
+	.  error
+
+
+state 19
+	width_specifier : TBYTE . PTR  (33)
+
+	PTR  shift 39
+	.  error
+
+
+state 20
+	nonmem_arg : iconst .  (16)
+
+	.  reduce 16
+
+
+state 21
+	nonmem_arg : reg .  (17)
+
+	.  reduce 17
+
+
+state 22
+	args : arg .  (10)
+	args : arg . COMMA arg  (11)
+	args : arg . COMMA arg COMMA arg  (12)
+	args : arg . COMMA arg COMMA arg COMMA arg  (13)
+
+	COMMA  shift 40
+	SEMICOLON  reduce 10
+	DONE  reduce 10
+
+
+state 23
+	insn : ID args .  (7)
+
+	.  reduce 7
+
+
+state 24
+	arg : nonmem_arg .  (14)
+
+	.  reduce 14
+
+
+state 25
+	arg : memarg .  (15)
+
+	.  reduce 15
+
+
+state 26
+	memarg : width_specifier . LBRACK nonmem_args RBRACK  (22)
+	memarg : width_specifier . SEGREG COLON LBRACK nonmem_args RBRACK  (23)
+	memarg : width_specifier . SEGREG COLON nonmem_arg  (24)
+
+	SEGREG  shift 41
+	LBRACK  shift 42
+	.  error
+
+
+state 27
+	insn : PREFIX insn .  (8)
+
+	.  reduce 8
+
+
+state 28
+	insns : insn SEMICOLON . insn  (4)
+	insns : insn SEMICOLON . insn SEMICOLON insn  (5)
+	insns : insn SEMICOLON . insn SEMICOLON insn SEMICOLON insn  (6)
+
+	ID  shift 3
+	PREFIX  shift 4
+	.  error
+
+	insn  goto 43
+
+
+state 29
+	asminsn : insns DONE .  (1)
+
+	.  reduce 1
+
+
+state 30
+	reg : ID LPAREN . iconst RPAREN  (21)
+
+	INT  shift 9
+	MINUS  shift 11
+	.  error
+
+	iconst  goto 44
+
+
+state 31
+	iconst : MINUS INT .  (19)
+
+	.  reduce 19
+
+
+state 32
+	width_specifier : BYTE PTR .  (26)
+
+	.  reduce 26
+
+
+state 33
+	width_specifier : WORD PTR .  (27)
+
+	.  reduce 27
+
+
+state 34
+	width_specifier : DWORD PTR .  (28)
+
+	.  reduce 28
+
+
+state 35
+	width_specifier : QWORD PTR .  (29)
+
+	.  reduce 29
+
+
+state 36
+	width_specifier : XWORD PTR .  (30)
+
+	.  reduce 30
+
+
+state 37
+	width_specifier : YWORD PTR .  (31)
+
+	.  reduce 31
+
+
+state 38
+	width_specifier : ZWORD PTR .  (32)
+
+	.  reduce 32
+
+
+state 39
+	width_specifier : TBYTE PTR .  (33)
+
+	.  reduce 33
+
+
+state 40
+	args : arg COMMA . arg  (11)
+	args : arg COMMA . arg COMMA arg  (12)
+	args : arg COMMA . arg COMMA arg COMMA arg  (13)
+	width_specifier : .  (25)
+
+	INT  shift 9
+	ID  shift 10
+	MINUS  shift 11
+	BYTE  shift 12
+	WORD  shift 13
+	DWORD  shift 14
+	QWORD  shift 15
+	XWORD  shift 16
+	YWORD  shift 17
+	ZWORD  shift 18
+	TBYTE  shift 19
+	SEGREG  reduce 25
+	LBRACK  reduce 25
+
+	iconst  goto 20
+	reg  goto 21
+	arg  goto 45
+	nonmem_arg  goto 24
+	memarg  goto 25
+	width_specifier  goto 26
+
+
+state 41
+	memarg : width_specifier SEGREG . COLON LBRACK nonmem_args RBRACK  (23)
+	memarg : width_specifier SEGREG . COLON nonmem_arg  (24)
+
+	COLON  shift 46
+	.  error
+
+
+state 42
+	memarg : width_specifier LBRACK . nonmem_args RBRACK  (22)
+
+	INT  shift 9
+	ID  shift 10
+	MINUS  shift 11
+	.  error
+
+	iconst  goto 20
+	reg  goto 21
+	nonmem_arg  goto 47
+	nonmem_args  goto 48
+
+
+state 43
+	insns : insn SEMICOLON insn .  (4)
+	insns : insn SEMICOLON insn . SEMICOLON insn  (5)
+	insns : insn SEMICOLON insn . SEMICOLON insn SEMICOLON insn  (6)
+
+	SEMICOLON  shift 49
+	DONE  reduce 4
+
+
+state 44
+	reg : ID LPAREN iconst . RPAREN  (21)
+
+	RPAREN  shift 50
+	.  error
+
+
+state 45
+	args : arg COMMA arg .  (11)
+	args : arg COMMA arg . COMMA arg  (12)
+	args : arg COMMA arg . COMMA arg COMMA arg  (13)
+
+	COMMA  shift 51
+	SEMICOLON  reduce 11
+	DONE  reduce 11
+
+
+state 46
+	memarg : width_specifier SEGREG COLON . LBRACK nonmem_args RBRACK  (23)
+	memarg : width_specifier SEGREG COLON . nonmem_arg  (24)
+
+	INT  shift 9
+	ID  shift 10
+	LBRACK  shift 52
+	MINUS  shift 11
+	.  error
+
+	iconst  goto 20
+	reg  goto 21
+	nonmem_arg  goto 53
+
+
+state 47
+	nonmem_args : nonmem_arg .  (34)
+	nonmem_args : nonmem_arg . memop nonmem_args  (35)
+
+	STAR  shift 54
+	PLUS  shift 55
+	MINUS  shift 56
+	RBRACK  reduce 34
+
+	memop  goto 57
+
+
+state 48
+	memarg : width_specifier LBRACK nonmem_args . RBRACK  (22)
+
+	RBRACK  shift 58
+	.  error
+
+
+state 49
+	insns : insn SEMICOLON insn SEMICOLON . insn  (5)
+	insns : insn SEMICOLON insn SEMICOLON . insn SEMICOLON insn  (6)
+
+	ID  shift 3
+	PREFIX  shift 4
+	.  error
+
+	insn  goto 59
+
+
+state 50
+	reg : ID LPAREN iconst RPAREN .  (21)
+
+	.  reduce 21
+
+
+state 51
+	args : arg COMMA arg COMMA . arg  (12)
+	args : arg COMMA arg COMMA . arg COMMA arg  (13)
+	width_specifier : .  (25)
+
+	INT  shift 9
+	ID  shift 10
+	MINUS  shift 11
+	BYTE  shift 12
+	WORD  shift 13
+	DWORD  shift 14
+	QWORD  shift 15
+	XWORD  shift 16
+	YWORD  shift 17
+	ZWORD  shift 18
+	TBYTE  shift 19
+	SEGREG  reduce 25
+	LBRACK  reduce 25
+
+	iconst  goto 20
+	reg  goto 21
+	arg  goto 60
+	nonmem_arg  goto 24
+	memarg  goto 25
+	width_specifier  goto 26
+
+
+state 52
+	memarg : width_specifier SEGREG COLON LBRACK . nonmem_args RBRACK  (23)
+
+	INT  shift 9
+	ID  shift 10
+	MINUS  shift 11
+	.  error
+
+	iconst  goto 20
+	reg  goto 21
+	nonmem_arg  goto 47
+	nonmem_args  goto 61
+
+
+state 53
+	memarg : width_specifier SEGREG COLON nonmem_arg .  (24)
+
+	.  reduce 24
+
+
+state 54
+	memop : STAR .  (38)
+
+	.  reduce 38
+
+
+state 55
+	memop : PLUS .  (36)
+
+	.  reduce 36
+
+
+state 56
+	memop : MINUS .  (37)
+
+	.  reduce 37
+
+
+state 57
+	nonmem_args : nonmem_arg memop . nonmem_args  (35)
+
+	INT  shift 9
+	ID  shift 10
+	MINUS  shift 11
+	.  error
+
+	iconst  goto 20
+	reg  goto 21
+	nonmem_arg  goto 47
+	nonmem_args  goto 62
+
+
+state 58
+	memarg : width_specifier LBRACK nonmem_args RBRACK .  (22)
+
+	.  reduce 22
+
+
+state 59
+	insns : insn SEMICOLON insn SEMICOLON insn .  (5)
+	insns : insn SEMICOLON insn SEMICOLON insn . SEMICOLON insn  (6)
+
+	SEMICOLON  shift 63
+	DONE  reduce 5
+
+
+state 60
+	args : arg COMMA arg COMMA arg .  (12)
+	args : arg COMMA arg COMMA arg . COMMA arg  (13)
+
+	COMMA  shift 64
+	SEMICOLON  reduce 12
+	DONE  reduce 12
+
+
+state 61
+	memarg : width_specifier SEGREG COLON LBRACK nonmem_args . RBRACK  (23)
+
+	RBRACK  shift 65
+	.  error
+
+
+state 62
+	nonmem_args : nonmem_arg memop nonmem_args .  (35)
+
+	.  reduce 35
+
+
+state 63
+	insns : insn SEMICOLON insn SEMICOLON insn SEMICOLON . insn  (6)
+
+	ID  shift 3
+	PREFIX  shift 4
+	.  error
+
+	insn  goto 66
+
+
+state 64
+	args : arg COMMA arg COMMA arg COMMA . arg  (13)
+	width_specifier : .  (25)
+
+	INT  shift 9
+	ID  shift 10
+	MINUS  shift 11
+	BYTE  shift 12
+	WORD  shift 13
+	DWORD  shift 14
+	QWORD  shift 15
+	XWORD  shift 16
+	YWORD  shift 17
+	ZWORD  shift 18
+	TBYTE  shift 19
+	SEGREG  reduce 25
+	LBRACK  reduce 25
+
+	iconst  goto 20
+	reg  goto 21
+	arg  goto 67
+	nonmem_arg  goto 24
+	memarg  goto 25
+	width_specifier  goto 26
+
+
+state 65
+	memarg : width_specifier SEGREG COLON LBRACK nonmem_args RBRACK .  (23)
+
+	.  reduce 23
+
+
+state 66
+	insns : insn SEMICOLON insn SEMICOLON insn SEMICOLON insn .  (6)
+
+	.  reduce 6
+
+
+state 67
+	args : arg COMMA arg COMMA arg COMMA arg .  (13)
+
+	.  reduce 13
+
+
+33 terminals, 14 nonterminals
+40 grammar rules, 68 states

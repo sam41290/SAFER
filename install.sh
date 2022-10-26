@@ -32,24 +32,24 @@ export LD_LIBRARY_PATH=/usr/lib/ocaml
 cp ${TOOL_PATH}/run/randmodes/LLRK.h ${TOOL_PATH}/run/config.h
 
 
-#cd ${TOOL_PATH}/src/lift/lift-code
-#make clean
-#make all
+cd ${TOOL_PATH}/src/lift/lift-code
+make clean
+make all
 
 
-#cd ${TOOL_PATH}/src/rtl-analysis/
-#make clean
-#make libanalysis.so
+cd ${TOOL_PATH}/src/rtl-analysis/
+make clean
+make libanalysis.so
 
 cd ${TOOL_PATH}
 
-cd jmp-table-analysis
-cd lift/lift-code/
-make clean
-make all
-cd ../../
-make clean
-make
+#cd jmp-table-analysis
+#cd lift/lift-code/
+#make clean
+#make all
+#cd ../../
+#make clean
+#make
 
 
 ln -sf ${TOOL_PATH}/randomize.sh ${HOME}/randomize.sh

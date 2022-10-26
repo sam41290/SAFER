@@ -60,7 +60,7 @@ public:
   string binaryName () { return bname_; }
   void ptrsToEncode (uint64_t ptr) { encode_.insert (ptr); }
   bool encoded(uint64_t addrs) {
-    if(encode_.find(addrs) != encode_.end())
+    if(ENCODE == 1 && encode_.find(addrs) != encode_.end())
       return true;
     return false;
   }
@@ -103,6 +103,10 @@ public:
   
   virtual int newPHdrSz() = 0;
   virtual uint64_t exeHdrSz() = 0;
+  virtual vector <Object> codeObjects() = 0;
+  virtual vector <Object> dataObjects() = 0;
+  virtual vector <Object> noTypeObjects() = 0;
+  virtual bool isMetaData(uint64_t addrs) = 0;
   void placeHooks(map <uint64_t, vector <uint8_t>> &hooks);
   vector <string> additionSecs();
   //virtual void extraRelocs() = 0;

@@ -59,7 +59,6 @@ class Cfg:public PointerAnalysis, public virtual CfgElems
   set <PointerSource> ignoreRoots_;
   exe_type type_;
   Rand *randomizer_;
-  DisasmEngn *disassembler_;
   PointerSource rootSrc_ = PointerSource::NONE;
   uint64_t currentRoot_;
 public:
@@ -70,7 +69,6 @@ public:
     type_ = t; 
   }
   void rootSrc(PointerSource src) { rootSrc_ = src; } 
-  void disassembler(DisasmEngn *disasm) { disassembler_ = disasm; }
   bool addToCfg(uint64_t addrs, PointerSource t);
   void disasmRoots(PointerType p_type);
   void disassemble();
@@ -85,7 +83,7 @@ private:
   void genCFG();
   void addToDisasmRoots(uint64_t address);
   void checkLockPrefix(BasicBlock *bb,code_type t);
-  void processFallThrough(BasicBlock *bb, PointerSource t);
+  bool processFallThrough(BasicBlock *bb, PointerSource t);
   bool processTarget(BasicBlock *bb, PointerSource t);
   void processAllRoots();
   void possibleCodeDisasm();
@@ -94,9 +92,17 @@ private:
   void randomPointDisasm(int min,int max);
   void scanPsblPtrs();
   void scanMemForPtr (uint64_t start,uint64_t start_addr,uint64_t size);
+  void scanPsblPtrsGT();
+  void scanMemForPtrGT (uint64_t start,uint64_t start_addr,uint64_t size);
   void jmpTblGroundTruth(int type);
   void checkForPtr(Instruction *ins);
   void processIndrctJmp(Instruction *call_ins, BasicBlock * bb,code_type t);
+  void scanForCalls(int call_cnt);
+  void disassembleGaps();
+  void checkFirstUseDef(vector <uint64_t> &psbl_entries);
+  void checkPsblEntries(uint64_t psbl_fn_start, uint64_t gap_end);
+  void addHintBasedEntries();
+  void handleLoopIns(vector <BasicBlock *> &bb_list);
 };
 }
 #endif

@@ -41,6 +41,7 @@ class Binary:public Instrument
   //Cfg unknownCFG_;
 
 public:
+  DisasmEngn *disassembler() { return disassembler_;}
   Binary(string Binary_path);
   ~Binary();
   void disassemble();
@@ -52,6 +53,7 @@ public:
   //void assignLabeltoFn(string label, string func_name);
   void get_section_asm(string sec_name, string sec_file);
   string printPsblData();
+  Cfg *codeCfg() { return codeCFG_; }
 private:
   void init();
   void hookPoints();

@@ -48,7 +48,7 @@ public:
       tbl += e.lookupEntrySym_ + ":\n"
           + e.oldPtr_ + "\n" + e.tgtEntrySym_ + ":\n"
           + e.newPtr_ + "\n"
-          + "." + to_string(e.val_) + "_enc_ptr: .8byte " + to_string((int)EncType()) + "\n";
+          /*+ "." + to_string(e.val_) + "_enc_ptr:*/ + ".8byte " + to_string((int)EncType()) + "\n";
       ctr++;
     }
     tbl += ".dispatcher: .8byte 0\n.gtt_ind: .8byte 0\n";

@@ -21,7 +21,8 @@ enum class SymbolType
   CONSTANT,
   OPERAND,
   RLTV,
-  JMP_TBL_TGT
+  JMP_TBL_TGT,
+  LINEAR_SCAN
 };
 
 enum class SymbolizeIf {
@@ -31,7 +32,8 @@ enum class SymbolizeIf {
   IMMOP_LOC_MATCH,
   CONST,
   JMP_TBL_TGT,
-  RLTV
+  RLTV,
+  LINEAR_SCAN
 };
 
 /**
@@ -42,7 +44,7 @@ class Symbol {
   uint64_t location_; //For RLTV and OPERAND, this will be instruction address
   SymbolType type_;
   bool symbolize_ = false;
-
+  int size_ = 0;
 public:
 
   Symbol(uint64_t loc, SymbolType t) {
@@ -55,6 +57,10 @@ public:
   SymbolType type() { return type_; }
   bool symbolizable(SymbolizeIf cnd, uint64_t loc) {
     switch (cnd) {
+      case SymbolizeIf::LINEAR_SCAN :
+        if(type_ == SymbolType::LINEAR_SCAN)
+          return true;
+        break;
       case SymbolizeIf::JMP_TBL_TGT :
         if(type_ == SymbolType::JMP_TBL_TGT)
           return true;
@@ -101,6 +107,8 @@ public:
     ofile<<" "<<dec<<(int)type_;
     ofile<<" "<<dec<<(int)symbolize_<<endl;
   }
+  int size() { return size_; }
+  void size(int s) { size_ = s; }
 };
 
 enum class PointerType
@@ -118,18 +126,24 @@ enum class PointerSource
   //DONOT change the sequence. 
   //The sources are arranged in the increasing order of their reachability.
   NONE,
+  CALL_TGT_2,
+  CALL_TGT_1,
+  VALIDITY_WINDOW,
   PHANTOM,
   RANDOMADDRS,
-  STOREDCONST,
+  GAP_PTR,
+  GAP_HINT,
   EH,
   DEBUGINFO,
   SYMTABLE,
+  STOREDCONST,
   JUMPTABLE,
   POSSIBLE_RA,
   EXTRA_RELOC_PCREL,
   EXTRA_RELOC_CONST,
-  RIP_RLTV,
   CONSTOP,
+  CONSTMEM,
+  RIP_RLTV,
   PIC_RELOC,
   EHFIRST,
   KNOWN_CODE_PTR
@@ -215,6 +229,24 @@ public:
       if(sym.location() == 100 || sym.location() == 0)
         continue;
       if(sym.type() == t) {
+        //LOG("location: "<<hex<<sym.location());
+        loc_list.push_back(sym.location());
+      }
+    }
+    return loc_list;
+  }
+  void size(int s, uint64_t loc) {
+    for(auto & sym : symCandidates_) {
+      if(sym.location() == loc)
+        sym.size(s);
+    }
+  }
+  vector<uint64_t> storages(int s) {
+    vector <uint64_t> loc_list;
+    for(auto & sym : symCandidates_) {
+      if(sym.location() == 100 || sym.location() == 0)
+        continue;
+      if(sym.size() == s) {
         //LOG("location: "<<hex<<sym.location());
         loc_list.push_back(sym.location());
       }

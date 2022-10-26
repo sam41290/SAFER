@@ -316,7 +316,124 @@ ElfClass::readSymTbl64 (int32_t symbol_table) {
   free (sym_tbl);
   free (str_tbl);
 }
+vector <Object>
+ElfClass::noTypeObjects () {
+  vector <Object> data_objects;
+  for (auto i = 0; i < elfHeader_->e_shnum; i++) {
+    if ((shTable_[i]->sh_type == SHT_SYMTAB)
+    || (shTable_[i]->sh_type == SHT_DYNSYM)) {
+      char *str_tbl;
+      Elf64_Sym *sym_tbl;
+      uint32_t symbol_count;
 
+      sym_tbl = (Elf64_Sym *) readSection64 (shTable_[i]);
+
+      /* Read linked string-table
+       * Section containing the string table having names of
+       * symbols of this section
+       */
+      uint32_t str_tbl_ndx = shTable_[i]->sh_link;
+      str_tbl = readSection64 (shTable_[str_tbl_ndx]);
+
+      symbol_count = (shTable_[i]->sh_size / sizeof (Elf64_Sym));
+      for (auto j = 0; j < symbol_count; j++) {
+
+        string nm ((str_tbl + sym_tbl[j].st_name));
+        uint64_t addr = (off_t) sym_tbl[j].st_value;
+        if((sym_tbl[j].st_info & 0xf) == STT_NOTYPE) {
+          Object o;
+          o.name = nm;
+          o.addr = addr;
+          o.size = sym_tbl[j].st_size;
+          data_objects.push_back(o);
+        }
+      }
+
+      free (sym_tbl);
+      free (str_tbl);
+    }
+  }
+  return data_objects;
+}
+
+vector <Object>
+ElfClass::dataObjects () {
+  vector <Object> data_objects;
+  for (auto i = 0; i < elfHeader_->e_shnum; i++) {
+    if ((shTable_[i]->sh_type == SHT_SYMTAB)
+    || (shTable_[i]->sh_type == SHT_DYNSYM)) {
+      char *str_tbl;
+      Elf64_Sym *sym_tbl;
+      uint32_t symbol_count;
+
+      sym_tbl = (Elf64_Sym *) readSection64 (shTable_[i]);
+
+      /* Read linked string-table
+       * Section containing the string table having names of
+       * symbols of this section
+       */
+      uint32_t str_tbl_ndx = shTable_[i]->sh_link;
+      str_tbl = readSection64 (shTable_[str_tbl_ndx]);
+
+      symbol_count = (shTable_[i]->sh_size / sizeof (Elf64_Sym));
+      for (auto j = 0; j < symbol_count; j++) {
+
+        string nm ((str_tbl + sym_tbl[j].st_name));
+        uint64_t addr = (off_t) sym_tbl[j].st_value;
+        if((sym_tbl[j].st_info & 0xf) == STT_OBJECT) {
+          Object o;
+          o.name = nm;
+          o.addr = addr;
+          o.size = sym_tbl[j].st_size;
+          data_objects.push_back(o);
+        }
+      }
+
+      free (sym_tbl);
+      free (str_tbl);
+    }
+  }
+  return data_objects;
+}
+vector <Object>
+ElfClass::codeObjects () {
+  vector <Object> code_objects;
+  for (auto i = 0; i < elfHeader_->e_shnum; i++) {
+    if ((shTable_[i]->sh_type == SHT_SYMTAB)
+    || (shTable_[i]->sh_type == SHT_DYNSYM)) {
+      char *str_tbl;
+      Elf64_Sym *sym_tbl;
+      uint32_t symbol_count;
+
+      sym_tbl = (Elf64_Sym *) readSection64 (shTable_[i]);
+
+      /* Read linked string-table
+       * Section containing the string table having names of
+       * symbols of this section
+       */
+      uint32_t str_tbl_ndx = shTable_[i]->sh_link;
+      str_tbl = readSection64 (shTable_[str_tbl_ndx]);
+
+      symbol_count = (shTable_[i]->sh_size / sizeof (Elf64_Sym));
+      for (auto j = 0; j < symbol_count; j++) {
+
+        string nm ((str_tbl + sym_tbl[j].st_name));
+        uint64_t addr = (off_t) sym_tbl[j].st_value;
+        if((sym_tbl[j].st_info & 0xf) == STT_FUNC && addr != 0) {
+          Object o;
+          o.name = nm;
+          o.addr = addr;
+          o.size = sym_tbl[j].st_size;
+          code_objects.push_back(o);
+        }
+      }
+
+      free (sym_tbl);
+      free (str_tbl);
+    }
+  }
+  return code_objects;
+}
 
 void
 ElfClass::readSymbols64 () {
@@ -346,6 +463,7 @@ vector < uint64_t > ElfClass::allSyms () {
   SECTIONS(SHT_SYMTAB,sym_sections);
   for (auto & sec :  sym_sections) {
     symtbl_to_ptr(sec.sh,code_ph,sym_values,binaryName(),STT_FUNC);
+    //symtbl_to_ptr(sec.sh,code_ph,sym_values,binaryName(),STT_NOTYPE);
   }
   return sym_values;
 }
@@ -438,6 +556,20 @@ vector < elf_section > ElfClass::relaSections () {
   vector < elf_section > rela_sections;
   SECTIONS(SHT_RELA,rela_sections);
   return rela_sections;
+}
+
+bool 
+ElfClass::isMetaData(uint64_t addrs) {
+  for(auto & s : allSections_) {
+    if(s.second.sh->sh_addr != 0 && addrs >= s.second.sh->sh_addr &&
+       addrs < (s.second.sh->sh_addr + s.second.sh->sh_size)) {
+      if(metaSections_.find(s.first) != metaSections_.end())
+        return true;
+      else
+        return false;
+    }
+  }
+  return true;
 }
 
 vector < elf_section > 
@@ -675,7 +807,7 @@ ElfClass::readRelocs() {
 //READING EXTRA RELOCS NECESSARY FOR GROUND TRUTH
 
   string bname = binaryName ();
-  Elf64_Shdr *sym_sh = NULL;
+  /*
 
   vector <elf_section> sym_secs;
   SECTIONS(SHT_SYMTAB,sym_secs);
@@ -691,6 +823,7 @@ ElfClass::readRelocs() {
     LOG("Error: No symbol section in the executable");
     exit(1);
   }
+  */
   //uint64_t string_tbl_idx = sym_sh->sh_link;
   //uint64_t string_tbl_offset = shTable_[string_tbl_idx]->sh_offset;
   //uint64_t string_tbl_size = shTable_[string_tbl_idx]->sh_size;
@@ -698,8 +831,6 @@ ElfClass::readRelocs() {
   //char *all_strings = (char *)section_data(string_tbl_offset,
   //    string_tbl_size,bname);
 
-  Elf64_Sym *sym_tbl = (Elf64_Sym *)section_data(sym_sh->sh_offset,
-      sym_sh->sh_size,bname);
 
 
   for(auto & sec : rela_sections) {
@@ -713,6 +844,9 @@ ElfClass::readRelocs() {
       Elf64_Rela *rl
         = (Elf64_Rela *)section_data(sec.sh->sh_offset,sec.sh->sh_size,binaryName());
       int entry_count = sec.sh->sh_size / sizeof (Elf64_Rela);
+      Elf64_Shdr *sym_sh = shTable_[sec.sh->sh_link];
+      Elf64_Sym *sym_tbl = (Elf64_Sym *)section_data(sym_sh->sh_offset,
+      sym_sh->sh_size,bname);
       for(int j = 0; j < entry_count; j++) {
         //if(usedAtRunTime(rl[j].r_offset)) { 
           uint32_t type = (uint32_t) rl[j].r_info;
@@ -1144,7 +1278,7 @@ ElfClass::printPHdrs(string fname) {
   ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<att_ph.mem_end_sym<<
    " - "<<att_ph.start_sym<<endl;
   ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<1<<endl;
-  int sz = newPHdrs_.size();
+  int sz = newPHdrs_.size() + 1;
   while(sz <= (elfHeader_->e_phnum + 3)) {
     ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<PT_NULL<<endl;
     ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<PF_R<<endl;

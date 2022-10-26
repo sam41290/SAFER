@@ -50,10 +50,18 @@ class ElfClass:public ExeManager
   vector <Elf64_Phdr *> phTable_; 
   const vector <string> exitSyms
     =
-    { "abort", "_exit", "exit", "__stack_chk_fail", "__assert_fail",
+    { "abort", "_exit", "exit", "xexit","__stack_chk_fail", "__assert_fail",
     "__fortify_fail", "__chk_fail","err","errx","verr","verrx",
-    "g_assertion_message_expr"};
-  const vector <string> mayExitSyms_ = {"__fprintf_chk","__printf_chk","error"};
+    "g_assertion_message_expr", "longjmp", "__longjmp", "__longjmp_chk", "_Unwind_Resume",
+    "_ZSt17__throw_bad_allocv","_ZSt20__throw_length_errorPKc", "__f90_stop", "fancy_abort",
+    "ExitProcess","_ZSt20__throw_out_of_rangePKc", "__cxa_rethrow", "__cxa_throw",
+    "_ZSt21__throw_runtime_errorPKc", "_ZSt9terminatev", "_gfortran_os_error", "_ZSt24__throw_out_of_range_fmtPKcz",
+    "_gfortran_runtime_error", "_gfortran_stop_numeric", "_gfortran_runtime_error_at",
+    "_gfortran_stop_string", "_gfortran_abort", "_gfortran_exit_i8",
+    "_gfortran_exit_i4", "for_stop_core", "__sys_exit", "_Exit", "ExitThread", "FatalExit", 
+    "RaiseException", "RtlRaiseException", "TerminateProcess", "__cxa_throw_bad_array_new_length",
+    "_ZSt19__throw_logic_errorPKc","_Z8V8_FatalPKciS0_z","_ZSt16__throw_bad_castv"};
+  const vector <string> mayExitSyms_ = {"__fprintf_chk","__printf_chk","error","__vfprintf_chk"};
   const unordered_set <string> metaSections_
     = {".interp",".note.gnu.property",".note.gnu.build-id",
       ".note.ABI-tag",".gnu.hash",".dynstr",".gnu.version",
@@ -100,6 +108,10 @@ public:
   int newPHdrSz() { return sizeof(Elf64_Phdr) * (phTable_.size() + 3); }
   vector <Elf64_Phdr *> phTable() { return phTable_; }
   void updateWithoutObjCopy(string bname,string obj_file);
+  vector <Object> codeObjects();
+  vector <Object> dataObjects();
+  vector <Object> noTypeObjects();
+  bool isMetaData(uint64_t addrs);
 private:
   void readElfHeader64 ();
   char *readSection64 (Elf64_Shdr * sh);

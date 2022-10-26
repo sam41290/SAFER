@@ -25,6 +25,43 @@ Dfs::bbSeq(BasicBlock *bb, SEQTYPE s) {
   return bbList_;
 }
 
+vector <BasicBlock *>
+Dfs::subGraphParents(BasicBlock *bb) {
+  traversal_ = SEQTYPE::INTRAFN;
+  bbList_.clear();
+  unordered_set <uint64_t> passed;
+  directlyReachableBBs(bb,passed);
+
+  vector <BasicBlock *> sub_graph_parents;
+  for(auto & bb : bbList_) {
+    auto parents = bb->parents();
+    for(auto & p : parents)
+      if(passed.find(p->start()) == passed.end())
+        sub_graph_parents.push_back(p);
+  }
+
+  return sub_graph_parents;
+}
+
+vector <BasicBlock *>
+Dfs::externalCallers(BasicBlock *bb, BasicBlock *entry) {
+  traversal_ = SEQTYPE::INTRAFN;
+  bbList_.clear();
+  unordered_set <uint64_t> passed;
+  directlyReachableBBs(entry,passed);
+
+  vector <BasicBlock *> sub_graph_parents;
+  auto parents = bb->parents();
+  for(auto & p : parents) {
+    auto last_ins = p->lastIns();
+    if(passed.find(p->start()) == passed.end() && p->target() == bb->start() 
+       && last_ins->isCall() && p->target() != p->fallThrough())
+      sub_graph_parents.push_back(p);
+  }
+
+  return sub_graph_parents;
+}
+
 
 vector <BasicBlock *> 
 Dfs::bbSeq(BasicBlock *bb, vector <BasicBlock *> &term_at, SEQTYPE s) {
@@ -51,11 +88,12 @@ Dfs::pathExists(BasicBlock *start, BasicBlock *end,
   }
   bool path_exists = false;
   passed.insert(start->start());
-  if(start->fallThrough() != 0 &&
+    //DEF_LOG("Node: "<<hex<<start->start());
+  if(start->fallThroughBB() != NULL &&
      passed.find(start->fallThrough()) == passed.end())
     if(pathExists(start->fallThroughBB(), end, bbList, passed))
       path_exists = true;
-  if(start->target() != 0 && FOLLOWTARGET(start,traversal_) &&
+  if(start->targetBB() != NULL && FOLLOWTARGET(start,traversal_) &&
      passed.find(start->target()) == passed.end())
     if(pathExists(start->targetBB(),end,bbList, passed))
       path_exists = true;
@@ -68,25 +106,18 @@ Dfs::pathExists(BasicBlock *start, BasicBlock *end,
 }
 
 void
-Dfs::psblExitBFS(stack <BasicBlock *> &calls, 
+Dfs::psblExitDFS(BasicBlock *bb, stack <BasicBlock *> &calls, 
                  unordered_set <uint64_t> &passed) {
-  if (BfsQ_.empty())
-    return;
-  auto bb = BfsQ_.front();
-  BfsQ_.pop();
   if(passed.find(bb->start()) == passed.end()) {
-    //LOG("Bfs bb: "<<hex<<bb->start());
     passed.insert(bb->start());
+    if(bb->targetBB() != NULL && FOLLOWTARGET(bb,traversal_))
+      psblExitDFS(bb->targetBB(), calls, passed);
+    if(bb->fallThroughBB() != NULL)
+      psblExitDFS(bb->fallThroughBB(), calls, passed);
     if(bb->isCall() && bb->callType() == BBType::MAY_BE_RETURNING) {
-      //LOG("Possibly exit call");
       calls.push(bb);
     }
-    if(bb->targetBB() != NULL && FOLLOWTARGET(bb,traversal_))
-      BfsQ_.push(bb->targetBB());
-    if(bb->fallThroughBB() != NULL)
-      BfsQ_.push(bb->fallThroughBB());
   }
-  psblExitBFS(calls, passed);
 }
 
 
@@ -112,9 +143,11 @@ Dfs::allPathsTo(BasicBlock *bb, SEQTYPE s) {
 
 bool
 Dfs::checkPath(BasicBlock *from, BasicBlock *to) {
-    vector <BasicBlock *> bb_list;
-    unordered_set <uint64_t> passed;
-    return pathExists(from,to,bb_list,passed);
+  //DEF_LOG("Checking if path exists from: "<<hex<<from->start()<<"->"<<hex<<to->start());
+  traversal_ = SEQTYPE::INTRAFN;
+  vector <BasicBlock *> bb_list;
+  unordered_set <uint64_t> passed;
+  return pathExists(from,to,bb_list,passed);
 }
 
 vector <BasicBlock *>
@@ -127,21 +160,21 @@ Dfs::pathsFromTo(BasicBlock *from, BasicBlock *to) {
 
 vector <BasicBlock *>
 Dfs::indTgtsDfs(BasicBlock *entry, unordered_set <uint64_t> &passed) {
+  //LOG("Entry: "<<hex<<entry->start());
   vector <BasicBlock *> ind_tgts;
   auto bb_list = bbSeq(entry);
+  passed.insert(entry->start());
   for(auto & bb : bb_list) {
-    passed.insert(bb->start());
     auto inds = bb->indirectTgts();
     if(inds.size() > 0) {
-      //LOG("Entry: "<<hex<<entry->start());
       ind_tgts.insert(ind_tgts.end(),inds.begin(),inds.end());
-      for(auto & ind_bb : inds) {
-        if(passed.find(ind_bb->start()) == passed.end()) {
-          //LOG("ind tgt: "<<hex<<ind_bb->start());
-          auto second_layer = indTgtsDfs(ind_bb,passed);
-          ind_tgts.insert(ind_tgts.end(),second_layer.begin(),second_layer.end());
-        }
-      }
+      //for(auto & ind_bb : inds) {
+      //  if(passed.find(ind_bb->start()) == passed.end()) {
+      //    //LOG("ind tgt: "<<hex<<ind_bb->start());
+      //    auto second_layer = indTgtsDfs(ind_bb,passed);
+      //    ind_tgts.insert(second_layer.begin(),second_layer.end());
+      //  }
+      //}
     }
   }
   return ind_tgts;
@@ -153,8 +186,17 @@ Dfs::allIndTgts(vector <BasicBlock *> &entry) {
   vector <BasicBlock *> all_inds;
   for(auto & e : entry) {
     auto lst = indTgtsDfs(e,passed);
-    all_inds.insert(all_inds.end(), lst.begin(), lst.end());
+    //DEF_LOG("Entry: "<<hex<<e->start()<<" ind tgt count: "<<lst.size());
+    all_inds.insert(all_inds.end(),lst.begin(), lst.end());
+    /*
+    if(e->start() == 0x413a60) {
+    for(auto & ind_bb : all_inds)
+      DEF_LOG(hex<<ind_bb->start());
+    }
+    */
+    
   }
+  LOG("Total inds: "<<all_inds.size());
   return all_inds;
 }
 
@@ -166,73 +208,97 @@ Dfs::bbInList(BasicBlock *bb, vector <BasicBlock *> &bb_list) {
   return false;
 }
 
-bool
-Dfs::allRouteDfs(BasicBlock *entry, BasicBlock *through, 
+void
+Dfs::allRouteDfs(BasicBlock *through, 
                  unordered_set <uint64_t> &passed,
-                 unordered_set <BasicBlock *> &path) {
-  //LOG("ind path: "<<hex<<entry->start());
-  if(checkPath(entry, through)) {
-    auto bb_list = bbSeq(entry);
-    path.insert(bb_list.begin(), bb_list.end());
-    return true;
-  }
-  auto bb_list = bbSeq(entry);
+                 unordered_set <BasicBlock *> &path,
+                 unordered_set <uint64_t> &valid_ind_path) {
 
-  unordered_set <BasicBlock *> ind_paths;
-  for(auto & bb : bb_list) {
-    passed.insert(bb->start());
-    auto inds = bb->indirectTgts();
-    ind_paths.insert(inds.begin(), inds.end());
+  while(BfsQ_.empty() == false) {
 
-    for(auto & ind_bb : inds) {
-      if(checkPath(ind_bb,through)) {
-        auto ind_seq = bbSeq(ind_bb);
-        path.insert(bb_list.begin(), bb_list.end());
-        path.insert(ind_seq.begin(), ind_seq.end());
-        return true;
+    BasicBlock *entry = BfsQ_.front();
+    BfsQ_.pop();
+
+    if(passed.find(entry->start()) == passed.end()) {
+      //LOG("ind path: "<<hex<<entry->start());
+      if(entry->start() == through->start() ||
+         valid_ind_path.find(entry->start()) != valid_ind_path.end()) {
+        auto bb_list = bbSeq(entry);
+        if(bbInList(through, bb_list)) {
+          //LOG("reachable from: "<<hex<<entry->start());
+          path.insert(bb_list.begin(), bb_list.end());
+          
+          auto root = root_.find(entry->start());
+          while(root != root_.end()) {
+            //LOG("Root: "<<hex<<root->second->start());
+            auto root_seq = bbSeq(root->second);
+            path.insert(root_seq.begin(), root_seq.end());
+            if(root->second->start() == curEntry_->start())
+              break;
+            root = root_.find(root->second->start());
+          }
+          
+          return;
+        }
+        else {
+          for(auto & bb : bb_list) {
+            if(passed.find(bb->start()) == passed.end()) {
+              passed.insert(bb->start());
+              auto inds = bb->indirectTgts();
+              if(inds.size() > 0) {    
+                //LOG("Ind cf: "<<hex<<bb->start());
+                for(auto & ind_bb : inds) {
+                  BfsQ_.push(ind_bb);
+                  if(root_.find(ind_bb->start()) == root_.end()) {
+                    root_[ind_bb->start()] = entry;
+                    //LOG("Adding root: "<<hex<<ind_bb->start()<<"->"<<hex<<entry->start());
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
   }
-
-  for(auto & ind_bb : ind_paths) {
-    if(passed.find(ind_bb->start()) == passed.end()) {
-      if(allRouteDfs(ind_bb, through, passed, path)) {
-        path.insert(bb_list.begin(),bb_list.end());
-        return true;
-      }
-    }
-  }
-  return false;
+  //allRouteDfs(through, passed, path);
+  return;
 }
 
 vector <BasicBlock *> 
-Dfs::allRoutes(BasicBlock *entry, BasicBlock *through) {
+Dfs::allRoutes(BasicBlock *entry, BasicBlock *through,
+               unordered_set <uint64_t> &valid_ind_path) {
   unordered_set <uint64_t> passed;
   vector <BasicBlock *> path;
   unordered_set <BasicBlock *> path_set;
-  allRouteDfs(entry,through,passed, path_set);
+  curEntry_ = entry;
+  BfsQ_.push(entry);
+
+  allRouteDfs(through,passed, path_set, valid_ind_path);
   path.insert(path.end(),path_set.begin(),path_set.end());
+  LOG("path size: "<<path.size());
+  while(BfsQ_.empty() == false)
+    BfsQ_.pop();
+  //indPaths_.clear();
+
+  root_.clear();
+
   return path;
 }
-/*
-vector <BasicBlock *> 
-Dfs::allRoutes(BasicBlock *entry, BasicBlock *through, vector <BasicBlock *> &term_at) {
-  unordered_set <uint64_t> passed;
-  vector <BasicBlock *> path;
-  unordered_set <BasicBlock *> path_set;
-  allRouteDfs(entry,through,passed, term_at,path_set);
-  path.insert(path.end(),path_set.begin(),path_set.end());
-  return path;
-}
-*/
+
 stack <BasicBlock *> 
 Dfs::psblExitCalls(BasicBlock *bb) {
   traversal_ = SEQTYPE::INTRAFN;
   stack <BasicBlock *> exitCalls;
   unordered_set <uint64_t> passed;
-  BfsQ_.push(bb);
-  psblExitBFS(exitCalls,passed);
-  return exitCalls;
+  psblExitDFS(bb,exitCalls,passed);
+  stack <BasicBlock *> reversed_stack;
+  while(exitCalls.empty() == false) {
+    auto bb = exitCalls.top();
+    reversed_stack.push(bb);
+    exitCalls.pop();
+  }
+  return reversed_stack;
 }
 
 vector <BasicBlock *> 

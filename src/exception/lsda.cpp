@@ -12,7 +12,6 @@
 #include <map>
 #include "elf64.h"
 //#include "disassem.h"
-#include "elf_class.h"
 #include "exception_handler.h"
 #include "libutils.h"
 #include <string>
@@ -28,7 +27,7 @@ lsda_class::lsda_class (uint64_t p_pc_begin)
 }
 
 void
-lsda_class::read_lsda (string fname, uint64_t lsda_location)
+lsda_class::read_lsda (string fname, uint64_t lsda_location, ElfClass &elf_obj)
 {
   EH_LOG ("------------------LSDA data-------------------" << "\n");
   location = lsda_location;
@@ -36,7 +35,7 @@ lsda_class::read_lsda (string fname, uint64_t lsda_location)
 
   //int act_index = 0;
   uint8_t *gcc_except_table;
-  ElfClass elf_obj (fname.c_str ());
+  //ElfClass elf_obj (fname.c_str ());
   Elf64_Shdr *sh = elf_obj.elfSectionHdr (".gcc_except_table").sh;
   uint64_t section_offset = sh->sh_offset;
   uint64_t section_size = sh->sh_size;

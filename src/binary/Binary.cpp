@@ -14,9 +14,13 @@ extern map <uint64_t, cfi_table> unwinding_info;
 exception_handler eh_frame;	//kept global so that every module can access it.
 
 void
-section_ends(vector <uint64_t> & ends,vector <section> &secs) {
-  for(auto & s : secs)
-    ends.push_back(s.vma + s.size);
+section_ends(vector <uint64_t> & ends,vector <section> &secs, section_types t) {
+  for(auto & s : secs) {
+    if(s.sec_type == t) {
+      LOG("Section: "<<s.name<<" end: "<<hex<<s.vma + s.size);
+      ends.push_back(s.vma + s.size);
+    }
+  }
 }
 
 Binary::Binary(string Binary_path) {
@@ -45,8 +49,11 @@ Binary::Binary(string Binary_path) {
     }
   }
   vector <uint64_t> sec_ends;
-  section_ends(sec_ends,rxSections_);
-  section_ends(sec_ends,rwSections_);
+  section_ends(sec_ends,rxSections_,section_types::RX);
+#ifdef DATA_DISASM
+  section_ends(sec_ends,rwSections_, section_types::RW);
+  section_ends(sec_ends,rxSections_,section_types::RONLY);
+#endif
   disassembler_ = new DisasmEngn(exePath_,sec_ends);
   picConstReloc_ = manager_->relocatedPtrs(rel::CONSTPTR_PIC);
   auto range = manager_->progMemRange();
@@ -54,26 +61,30 @@ Binary::Binary(string Binary_path) {
 #ifdef KNOWN_CODE_POINTER_ROOT
 #ifdef DISASMONLY
   if(utils::file_exists("tmp/cfg.present") == false) {
-    LOG("Cfg Not present..performing initialization tasks!!!!!!");
     init();
   }
-#else
-  init();
-#endif
 #else
   LOG("Performing initialization tasks!!!");
   init();
 #endif
+#else
+  init();
+#endif
+  set_codeCFG_params();
 }
 
 void
 Binary::init() {
+  //exception_handler eh;
+  //eh_frame = eh;
+  all_call_sites.clear();
+  unwinding_info.clear();
   eh_frame.read_eh_frame_hdr(exePath_);
   eh_frame.read_eh_frame(exePath_);
   populate_functions();
   populate_pointers();
   map_functions_to_section();
-  disassembler_->createInsCache(codeSegmentStart_,codeSegmentEnd_);
+  //disassembler_->createInsCache(codeSegmentStart_,codeSegmentEnd_);
 #ifdef GROUND_TRUTH
   if(manager_->type() == exe_type::NOPIE) {
     xtraConstReloc_ = manager_->relocatedPtrs(rel::CONSTPTR_NOPIC);
@@ -127,7 +138,6 @@ Binary::disassemble() {
   size_t found = exePath_.rfind(key);
   string exeName = exePath_.substr(found + 1);
 
-  set_codeCFG_params();
   codeCFG_->disassemble();
   pointerMap_ = codeCFG_->pointers();
   funcMap_ = codeCFG_->funcMap();
@@ -135,14 +145,10 @@ Binary::disassemble() {
   for(auto it = pointerMap_.begin(); it != pointerMap_.end(); it++) {
     if(it->second->type() == PointerType::CP
     && it->second->encodable() == true) {
-      if(exeName == "ld-2.27.so" && it->second->address() == entryPoint_)
-        it->second->encodable(false);
-      else {
-        string sym = codeCFG_->getSymbol(it->first);
-        manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
-            ".8byte " + sym + " - " + ".elf_header_start");
-        manager_->ptrsToEncode(it->first);
-      }
+      string sym = codeCFG_->getSymbol(it->first);
+      manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
+          ".8byte " + sym + " - " + ".elf_header_start");
+      manager_->ptrsToEncode(it->first);
     }
     else if(it->second->type() == PointerType::UNKNOWN){
       string sym = codeCFG_->getSymbol(it->first);
@@ -159,20 +165,26 @@ Binary::disassemble() {
   mark_leaf_functions();
   reduce_eh_metadata();
 #endif
-
+  //DEF_LOG("Disassembly complete..printing assembly");
   codeCFG_->printOriginalAsm();
   codeCFG_->functionRanges();
   codeCFG_->printDeadCode();
-#ifdef DISASMONLY
-  exit(0);
-#endif
 }
 
 void
 Binary::hookPoints() {
-  for(auto & p : pointerMap_)
-    if(p.second->type() == PointerType:: CP)
+  for(auto & p : pointerMap_) {
+    if((p.second->type() == PointerType::UNKNOWN ||
+        p.second->type() == PointerType::CP ||
+        p.second->type() == PointerType::DEF_PTR) &&
+        codeCFG_->withinCodeSec(p.first) &&
+        (p.second->symbolizable(SymbolizeIf::CONST) ||
+         p.second->symbolizable(SymbolizeIf::IMMOPERAND) ||
+         p.second->symbolizable(SymbolizeIf::RLTV) ||
+         p.second->symbolizable(SymbolizeIf::JMP_TBL_TGT))) {
       hookPoints_.push_back(p.first);
+    }
+  }
   hookPoints_.push_back(codeSegmentEnd_); //Pushing code segment end to ease space calculation.
   sort(hookPoints_.begin(), hookPoints_.end());
 }
@@ -308,6 +320,9 @@ Binary::calcTrampData() {
 void
 Binary::rewrite() {
   disassemble();
+#ifdef DISASMONLY
+  exit(0);
+#endif
   genInstAsm();
   //install_segfault_handler();
   //check_segfault_handler();
@@ -420,6 +435,8 @@ Binary::populate_ptr_sym_table() {
     for (auto & sec : rxSections_) { 
       if(sec.vma <= symVal && (sec.vma + sec.size) >= symVal
          && sec.sec_type == section_types::RX) {
+        if(symVal == 0)
+          DEF_LOG("Symbol: "<<hex<<symVal);
         ADDPOINTER(symVal, PointerType::CP,PointerSource::SYMTABLE,0);
       }
     }
@@ -453,7 +470,7 @@ Binary::map_functions_to_section() {
       /* A Pointer object with type as code Pointer is created for every
        * code section.
        */
-
+      //DEF_LOG("Exec section: "<<hex<<sec.vma);
       ADDPOINTER(sec.vma, PointerType::CP,PointerSource::KNOWN_CODE_PTR,100);
       auto frame_it = funcMap_.find(sec.vma);
       if(frame_it == funcMap_.end()) {
@@ -626,7 +643,8 @@ Binary::rewrite_jmp_tbls(string file_name) {
   vector <JumpTable> jmp_tbls = codeCFG_->jumpTables();
   sort_jmp_tbl(jmp_tbls);
   for(auto & j : jmp_tbls) {
-    if(processed_jmp_tbl.find(j.location()) == processed_jmp_tbl.end()) {
+    if(processed_jmp_tbl.find(j.location()) == processed_jmp_tbl.end() &&
+       codeCFG_->isMetadata(j.location()) == false) {
       string tbl = j.rewriteTgts();
       utils::printAsm(tbl,j.location(),"."
           + to_string(j.location()),SymBind::FORCEBIND,file_name); 
@@ -888,8 +906,15 @@ string
 Binary::printPsblData() {
   string filename="psbl_data.s";
   for(auto & p : pointerMap_) {
-    if(p.second->type() == PointerType::UNKNOWN) {
+    if((p.second->type() == PointerType::UNKNOWN || 
+        p.second->type() == PointerType::DP ||
+        p.second->type() == PointerType::DEF_PTR) &&
+        codeCFG_->withinCodeSec(p.first) &&
+        (p.second->symbolizable(SymbolizeIf::CONST) ||
+         p.second->symbolizable(SymbolizeIf::IMMOPERAND) ||
+         p.second->symbolizable(SymbolizeIf::RLTV))) {
       //uint64_t next_ptr = codeCFG_->nextPtr(p.first);
+      LOG("Creating data blk: "<<hex<<p.first);
       uint64_t next_ptr = 0;
       auto it = pointerMap_.find(p.first);
       it++;

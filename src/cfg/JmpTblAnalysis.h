@@ -34,6 +34,7 @@ namespace SBI {
     JmpTblAnalysis (uint64_t memstrt, uint64_t memend);
     void analyze();
     void jmpTblAnalysis();
+    void analyzeAddress(vector <int64_t> &entries);
     virtual bool addToCfg(uint64_t addrs, PointerSource src) = 0;
     virtual void addToDisasmRoots (uint64_t address) = 0;
     virtual void rootSrc(PointerSource root) = 0;
@@ -54,10 +55,9 @@ namespace SBI {
     void updateTargets(JumpTable & jt, BasicBlock *bb);
     
     //---------------------------------------------------------
-    void analyzeAddress(vector <int64_t> &entries);
     void analyzeFn(Function *fn);
-    void decodeJmpTblTgts(vector<analysis::JumpTable> &j_lst);
-    void readTargets (JumpTable & jt, BasicBlock *bb);
+    void decodeJmpTblTgts(analysis::JTable j_lst);
+    void readTargets (JumpTable & jt, uint64_t jloc);
     uint64_t dataSegmntEnd(uint64_t addrs);
   };
 }

@@ -44,8 +44,8 @@ JumpTable::rewriteTgts() {
 
 void 
 JumpTable::displayTgts() {
-  LOG("jump table start: "<<hex<<location_<<" end: "<<end_);
+  DEF_LOG("jump table start: "<<hex<<location_<<" end: "<<end_);
   //LOG("targets:");
   for(auto tgt : targets_)
-    LOG("Jump table target: "<<hex<<tgt);
+    DEF_LOG("Jump table target: "<<hex<<tgt);
 }

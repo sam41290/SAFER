@@ -71,3 +71,17 @@ struct pheader
     mem_sz = msz;
   }
 };
+
+enum class ObJType {
+  CODE,
+  DATA,
+  UNKNOWN
+};
+
+struct Object
+{
+  string name;
+  uint64_t addr;
+  uint64_t size;
+  ObJType type;
+};

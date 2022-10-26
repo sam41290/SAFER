@@ -6,12 +6,20 @@ using namespace SBI;
 
 string
 Instruction::prefixChk(char *mne) {
-  //LOG("Checking prefix: "<<mne);
   string asm_opcode(mne);
   std::istringstream iss(mne);
   std::vector <std::string> results((std::istream_iterator
         <std::string>(iss)),std::istream_iterator <std::string>());
-
+  if(results.size() > 1) {
+    int i = 0;
+    for(i = 0; i < (results.size() - 1); i++) {
+      if(results[i] == "bnd")
+        isBnd_ = true;
+      prefix_ = results[i] + " ";
+    }
+    asm_opcode = results[i];
+  }
+/*
   if(results.size() > 1) {
     if(results[0] == "bnd")
       isBnd_ = true;
@@ -19,6 +27,7 @@ Instruction::prefixChk(char *mne) {
     prefix_ = results[0] + " ";
     asm_opcode = results[1];
   }
+  */
   return asm_opcode;
 }
 
@@ -28,11 +37,15 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
   insBinary(bytes, size);
   string asm_opcode = prefixChk(mne);
   string operand(op_str);
-  //LOG(hex <<address <<": mnemonic: " <<asm_opcode <<" operand: " <<
-  //     operand<<" size:"<<dec<<size);
-
+  //if(address == 0x405d86)
+  //  DEF_LOG(hex<<address<<": "<<asm_opcode<<" "<<operand);
   set <string> cf_ins_set = utils::get_cf_ins_set();
   set <string> uncond_cf_ins_set = utils::get_uncond_cf_ins_set();
+  if(asm_opcode.find(",") != string::npos) {
+    vector <string> oplst = utils::split_string(asm_opcode,',');
+    if(cf_ins_set.find(oplst[0]) != cf_ins_set.end())
+      asm_opcode = oplst[0];
+  }
 
   if(cf_ins_set.find(asm_opcode) != cf_ins_set.end()) {
     isJump(true);
@@ -59,8 +72,10 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
   }
   addOrigIns(asm_opcode);
   addOrigIns(operand);
-  if(asm_opcode.find("xbegin") != string::npos)
+  if(asm_opcode.find("xbegin") != string::npos) {
+    //DEF_LOG("xbegin found: "<<hex<<location()<<" "<<operand);
     operand = "." + to_string(stoull(operand,0,16));
+  }
   if(asm_opcode.find("rdrand") != string::npos)
     asm_opcode = "rdrand";
   
@@ -73,6 +88,10 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
     isHlt_ = true;
     isFuncExit(true);
   }
+  if(asm_opcode.find("ud2") != string::npos){
+    isHlt_ = true;
+    isFuncExit(true);
+  }
 
   label("." + to_string(address));
   mnemonic_ = asm_opcode;
@@ -82,21 +101,58 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
   chkConstPtr();
   asmIns(prefix_ + asm_opcode + " " + op1_);
   fallThrgh_ = address + size;  
+  //LOG("Fall through: "<<hex<<fallThrgh_);
+}
+
+bool isNumber(const string& str)
+{
+    for (char const &c : str) {
+        if (std::isdigit(c) == 0) return false;
+    }
+    return true;
+}
+
+bool isHexNumber(string str)
+{
+  if(str.find("0x") == 0)
+    str.replace(0,2,"");
+  for (int i=0; i<str.length(); i++)
+  {
+    if (!isxdigit(str[i])) {
+      return false;
+    }
+  }
+  return true;
 }
 
 void
 Instruction::chkConstOp() {
 
   vector <string> oplst = utils::split_string(op1_,',');
+  if(mnemonic_.find(".byte") != string::npos)
+    return;
   for(auto & s : oplst) {
     if(s.find("$") == 0) {
       s.replace(0,1,"");
 
-      //LOG("Const op: "<<s);
-      if(s.find("0x") != string::npos || utils::checkHex(s))
+      //DEF_LOG("Const op: "<<s);
+      if(s.find("0x") != string::npos)
         constOp_ = stoull(s,0,16);
-      else
+      else if(isNumber(s))
         constOp_ = stoull(s);
+      else if(isHexNumber(s))
+        constOp_ = stoull(s,0,16);
+      break;
+    }
+    else if(isHexNumber(s)) {
+      //DEF_LOG("hex const ptr: "<<hex<<location()<<": "<<asmIns()<<" const ptr: "<<s);
+      constPtr_ = stoull(s,0,16);
+      break;
+    }
+    else if(isNumber(s)) {
+      //DEF_LOG("Dec const ptr: "<<hex<<location()<<": "<<asmIns()<<" const ptr: "<<s);
+      //DEF_LOG(s<<" not a hex number");
+      constPtr_ = stoull(s);
       break;
     }
   }
@@ -106,7 +162,7 @@ void
 Instruction::chkConstPtr() {
   if(mnemonic_.find("lea") == string::npos && 
      op1_.find("(,") != string::npos) {
-    //LOG("Checking for mem access: "<<mnemonic_<<" "<<op1_);
+    //DEF_LOG("Checking for mem access: "<<hex<<location()<<":"<<mnemonic_<<" "<<op1_);
     vector <string> words =  utils::split_string(op1_,',');
     for(auto & w : words) {
       if(w.find("(") != string::npos) {
@@ -122,7 +178,7 @@ Instruction::chkConstPtr() {
             else
               constPtr_ = stoull(w);
           }
-          //LOG("mem access: "<<hex<<constPtr_);
+          //DEF_LOG("mem access: "<<hex<<constPtr_);
           break;
         }
         else

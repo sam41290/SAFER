@@ -35,15 +35,10 @@ enum class Property {
   VALID_CF,
   VALIDINIT,
   SP_PRESERVED,
-  ABI_REG_PRESERVED
+  ABI_REG_PRESERVED,
+  ABI_REG_PRESERVE_AND_VALID_INIT
 };
 
-
-enum class ConflictStatus {
-  CONFLICT,
-  NOCONFLICT,
-  NA
-};
 
 enum class Update {
   LOCAL,
@@ -69,9 +64,10 @@ private:
   BBType type_ = BBType::NA;
   BBType callType_ = BBType::NA;
   vector <Instruction *> insList_;
-  unordered_set <BasicBlock *> indirectTgts_;
+  vector <BasicBlock *> indirectTgts_;
   vector <BasicBlock *> rltvTgts_;
   vector <uint64_t> indTgtAddrs_;
+  vector <uint64_t> psblIndTgts_;
   int traps_ = 0;
   bool isJmpTblBlk_ = false;
   string label_;
@@ -83,15 +79,22 @@ private:
   unordered_set <BasicBlock *> roots_;
   vector <BasicBlock *> entries_;
   bool rootsComputed_ = false;
-  unordered_set <uint64_t> conflicts_;
   unordered_set <int> passedProps_;
   unordered_set <int> failedProps_;
-
+  long double hintScore_ = 0;
   unordered_map <int, bool> props_;
-
+  unordered_map <uint64_t, unordered_map <int, bool>> contextProps_;
+  uint64_t validityWindow_ = 0;
+  uint64_t frame_ = 0;
   //vector <BasicBlock *> defExitCalls_;
 
 public:
+  uint64_t frame() { return frame_; }
+  void frame(uint64_t f) { frame_ = f; }
+  uint64_t validityWindow() { return validityWindow_; }
+  void validityWindow(uint64_t v) { validityWindow_ = v; }
+  void hintScore(long double s) { hintScore_ += s; }
+  long double hintScore() { return hintScore_; }
   void clearProps() { props_.clear(); }
   bool somePropPassed() { 
     //if(passedProps_.size() > 0) return true; return false; 
@@ -126,9 +129,25 @@ public:
       props_[(int)p] = false; 
   }
 
-  ConflictStatus checkConflict(unordered_set <uint64_t> &passed);
-  ConflictStatus conflict();
-  void conflict(ConflictStatus c, uint64_t a); 
+  void contextProp(Property p, uint64_t entry, bool pass) {
+    contextProps_[entry][(int)p] = pass;
+  }
+
+  bool contextChecked(uint64_t entry) {
+    if(contextProps_.find(entry) == contextProps_.end())
+      return false;
+    return true;
+  }
+
+  vector <Property> contextPassedProps(uint64_t entry) {
+    vector <Property> p_list;
+    auto props = contextProps_[entry];
+    for(auto & p : props)
+      if(p.second == true)
+        p_list.push_back((Property)p.first);
+    return p_list;
+  }
+
   BasicBlock(uint64_t start, uint64_t end, PointerSource src,
 		 PointerSource root,vector <Instruction *> &insList);
 
@@ -146,6 +165,7 @@ public:
   void inheritRoots(unordered_set <uint64_t> &passed,
                     unordered_set <BasicBlock *> &roots);
   void entries(BasicBlock *b) { 
+    //LOG("Entry: "<<start_<<"-"<<hex<<b->start());
     entries_.push_back(b); 
   }
   vector <BasicBlock *> entries() { return entries_; }
@@ -216,8 +236,13 @@ public:
   void fallThroughIns(Instruction ins) { fallThroughIns_ = ins;}
   bool isLea() { return isLea_; }
   void isLea(bool isIt) { isLea_ = isIt; }
-  unordered_set <BasicBlock *> &indirectTgts() { return indirectTgts_;}
-  void addIndrctTgt(BasicBlock *bb) { indirectTgts_.insert(bb);}
+  vector <BasicBlock *> &indirectTgts() { return indirectTgts_;}
+  void addIndrctTgt(BasicBlock *bb) { 
+    for(auto & b : indirectTgts_)
+      if(b->start() == bb->start())
+        return;
+    indirectTgts_.push_back(bb);
+  }
   void end(uint64_t p_end) { end_ = p_end;}
   void traps(int trap_cnt) { traps_ += trap_cnt;}
   void label(string lbl) { label_ = lbl; }
@@ -259,8 +284,8 @@ public:
   uint64_t boundary();
   void addTramp(uint64_t tramp_start);
   BasicBlock *tramp() { return tramp_; }
-  bool noConflict(uint64_t addrs);
   void updateType();
+  bool noConflict(uint64_t addrs);
 private:
   void inferType(unordered_set <uint64_t> &passed);
 };

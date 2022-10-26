@@ -6,6 +6,7 @@
 #include <string.h>
 #include <iterator>
 #include <vector>
+#include "elf_class.h"
 
 using namespace std;
 
@@ -111,7 +112,7 @@ class lsda_class
 
 public:
   lsda_class (uint64_t p_pc_begin);
-  void read_lsda (string fname, uint64_t lsda_location);
+  void read_lsda (string fname, uint64_t lsda_location, ElfClass &elf_obj);
   void read_call_site_table (string bname, uint8_t * gcc_except_table, int
 			     index, uint64_t offset);
   void print_lsda (uint64_t data_segment);

@@ -79,6 +79,7 @@ public:
                  vector <BasicBlock *> &bbList);
 
   void addTramps(vector <BasicBlock *> &bbList);
+  void addTrampForBB(BasicBlock *bb);
   virtual vector <BasicBlock *> randomizeBasicBlks(vector <BasicBlock *> &bbs) = 0;
   virtual void print(vector <BasicBlock *> bbs, string fileName, uint64_t fstart)
     = 0;

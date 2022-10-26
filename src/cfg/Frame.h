@@ -11,11 +11,12 @@
  * Obtained from EH frames.
  */
 
-#define ADDBB(func,bb,isDefCode) \
-  if(isDefCode) \
-    func->addDefCodeBB(bb); \
-  else \
-    func->addUnknwnCodeBB(bb);
+#define ADDBB(func,bb,isDefCode)  {\
+    if(isDefCode) \
+      func->addDefCodeBB(bb); \
+    else \
+      func->addUnknwnCodeBB(bb);\
+}
 
 
 using namespace std;
@@ -43,10 +44,24 @@ public:
   bool dummy() { return dummy_; }
   bool hasUnknwnCode() { return (unknwnCodeBBs_.size() > 0); }
   void addDefCodeBB(BasicBlock *bb) { 
-    defCodeBBs_.push_back(bb);
+    if(bbExists(bb->start()) == false) {
+      LOG("Adding bb: "<<hex<<bb->start()<<" "<<bb);
+      defCodeBBs_.push_back(bb);
+      bb->frame(start_);
+    }
+    else
+      LOG("BB exists...not adding again");
   }
   void saveCnsrvtvCode() { cnsrvtvDefCode_ =   defCodeBBs_; }
-  void addUnknwnCodeBB (BasicBlock *bb) { unknwnCodeBBs_.push_back(bb);}
+  void addUnknwnCodeBB (BasicBlock *bb) { 
+    if(bbExists(bb->start()) == false) {
+      LOG("Adding bb: "<<hex<<bb->start()<<" "<<bb);
+      unknwnCodeBBs_.push_back(bb);
+      bb->frame(start_);
+    }
+    else
+      LOG("BB exists...not adding again");
+  }
   
   vector <BasicBlock *> getDefCode();
   vector <BasicBlock *> getUnknwnCode();
@@ -72,6 +87,11 @@ public:
   BasicBlock *withinBB(uint64_t addrs);
   vector <BasicBlock *> leaBBs();
   vector <BasicBlock * > conflictingBBs(uint64_t addrs);
+  void addIndrctTgt(uint64_t ins_loc, BasicBlock *tgt);
+  vector <pair <uint64_t, uint64_t>> gaps();
+  vector <BasicBlock *> allBBs();
+  BasicBlock *getDataBlock(uint64_t addrs);
+  uint64_t firstCodeAddress();
   virtual vector <uint64_t> allValidEntries() = 0;
 private:
 };

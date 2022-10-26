@@ -122,6 +122,7 @@ public:
     splitFrame(addrs, (Frame *)f); 
     return f;
   }
+  /*
   uint64_t firstEntryPoint() {
     uint64_t entry1 = 0,entry2 = 0;
     uint64_t firstEntry = INT_MAX;
@@ -139,7 +140,7 @@ public:
       return 0;
     return firstEntry;
   }
-
+*/
   void dump() {
     uint64_t st = start();
     uint64_t nd = end();

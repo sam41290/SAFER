@@ -1,0 +1,523 @@
+==============================================================
+                           MACHINE MODES
+  https://gcc.gnu.org/onlinedocs//gccint/Machine-Modes.html
+==============================================================
+(*) QI: Quarter-Integer, 1-byte integer
+(*) HI: Half-Integer, 2-byte integer
+(*) SI: Single-Integer, 4-byte integer
+(*) DI: Double-Integer, 8-byte integer
+(*) TI: Tetra-Integer, 16-byte integer
+
+(*) SF: Single-Floating, 4-byte floating point number, single-precision
+(*) DF: Double-Floating, 8-byte floating point number, double-precision
+(*) XF: Extended-Floating, 10 bytes meaningful (might be padded to 12/16 bytes)
+(*) TF: Tetra-Floating, 16-byte floating point number
+
+(*) CC:
+      (+) Condition Code, a machine-specific set of bits
+      (+) store computation in format that comparison operators can be applied to
+      (+) related: CCZ, CCGC, CCFPU, CCNO, CCGOC
+(*) BLK:
+      (+) represent values that none of other modes apply
+      (+) for memory reference only (mem:BLK)
+      (+) string-move or vector instructions (comparison/searching/...)
+      (+) also used in clobber: all memory locations are possibly changed
+                                often appear in stack deallocation
+      [ASM] rep movsb;
+            -> move byte string instruction
+      [RTL] (parallel [(set (reg:DI rcx) (const_int 0)) (set (reg:DI rdi)
+            (plus:DI (reg:DI rdi) (reg:DI rcx))) (set (reg:DI rsi) (plus:DI
+            (reg:DI rsi) (reg:DI rcx))) (set (mem:BLK (reg:DI rdi))
+            (mem:BLK (reg:DI rsi))) (use (reg:DI rcx))])
+      [RTL] repnz scasb;
+            -> search for a character (stored in %al) in string
+            -> related: (+) scasw: 2 characters (stored in %ax)
+                        (+) scasd: 4 characters (stored in %eax)
+      [ASM] (parallel [(set (reg:DI rcx) (unspec:DI [(mem:BLK (reg:DI rdi))
+            (reg:QI al) (const_int 1) (reg:DI rcx)] UNSPEC_SCAS))
+            (clobber (reg:DI rdi)) (clobber (reg:CC flags))])
+
+==============================================================
+                          REGS AND MEMORY
+  https://gcc.gnu.org/onlinedocs//gccint/Regs-and-Memory.html
+==============================================================
+(*) reg:m n
+      (+) hard register: n < FIRST_PSEUDO_REGISTER
+      (+) hard register maybe accessed in various mode throughout 1 function
+      (+) each pseudo register is accessed only in a given natural mode
+      (+) if m specifies more than 1 word data -> consecutive registers
+      [ASM] addq %r9, %r13;
+      [RTL] (parallel [(set (reg:DI r13) (plus:DI (reg:DI r13) (reg:DI r9)))
+            (clobber (reg:CC flags))])
+      [ASM] addw $16383, %dx;
+      [RTL] (parallel [(set (reg:HI dx) (plus:HI (reg:HI dx) (const_int 16383)))
+            (clobber (reg:CC flags))])
+
+(*) subreg:m1 reg:m2 bytenum
+      (+) refer to a machine mode other than natural modes
+      (+) use x86 mode: %ah = (subreg:QI (zero_extract:SI (reg:SI eax)
+                              (const_int 8) (const_int 8)) 0))
+      (+) first operand:  (+) subreg of mem: [not found in imap]
+                          (+) subreg of pseudo register: [not found in imap]
+                          (+) subreg of hard register: interpret %ah, %bh, %ch, %dh
+      (+) m1 > m2:  paradoxical
+                    -> bytenum is always 0
+          example:  (set (subreg:SI (reg:HI x) 0) y)
+                    -> stores the lower 2 bytes of y -> x, discard upper 2 bytes
+      (+) m1 <= m2: normal
+                    -> bytenum is offset of 1st byte from reg
+                    -> each block has UNITS_PER_WORDS bytes
+                       m1 <= block: 1 block; m1 > block: more complete blocks
+                    -> store to subreg: (+) modify all the overlapping blocks
+                                        (+) and leave other blocks of reg alone
+                    -> memory order:    (+) WORDS_BIG_ENDIAN: 1 means byte zero is
+                                            part of the most significant word
+                                        (+) BYTES_BIG_ENDIAN: 1 means byte zero is
+                                            the most siginificant byte in a word
+          example:     (subreg:HI (reg:SI x) 2) on BYTES_BIG_ENDIAN = 1
+                    == (subreg:HI (reg:SI x) 0) on BYTES_BIG_ENDIAN = 0
+                    -> both refer to the lower 2 bytes
+      [ASM] xorb $-128, %ah;
+      [RTL] (parallel [(set (zero_extract:SI (reg:SI eax) (const_int 8)
+            (const_int 8)) (subreg:SI (xor:QI (subreg:QI (zero_extract:SI
+            (reg:SI eax) (const_int 8) (const_int 8)) 0) (const_int -128)) 0))
+            (clobber (reg:CC flags))])
+
+(*) mem:m addr alias
+      (+) a reference to memory at addr, m is size of memory unit
+      (+) 2 items are in different alias sets if both can't reference
+          the same memory address
+      (+) mem:BLK (scratch) aliases all other memories
+          -> memory barrier in epilogue function (stack deallocation patterns)
+      [ASM] leaq -16(%rbp), %rsp;
+      [RTL] (parallel [(set (reg:DI rsp) (plus:DI (reg:DI rbp) (const_int -16)))
+            (clobber (reg:CC flags)) (clobber (mem:BLK (scratch)))])
+
+==============================================================
+                            ARITHMETIC
+    https://gcc.gnu.org/onlinedocs//gccint/Arithmetic.html
+==============================================================
+(*) plus:m x y      -> x + y
+
+(*) minus:m x y     -> x - y
+
+(*) compare:m x y   -> x - y in CC mode
+                    (+) x and y in same mode, or y is const_int/const_double
+                    (+) compare in expr_list may not follow this rule
+      [ASM] cmpb $122, %sil;
+      [RTL] (set (reg:CC flags) (compare:CC (reg:QI sil) (const_int 122)))
+      [ASM] cmpq abs_output_section(%rip), %rdi;
+      [RTL] (set (reg:CCZ flags) (compare:CCZ (reg:DI rdi) (mem:DI (symbol_ref:DI
+            (abs_output_section)))))
+      [ASM] ucomisd 8(%rsp), %xmm1;
+      [RTL] (set (reg:CCFPU flags) (compare:CCFPU (reg:DF xmm1)
+            (mem:DF (plus:DI (reg:DI rsp) (const_int 8)))))
+
+
+(*) neg:m           -> -x
+
+(*) mult:m x y      -> x * y (signed product)
+                    (+) product wider than operands with sign_extend/zero_extend
+      [ASM] cmpl $97, (%rcx,%rdx,4);
+      [RTL] (set (reg:CCZ flags) (compare:CCZ (mem:SI (plus:DI (mult:DI
+            (reg:DI rdx) (const_int 4)) (reg:DI rcx))) (const_int 97)))
+      [ASM] mull 4(%rsp);
+      [RTL] (parallel [(set (reg:SI edx) (truncate:SI (lshiftrt:DI (mult:DI
+            (zero_extend:DI (reg:SI eax)) (zero_extend:DI (mem:SI (plus:DI
+            (reg:DI rsp) (const_int 4))))) (const_int 32))))
+            (clobber (reg:SI eax)) (clobber (reg:CC flags))])
+      [ASM] imull %ebp;
+      [RTL] (parallel [(set (reg:SI edx) (truncate:SI (lshiftrt:DI (mult:DI
+            (sign_extend:DI (reg:SI eax)) (sign_extend:DI (reg:SI ebp)))
+            (const_int 32)))) (clobber (reg:SI eax)) (clobber (reg:CC flags))])
+
+(*) fma:m x y z     -> x * y + z (without rounding in intermediate steps)
+
+(*) div:m x y       -> x / y
+                    (+) m determines exact quotient or integerized quotient
+                    (+) x and y in same mode, or y is extended using truncate
+                        and sign_extend/zero_extend, as following:
+                        (truncate:m1 (div:m2 x (sign_extend:m2 y)))
+                    (+) related: udiv (unsigned division)
+      [ASM] divb 55(%rsp);
+      [RTL] (parallel [(set (reg:HI ax) (ior:HI (ashift:HI (zero_extend:HI
+            (truncate:QI (mod:HI (reg:HI ax) (zero_extend:HI (mem:QI (plus:DI
+            (reg:DI rsp) (const_int 55))))))) (const_int 8)) (zero_extend:HI
+            (truncate:QI (div:HI (reg:HI ax) (zero_extend:HI (mem:QI (plus:DI
+            (reg:DI rsp) (const_int 55))))))))) (clobber (reg:CC flags))])
+
+(*) mod:m x y       -> x % y (same as div)
+                    (+) related: umod (unsigned modulo)
+
+(*) not:m x         -> ~x      (m fixed-point mode)
+
+(*) and:m x y       -> x & y   (m fixed-point mode)
+
+(*) ior:m x y       -> x | y   (m fixed-point mode)
+
+(*) xor:m x y       -> x ^ y   (m fixed-point mode)
+
+(*) ashift:m x c    -> x << c  (m fixed-point mode)
+                    (+) x in mode m
+                    (+) c is a const or in fixed-point mode
+
+(*) ashiftrt:m x y  -> x >> c  (signed, m fixed-point mode) 
+      [ASM] sarb $7, %r8b;
+            -> signed right shift
+      [RTL] (parallel [(set (reg:QI r8b) (ashiftrt:QI (reg:QI r8b) (const_int 7)))
+            (clobber (reg:CC flags))])
+
+
+(*) lshiftrt:m x y  -> x >> c   (unsigned, m fixed-point mode)
+      [ASM] shrb $2, %al;
+            -> unsigned right shift
+      [RTL] (parallel [(set (reg:QI al) (lshiftrt:QI (reg:QI al) (const_int 2)))
+            (clobber (reg:CC flags))])
+
+(*) rotate:m x c    -> left rotate
+      [ASM] roll $10, %ecx;
+      [RTL] (parallel [(set (reg:SI ecx) (rotate:SI (reg:SI ecx) (const_int 10)))
+            (clobber (reg:CC flags))])
+            -> this instruction uses a carry flag to temporarily store the most
+               significant bit before assigning to the least significant bit
+            -> use of clobber(reg:CC flags): all bits are probably changed
+
+(*) rotatert:m x c  -> right rotate
+
+(*) abs:m x         -> |x|
+
+(*) sqrt:m x        -> sqrt(x), mostly m is floating point mode
+
+(*) clz:m x         -> number of leading-0 bits
+      [ASM] bsrq -8(%rax,%rdx,8), %rax;
+            -> bit scan reverse: return index of the most significant bit
+      [RTL] (parallel [(set (reg:DI rax) (minus:DI (const_int 63) (clz:DI (mem:DI
+            (plus:DI (plus:DI (mult:DI (reg:DI rdx) (const_int 8)) (reg:DI rax))
+            (const_int -8)))))) (clobber (reg:CC flags))])
+            -> index_of_leading_1 = (8*8 - 1) - number_of_leading_0
+               for example: 00010110, (8 - 1) - 3 = 4 is the index of leading 1
+                               43210
+               8 * 8 results from 8 bits/byte * 8 bytes (DI mode)
+
+(*) ctz:m x         -> number of consecutive 0-bit from the least significant bit
+      [ASM] bsfq %r15, %rax;
+            -> bit scan forward: return index of the least significant bit
+      [RTL] (parallel [(set (reg:CCZ flags) (compare:CCZ (reg:DI r15)
+            (const_int 0))) (set (reg:DI rax) (ctz:DI (reg:DI r15)))])
+            -> if r15 = 0, rax = undefined value => why to compare (r15 == 0)
+
+(*) bswap:m x       -> reverse x in order of bytes (m fixed-point mode)
+      [ASM] xchgb %ah, %al;
+            -> exchange data of 2 operands: abcd => cdab (hexical)
+      [RTL] (parallel [(set (strict_low_part (reg:HI ax)) (bswap:HI (reg:HI ax)))
+            (clobber (reg:CC flags))])
+            -> bswap reverse %ax = {ab}{cd} into {cd}{ab}, then assign to %ax
+            -> strict_low_part = only modify data %ax, the rest isn't altered
+
+==============================================================
+                            COMPARISONS
+    https://gcc.gnu.org/onlinedocs//gccint/Comparisons.html
+==============================================================
+(*) STORE_FLAG_VALUE
+
+
+Applied for all following instructions:
+    (+) if the condition holds, return STORE_FLAG_VALUE
+    (+) otherwise, return 0
+
+(*) eq:m x y        -> x == y
+      [ASM] sete 12(%rsp);
+            -> sete x: set x to 1 if zero flag == 1, otherwise 0
+      [RTL] (set (mem:QI (plus:DI (reg:DI rsp) (const_int 12)))
+            (eq:QI (reg:CCZ flags) (const_int 0)))
+
+
+(*) ne:m x y        -> x != y
+(*) gt:m x y        -> x > y (signed)
+(*) gtu:m x y       -> x > y (unsigned)
+(*) ge:m x y        -> x >= y (signed)
+(*) geu:m x y       -> x >= y (unsigned)
+(*) lt:m x y        -> x < y (signed)
+(*) ltu:m x y       -> x < y (unsigned)
+(*) le:m x y        -> x <= y (signed)
+(*) leu:m x y       -> x <= y (unsigned)
+
+(*) if_then_else cond then else
+      [ASM] cmova %eax, %r8d;
+            -> move x to y if previous comparison > 0 (flag satisfies ~CF & ~ZF)
+      [RTL] (set (reg:SI r8d) (if_then_else:SI (leu (reg:CC flags) (const_int 0))
+            (reg:SI r8d) (reg:SI eax)))
+            -> flags store previous comparison in way that we can perform "leu"
+            -> if comparison result <= 0 then return %r8d; else return %eax
+
+(*) unordered
+      (+) unordered (reg x) (reg y) <-> either x or y is NaN
+      [ASM] jp .L103;
+            -> jp = jpe = jump if parity even = (PF == 1)
+      [RTL] (set (pc) (if_then_else (unordered (reg:CCFPU flags) (const_int 0))
+            (label_ref .L103) (pc)))
+            -> unordered (reg:CCFPU flags) (const_int 0) <-> (PF == 1)
+
+(*) ordered
+      (+) ordered (reg x) (reg y) <-> neither x nor y is NaN
+      [ASM] jnp .L430;
+            -> jnp = jump if parity odd = (PF = 0)
+      [RTL] (set (pc) (if_then_else (ordered (reg:CCFPU flags) (const_int 0))
+            (label_ref .L430) (pc)))
+            -> ordered (reg:CCFPU flags) (const_int 0) <-> (PF == 0)
+      [ASM] cmpordss %xmm4, %xmm1;
+            -> cmpordss x y;
+      [RTL] (set (reg:SF xmm1) (ordered:SF (reg:SF xmm1) (reg:SF xmm4)))
+
+(*) unlt
+      [ASM] jb .L146;
+            -> jump if result is below 0 (CF = 1)
+      [RTL] (set (pc) (if_then_else (unlt (reg:CCFPU flags) (const_int 0))
+            (label_ref .L146) (pc)))
+            -> unlt (reg:CCFPU flags) (const_int 0) <-> (CF == 1)
+      [ASM] sbbq $-1, %r8;
+      [RTL] (parallel [(set (reg:DI r8) (minus:DI (minus:DI (reg:DI r8)
+            (unlt:DI (reg:CCFPU flags) (const_int 0))) (const_int -1)))
+            (clobber (reg:CC flags))])
+==============================================================
+                            BIT-FIELDS
+    https://gcc.gnu.org/onlinedocs//gccint/Bit-Fields.html
+==============================================================
+(*) zero_extract:mod loc size pos
+      (+) reference to the value extracted from loc (mem/reg), size bits from pos
+      (+) used with %ah, %bh, %ch, %dh, size = 8, pos = 8
+      (+) related: sign_extract
+      [ASM] movzbl %ah, %esi;
+      [RTL] (set (reg:SI esi) (zero_extract:SI (reg:HI ax)
+            (const_int 8) (const_int 8)))
+
+==============================================================
+                      VECTOR OPERATIONS
+ https://gcc.gnu.org/onlinedocs//gccint/Vector-Operations.html
+==============================================================
+(*) vec_merge:m vec1 vec2 items
+      (+) merge 2 vectors, result is in mode m, items is a bit mask (const_int)
+          result[i] = vec1[i] if items.getBit(i) == 1
+          result[i] = vec2[i] if items.getBit(i) == 0
+      [ASM] cvtsi2sd %ebx, %xmm9;
+      [RTL] (set (reg:V2DF xmm9) (vec_merge:V2DF (vec_duplicate:V2DF
+            (float:DF (reg:SI ebx))) (reg:V2DF xmm9) (const_int 1)))
+
+(*) vec_select:m vec1 selection
+      (+) select parts of vector vec1
+      (+) selection is a parallel of 1 or multiple const_int: index of subparts
+      [ASM] vmovsd %xmm1, %xmm0, %xmm0;
+      [RTL] (set (reg:V2DF xmm0) (vec_concat:V2DF (reg:DF xmm1)
+            (vec_select:DF (reg:V2DF xmm0) (parallel [(const_int 1)]))))
+
+(*) vec_concat:m x1 x2
+      (+) concat vector/scalar x1 and x2
+      [ASM] punpckhdq %xmm11, %xmm9;
+      [RTL] (set (reg:V4SI xmm9) (vec_select:V4SI (vec_concat:V8SI (reg:V4SI xmm9)
+            (reg:V4SI xmm11)) (parallel [(const_int 2) (const_int 6) (const_int 3)
+            (const_int 7)])))
+
+(*) vec_duplicate:m x
+      (+) scalar -> vector; vector -> larger vector by duplicating input
+      (+) input and output have same submode
+      (+) # output parts = multiple of # input parts
+      [ASM] punpcklqdq %xmm2, %xmm2;
+      [RTL] (set (reg:V2DI xmm2) (vec_duplicate:V2DI (reg:DI xmm2)))
+      [ASM] punpcklqdq %xmm3, %xmm2;
+      [RTL] (set (reg:V4SI xmm2) (vec_concat:V4SI (reg:V2SI xmm2) (reg:V2SI xmm3)))
+
+==============================================================
+                          CONVERSION
+    https://gcc.gnu.org/onlinedocs//gccint/Conversions.html
+==============================================================
+(*) truncate:m X
+      (+) truncate value X to mode m
+      (+) used to retrieve value in narrower mode m
+      (+) related: ss_truncate/us_truncate (signed/unsigned when overflow)
+      [ASM] mull %ebp;
+      [RTL] (parallel [(set (reg:SI edx) (truncate:SI (lshiftrt:DI (mult:DI
+            (sign_extend:DI (reg:SI eax)) (sign_extend:DI (reg:SI ebp)))
+            (const_int 32)))) (clobber (reg:SI eax)) (clobber (reg:CC flags))])
+
+(*) float:m X
+      (+) cast value X (signed) into float, mode m
+      (+) related: unsigned_float
+      [ASM] fildl -104(%rsp);
+      [RTL] (set (reg:XF st) (float:XF (mem:SI (plus:DI (reg:DI rsp)
+            (const_int -104)))))
+
+(*) fix:m X
+      (+) convert X to integer, return type is float X if m is floating-point mode
+      (+) related: unsigned_fix
+      [ASM] vcvttsd2siq %xmm0, %r9;
+      [RTL] (set (reg:DI r9) (fix:DI (reg:DF xmm0)))
+
+(*) zero_extend:m X
+      (+) extend value X into mode m
+      (+) used to lift to wider mode m after operand in narrower mode
+      (+) related: sign_extend, float_extend
+      [ASM] addl $11, %edx;
+      [RTL] (parallel [(set (reg:SI edx) (plus:SI (reg:SI edx) (const_int 11)))
+      (clobber (reg:CC flags))])
+
+==============================================================
+                         DECLARATIONS
+ https://gcc.gnu.org/onlinedocs//gccint/RTL-Declarations.html
+==============================================================
+(*) strict_low_part
+      (+) only used as destination of "set".
+      (+) only specified part of register is changed, the rest is not altered
+      (+) by default, it has undefined effect on the rest of register
+      [ASM] andb $60, %al;
+      [RTL] (parallel [(set (strict_low_part (reg:QI al)) (and:QI (reg:QI al)
+            (const_int 60))) (clobber (reg:CC flags))])
+
+==============================================================
+                        SIDE-EFFECTS
+   https://gcc.gnu.org/onlinedocs//gccint/Side-Effects.html
+==============================================================
+Other operands represent value, not action
+For example, "plus a b" gives value a+b but doesn't have effect on machine's state
+Meanwhile, machine instructions are meaningful only if machine's state changes
+Side-effect expressions represent the change to machine's state
+
+(*) set lval x
+      (+) lval in {reg, subreg, zero_extract, strict_low_part, mem, pc, parallel}
+      (+) lval is reg, its mode is not compatible, some/rest of register receives
+          undefined value, unless strict_low_part/zero_extract is specified
+      (+) lval is parallel, this is always a call to symbol_ref
+          function returns a structure in multiple register
+          each element of parallel is expr_list {reg, offset}
+      (+) lval is (pc), x could be: (+) unconditional jump: label_ref
+                                    (+) conditional jump: if_then_else
+                                    (+) jump through branch tables: mem
+      [ASM] call __kernel_casinh;
+      [RTL] (set (parallel:DC [(expr_list:REG_DEP_TRUE (reg:DF xmm0) (const_int 0))
+            (expr_list:REG_DEP_TRUE (reg:DF xmm1) (const_int 8))])
+            (call (mem:QI (symbol_ref:DI (__kernel_casinh))) (const_int 0)))
+      [ASM] jmp .L1;
+      [RTL] (set (pc) (label_ref .L1))
+      [ASM] jle .L34;
+      [RTL] (set (pc) (if_then_else (le (reg:CCNO flags) (const_int 0))
+            (label_ref .L34) (pc)))
+      [ASM] jmp *(%rax,%rsi,8);
+      [RTL] (set (pc) (mem:DI (plus:DI (mult:DI (reg:DI rsi) (const_int 8))
+            (reg:DI rax))))
+
+(*) simple_return
+      (+) perform a function return only, not others in function epilogue
+
+(*) call function nargs
+      (+) represent a function call.
+      (+) function is mem expression, nargs could be:
+                    -> size of stack argument (in bytes)
+                    -> number of argument registers
+      (+) always has a standard mode for function, e.g. "mem:QI" in X64.
+      [ASM] jmp add_alias;
+      [RTL] (call (mem:QI (symbol_ref:DI (add_alias))) (const_int 0))
+
+(*) clobber x
+      (+) represent possible storing of unpredictable value into x
+      (+) x in {reg, scratch, parallel, mem}
+      (+) x in {"mem:BLK (const_int 0)", "(mem:BLK (scratch))"},
+          all memory locations are supposed to be clobbered
+      (+) clobber in parallel []
+          combined instruction might clobber (extra) temporary register
+          (+) hard register clobber: the register unoccupied before and after insn
+          (+) pseudo-register/scratch clobber:
+                    -> scratch: add clobber when required
+                    -> pseudo: generate new unique one each time.
+      [ASM] leaq -16(%rbp), %rsp;
+      [RTL] (parallel [(set (reg:DI rsp) (plus:DI (reg:DI rbp) (const_int -16)))
+            (clobber (reg:CC flags)) (clobber (mem:BLK (scratch)))])
+
+(*) use x
+      (+) indicate that register x is live and its value is needed at this time,
+          so compiler won't delete previous instructions that store value in x
+      (+) also used in pattern whose result is variable: "call"
+      (+) use in parallel = instruction's behavior depends on special register
+          example: pattern for addition could be either normal/saturating version
+      [ASM] divl 40(%rcx);
+      [RTL] (parallel [(set (reg:SI eax) (udiv:SI (reg:SI eax) (mem:SI (plus:DI
+            (reg:DI rcx) (const_int 40))))) (set (reg:SI edx) (umod:SI (reg:SI eax)
+            (mem:SI (plus:DI (reg:DI rcx) (const_int 40))))) (use (reg:SI edx))
+            (clobber (reg:CC flags))])
+
+(*) parallel [x0 x1 ..]
+      (+) vector of side-effect expressions
+      (+) (1) all side-effects are computed; (2) all side-effects are performed
+      (+) other use: -> peephole optimization might produce "parallel"
+                        whose operands are to output the resulting assembler code
+                        (reg/mem/const expression).
+                     -> not a well-formed RTL but fine <= no further optimization
+      [ASM] jmp *184(%rax);
+      [RTL] (parallel [(set (reg:DI rax) (call (mem:QI (mem:DI (plus:DI
+            (reg:DI rax) (const_int 184)))) (const_int 0)))
+            (unspec [(const_int 0)] UNSPEC_PEEPSIB)])
+
+(*) unspec [operands ...] index
+      (+) a machine-specific operation, index is for operation selection
+      (+) related: unspec_volatile (for volatile operation, operation that traps)
+          volatile operation: isolate the operation before it finishes
+          trap: interruption/exception, for example:
+                to access memory, kernel interrupts the process => I/O in kernel
+                finally, kernel interrupts to notify the process: buffer's ready
+      [ASM] movl $0, 16(%r9);
+      [RTL] (set (mem:SI (plus:DI (reg:DI r9) (const_int 16)))
+            (unspec:SI [(const_int 0) (const_int 0)] UNSPEC_STA))
+      [ASM] lock addl $2, (%rdi);
+      [RTL] (parallel [(set (mem:SI (reg:DI rdi)) (unspec_volatile:SI [(plus:SI
+            (mem:SI (reg:DI rdi)) (const_int 2)) (const_int 0)] UNSPECV_LOCK))
+            (clobber (reg:CC flags))])
+
+==============================================================
+          SIDE-EFFECTS FOR AUTOINCREMENT ON ADDRESS
+      https://gcc.gnu.org/onlinedocs//gccint/Incdec.html
+==============================================================
+(*) pre_dec:m x
+      (+) x is decremented by length of mode of memory reference
+      (+) the side-effect is performed on x, then x is returned: alike to --i
+      (+) x is a reg, always appears in form: mem (pre_dec (reg))
+      (+) related: pre_inc
+      [ASM] pushq 0(%rbp);
+      [RTL] (set (mem:DI (pre_dec:DI (reg:DI rsp))) (mem:DI (reg:DI rbp)))
+            -> set value at (rsp-8) to *rbp
+
+(*) post_dec:m x
+      (+) mostly as same as pre_dec
+      (+) x is return, then the side-effect is performed on x: alike to i--
+      (+) related: post_inc
+
+(*) pre_modify:m x Y
+      (+) x is a reg, Y is an expression of plus or minus on x
+      (+) x is passed to Y, side-effect is performed on x, then x is returned
+      (+) more general to post_dec, post_inc
+      [ASM] pushq $-1;
+      [RTL] (set (mem:SI (pre_modify:DI (reg:DI rsp)
+            (plus:DI (reg:DI rsp) (const_int -8)))) (const_int -1))
+
+==============================================================
+                        REGISTER "FLAGS"
+     http://www.shsu.edu/~csc_tjm/fall2002/cs272/flags.html
+==============================================================
+(*) Control flags: TF, IF, DF
+    (+) how process responds to certain situations
+(*) Status flags: CF, PF, AF, ZF, SF, OF
+    (+) represent effect of some operations
+    (+) control conditional jump
+(*) Reference to x64 arithmetic instructions using register "flags" (3.4)
+    https://cs.brown.edu/courses/cs033/docs/guides/x64_cheatsheet.pdf
+
+---------------------------------------------------------------------------------
+Bit Name                  Symbol Explanation
+---------------------------------------------------------------------------------
+0   carry flag            CF     carry/borrow most significant bit
+2   parity flag           PF     number of set bit in result's low byte is even
+4   auxiliary carry flag  AF     need of carry/borrow between %ah, %al in add/sub
+6   zero flag             ZF     result is zero
+7   sign flag             SF     result is negative
+8   trap flag             TF     interrupt after each instruction's execution
+9   interrupt flag        IF     handle maskable hardware interrupts, set by OS
+10  direction flag        DF     1 for highest-to-lowest address
+11  overflow flag         OF     signed overflow occurs during add/sub
+---------------------------------------------------------------------------------

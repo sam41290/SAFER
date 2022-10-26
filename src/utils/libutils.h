@@ -25,12 +25,14 @@
  * through out the program.
  */
 
+namespace SBI {
 enum code_type {
   CODE,
   DATA,
+  GAP,
   UNKNOWN
 };
-
+}
 
 enum class SymBind {
   BIND,
@@ -88,7 +90,7 @@ eh_log(const LogData <List> &data) {
 }
 
 
-#define DEBUG 1
+#define DEBUG 0
 
 #ifdef DEBUG
 #define LOG(x)(log(__FILE__,__LINE__,LogData<None>() <<x))
@@ -97,6 +99,8 @@ eh_log(const LogData <List> &data) {
 #define LOG(x)
 #define EH_LOG(x)
 #endif
+
+#define DEF_LOG(x)(log(__FILE__,__LINE__,LogData<None>() <<x))
 
 template <typename T1, typename T2>
   bool if_exists(T1 arg1, map <T1, T2> &arg2) {
@@ -155,7 +159,7 @@ class utils {
 
 public:
 
-  static bool checkHex(string s)
+  static bool checkHex(string & s)
   {
   
       int n = s.length();
@@ -595,6 +599,38 @@ public:
     ofile<<".align "<<cnt<<endl;
     ofile.close();
   }
+  static set <uint8_t> all_jmp_opcodes;
+  static set <uint8_t> unconditional_jmp_opcodes;
+  static set <uint8_t> conditional_jmp_opcodes;
+  static set <uint8_t> conditional_long_jmp_opcodes;
+
+  static bool isConditionalLongJmp(uint8_t *byte, uint64_t ins_size) {
+    if(ins_size >= 6) {
+      if(*(byte) == 0x0f && conditional_long_jmp_opcodes.find(*(byte + 1)) != conditional_long_jmp_opcodes.end())
+        return true;
+    }
+    return false;
+  }
+
+  static bool isConditionalShortJmp(uint8_t *byte, uint64_t ins_size) {
+    if(ins_size >= 2 && conditional_jmp_opcodes.find(*(byte)) != conditional_jmp_opcodes.end())
+      return true;
+    return false;
+  }
+
+  static bool isUnconditionalShortJmp(uint8_t *byte, uint64_t ins_size) {
+    if(ins_size >= 2 && *(byte) == 0xeb)
+      return true;
+    return false;
+  }
+  static bool isUnconditionalJmp(uint8_t *byte, uint64_t ins_size) {
+    if(ins_size >= 2 && *(byte) == 0xeb)
+      return true;
+    else if(ins_size >= 5 && *(byte) == 0xe9)
+      return true;
+    return false;
+  }
+
 };
 
 

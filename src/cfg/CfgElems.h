@@ -10,6 +10,7 @@
 #include "libutils.h"
 #include "libanalysis.h"
 #include "Dfs.h"
+#include "disasm.h"
 
 
 using namespace std;
@@ -29,8 +30,9 @@ using namespace std;
 
 #ifdef KNOWN_CODE_POINTER_ROOT
 #define ISCODE(src) \
-  (((int)src == (int)PointerSource::KNOWN_CODE_PTR) ?\
-               code_type::CODE : code_type::UNKNOWN)
+  (((int)src == (int)PointerSource::KNOWN_CODE_PTR) ? code_type::CODE :\
+   ((int)src == (int)PointerSource::CALL_TGT_2) ? code_type::CODE :\
+   ((int)src == (int)PointerSource::GAP_PTR) ? code_type::GAP : code_type::UNKNOWN)
 #endif
 
 #ifdef STRINGS
@@ -48,14 +50,18 @@ using namespace std;
 #define ISCODE(src) code_type::CODE
 #endif
 
-
+#ifdef EH_FRAME_DISASM_ROOT
+#define ISCODE(src) ((int)src == (int)PointerSource::KNOWN_CODE_PTR ?\
+                    code_type::CODE : code_type::UNKNOWN)
+#endif
+/*
 #ifdef EH_FRAME_DISASM_ROOT
 #define ISCODE(src) (((int)src == (int)PointerSource::KNOWN_CODE_PTR ||\
                    (int)src == (int)PointerSource::EH ||\
                    (int)src == (int)PointerSource::EHFIRST) ?\
                     code_type::CODE : code_type::UNKNOWN)
 #endif
-
+*/
 #define ADDBBTOFN(bb,func,src) \
   bb->codeType(ISCODE(src));\
   if(code_type::CODE == ISCODE(src)) {\
@@ -119,6 +125,12 @@ using namespace std;
        SymbolType stype = SymbolType::OPERAND;\
        ADDSYMBOLCANDIDATE(addrs,storage,symbolize,t,stype);\
        break;}\
+     case PointerSource::GAP_PTR : \
+     {\
+       bool symbolize = false;\
+       SymbolType stype = SymbolType::LINEAR_SCAN;\
+       ADDSYMBOLCANDIDATE(addrs,storage,symbolize,t,stype);\
+       break;}\
      default : \
      {\
        bool symbolize = true;\
@@ -137,6 +149,46 @@ using namespace std;
 
 namespace SBI {
 
+  struct Hint {
+    uint64_t addrs_;
+    long double score_ = 0;
+    Hint(uint64_t s, long double scr) {
+      addrs_ = s;
+      score_ = scr;
+    }
+  };
+
+  struct CompareHint {
+    bool operator()(Hint &c1, Hint &c2) {
+      return c1.score_ < c2.score_;
+    }
+  };
+
+  struct Gap {
+    uint64_t start_;
+    uint64_t end_;
+    long double score_ = 0;
+    long double minScore_ = 0;
+    priority_queue<Hint, vector<Hint>, CompareHint> hintQ_;
+    Gap(uint64_t s, uint64_t e) {
+      start_ = s;
+      end_ = e;
+    }
+  };
+  struct CompareGap {
+    bool operator()(Gap &c1, Gap &c2) {
+      return c1.score_ < c2.score_;
+    }
+  };
+
+  enum class JumpType {
+    SCJ,
+    SUJ,
+    LUJ,
+    LCJ,
+    CALL
+  };
+
   class CfgElems : public Instrument, public virtual Dfs {
     map <uint64_t, Pointer *> pointerMap_;
     map <uint64_t, Function *> funcMap_;
@@ -151,7 +203,11 @@ namespace SBI {
     vector <Reloc> picConstReloc_;
     set<uint64_t> invalidPtr_;
     unordered_set <uint64_t> conflictingRoots_;
+    unordered_map <uint64_t, long double> cftTgtsInGaps_;
+    unordered_map <uint64_t, JumpType> cftsInGaps_;
+
   public:
+    DisasmEngn *disassembler_;
     uint64_t entryPoint_ = 0;
     uint64_t codeSegEnd_ = 0;
     uint64_t libcStrtMain_ = 0;
@@ -159,11 +215,21 @@ namespace SBI {
     uint64_t dataSegmntEnd_ = 0;
     uint64_t textSectionEnd_ = 0;
     string exePath_;
-    void exePath(string p) { exePath_ = p; }
+    string exeName_;
+    void exePath(string p) { 
+      exePath_ = p;
+      string key("/");
+      size_t found = exePath_.rfind(key);
+      exeName_ = exePath_.substr(found + 1);
+    }
     string exePath() {
       return exePath_;
     }
 
+    string exeName() {
+      return exeName_;
+    }
+    uint64_t sectionEnd(uint64_t addrs);
     void picConstReloc(vector <Reloc> & r) { picConstReloc_ = r; }
     vector <Reloc> picConstReloc() { return picConstReloc_; }
     void pcrelReloc(vector <Reloc> & r) { pcrelReloc_ = r; }
@@ -255,7 +321,7 @@ namespace SBI {
     bool definiteCode(uint64_t addrs);
     //bool assignLabeltoFn(string label, off_t func_addrs);
     BasicBlock *getBB(uint64_t addrs);
-    void markAsDefCode(uint64_t addrs);
+    void markAsDefCode(uint64_t addrs, bool force = false);
     bool conflictsDefCode(uint64_t addrs);
     BasicBlock *withinBB(uint64_t addrs);
     bool isValidAddress(uint64_t addrs);
@@ -300,7 +366,7 @@ namespace SBI {
     }
     bool withinFn(uint64_t addrs) {
       auto fn = is_within(addrs,funcMap_);
-      if(fn == funcMap_.end() || fn->second->end() < addrs)
+      if(fn == funcMap_.end() || fn->second->end() <= addrs)
         return false;
       return true;
     }
@@ -335,10 +401,34 @@ namespace SBI {
     void updateBBTypes();
     void markAsDefData(uint64_t addrs);
     bool readableMemory(uint64_t addrs);
+    void addIndrctTgt(uint64_t ins_loc, BasicBlock *tgt);
+    uint64_t nextCodeBlock(uint64_t addrs);
+    vector<Gap> getGaps();
+    BasicBlock *getDataBlock(uint64_t addrs);
+    bool isData(uint64_t addrs);
+    long double probScore(uint64_t addrs);
+    long double jumpScore(vector <BasicBlock *> &lst);
+    long double crossingCft(vector <BasicBlock *> &lst);
+    bool conflicts(uint64_t addrs);
+    vector <BasicBlock *> conflictingBBs(uint64_t addrs);
+    void disassembler(DisasmEngn *disasm) { disassembler_ = disasm; }
+    long double fnSigScore(BasicBlock *bb);
+    long double regionScore(vector <BasicBlock *> &bb_lst);
+    void phase1NonReturningCallResolution();
+    void markAllCallTgtsAsDefCode();
+    void markCallTgtAsDefCode(BasicBlock *bb);
+    long double fnSigScore(vector <Instruction *> &ins_list);
   private:
     void readIndrctTgts(BasicBlock *bb,uint64_t fn_addrs);
     BasicBlock *readBB(ifstream & file);
     bool isDatainCode(uint64_t addrs);
+    void jumpTgtsInGap(uint64_t g_start, uint64_t g_end);
+    vector <uint64_t> crossingCftsInGap(uint64_t g_start, uint64_t g_end);
+    void gapScore(Gap &g);
+    vector <uint64_t> defCodeCFTs(uint64_t g_start, uint64_t g_end);
+    uint64_t jumpTgt(uint8_t *bytes, int size, uint64_t ins_addrs);
+    unordered_map <uint64_t, long double> fnSigInGap(uint64_t g_start, uint64_t g_end);
+    long double defCodeCftScore(vector <BasicBlock *> &bb_lst);
   };
 
 }

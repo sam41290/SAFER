@@ -1,0 +1,5 @@
+-fPIC
+-g
+-O2
+-std=c++2a
+-Wall

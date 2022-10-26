@@ -1,0 +1,66 @@
+g++ -Wall --std=c++17 -O3 -I .. testCF.C
+time ./a.out 10000000 100 > /tmp/tt
+
+Cvt: Avg dev on 9693634 samples: 0.0392357	max=0.111111	expected=0.125
+Cvt: Avg dev on 9693239 samples: 0.000115306	max=0.000488043	expected=0.000488281
+Cvt: Avg dev on 9693599 samples: 0.00503405	max=0.0153846	expected=0.015625
+Cvt: Avg dev on 9694538 samples: 0.00139667	max=0.00389099	expected=0.00390625
+Cvt: Avg dev on 9694828 samples: 5.26851e-09	max=1.49012e-08	expected=1.49012e-08
+Cvt: Avg dev on 9694615 samples: 5.8816e-09	max=1.04281e-07	expected=1.49012e-08
+Op +: Avg dev on 9693141 samples: 0.0139941	max=0.249994	expected=0.25
+Op +: Avg dev on 9693056 samples: 9.50444e-05	max=0.000976533	expected=0.000976562
+Op +: Avg dev on 9693618 samples: 0.00132783	max=0.03125	expected=0.03125
+Op +: Avg dev on 9687049 samples: 0.000744141	max=0.00781233	expected=0.0078125
+Op +: Avg dev on 9687089 samples: 6.05333e-09	max=2.98005e-08	expected=2.98023e-08
+Op -: Avg dev on 4910793 samples: 0.0118579	max=0.25	expected=0.25
+Op -: Avg dev on 4630343 samples: 8.80561e-05	max=0.000971212	expected=0.000976562
+Op -: Avg dev on 9693713 samples: 0.00132333	max=0.03125	expected=0.03125
+Op -: Avg dev on 4872459 samples: 0.000583619	max=0.0078125	expected=0.0078125
+Op -: Avg dev on 4861431 samples: 5.21637e-09	max=2.98017e-08	expected=2.98023e-08
+Cvt: Avg dev on 10000000 samples: 0.0380423	max=0.123967	expected=0.125
+Cvt: Avg dev on 10000000 samples: 0.00429608	max=0.0153846	expected=0.015625
+Cvt: Avg dev on 10000000 samples: 1.72929e-09	max=1.49011e-08	expected=1.49012e-08
+Op +: Avg dev after 10000 operations: 0.0144	expected=40000	actual=39424
+Op +: Avg dev after 10000 operations: 0.02912	expected=50000	actual=51456
+Op +: Avg dev after 10000 operations: 0.0820571	expected=70000	actual=64256
+Op +: Avg dev after 10000 operations: 0.00124444	expected=90000	actual=90112
+Op +: Avg dev after 10000 operations: 0.0891636	expected=110000	actual=119808
+Op +: Avg dev after 10000 operations: 0.05792	expected=150000	actual=141312
+Op +: Avg dev after 10000 operations: 0.00833684	expected=190000	actual=188416
+Op -: Avg dev after 1000 operations: 0.0108718	expected=39000	actual=39424
+Op -: Avg dev after 1000 operations: 0.00968421	expected=38000	actual=37632
+Op -: Avg dev after 1000 operations: 0.00266667	expected=36000	actual=36096
+Op -: Avg dev after 1000 operations: 0.00894118	expected=34000	actual=34304
+Op -: Avg dev after 1000 operations: 0.056	expected=32000	actual=33792
+Op -: Avg dev after 1000 operations: 0.0171429	expected=28000	actual=27520
+Op -: Avg dev after 1000 operations: 0.056	expected=24000	actual=25344
+Op +: Avg dev after 1000000 operations: 0.00199385	expected=1.3e+06	actual=1.29741e+06
+Op +: Avg dev after 1000000 operations: 0.0061913	expected=2.3e+06	actual=2.31424e+06
+Op +: Avg dev after 1000000 operations: 0.00267163	expected=4.3e+06	actual=4.28851e+06
+Op +: Avg dev after 1000000 operations: 0.00265651	expected=6.3e+06	actual=6.28326e+06
+Op +: Avg dev after 1000000 operations: 0.00406372	expected=1.13e+07	actual=1.13459e+07
+Op +: Avg dev after 1000000 operations: 0.000309593	expected=1.23e+07	actual=1.22962e+07
+Op +: Avg dev after 1000000 operations: 0.00238528	expected=1.63e+07	actual=1.62611e+07
+Op -: Avg dev after 100000 operations: 0.000155897	expected=3.9e+06	actual=3.89939e+06
+Op -: Avg dev after 100000 operations: 0.00240842	expected=3.8e+06	actual=3.79085e+06
+Op -: Avg dev after 100000 operations: 0.00103111	expected=3.6e+06	actual=3.59629e+06
+Op -: Avg dev after 100000 operations: 0.00111059	expected=3.4e+06	actual=3.40378e+06
+Op -: Avg dev after 100000 operations: 1.10345e-05	expected=2.9e+06	actual=2.89997e+06
+Op -: Avg dev after 100000 operations: 0.00132571	expected=2.8e+06	actual=2.80371e+06
+Op -: Avg dev after 100000 operations: 0.000746667	expected=2.4e+06	actual=2.39821e+06
+Op +: Avg dev after 5310000000 operations: 3.04279e-08	expected=6.31e+09	actual=6.31e+09
+Op -: Avg dev after 4670000000 operations: 2.06061e-07	expected=3.3e+08	actual=3.3e+08
+Op *: Avg dev on 8171904 samples: 0.00906247	max=0.142857	expected=0.25
+Op *: Avg dev on 8811677 samples: 0.000210849	max=0.000971806	expected=0.000976562
+Op *: Avg dev on 9692567 samples: 0.0013916	max=0.0153846	expected=0.03125
+Op *: Avg dev on 9694316 samples: 2.15897e-06	max=0.00106717	expected=0.0078125
+Op *: Avg dev on 9694486 samples: 1.65354e-11	max=8.27835e-09	expected=5.96046e-08
+8.81645e+07 conversions, 1.10326e+10 operations
+Avg # of bits in random numbers: 20.8679 Histogram of # of bits (log2 scale) printed below
+22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 22 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 21 20 20 20 20 20 20 20 20 20 19 19 19 19 19 18 18 17 16 
+
+8.81645e+07 conversions, 1.82249e+09 operations
+
+real	0m57.379s
+user	0m57.372s
+sys	0m0.000s

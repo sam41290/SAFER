@@ -67,13 +67,15 @@ ExeManager::additionSecs() {
 
 pair <uint64_t, uint64_t> 
 ExeManager::progMemRange() {
-  uint64_t start = INT_MAX, end = INT_MIN;
+  uint64_t start = INT_MAX, end = 0;
   vector <pheader> phdrs = ptLoadHeaderes ();
   for(auto & p : phdrs) {
+    DEF_LOG("Pheader: "<<hex<<p.address<<"->"<<p.address + p.mem_sz);
     if(p.address < start)
       start = p.address;
     if((p.address + p.mem_sz) > end)
       end = p.address + p.mem_sz;
   }
+  DEF_LOG("Program mem range: "<<hex<<start<<"->"<<end);
   return make_pair(start,end);
 }
