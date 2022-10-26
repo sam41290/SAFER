@@ -785,6 +785,7 @@ Binary::genInstAsm() {
   ExeManager *inst_exe = new binary_class(inst_Binary_path);
 
   vector<string> instFuncs = instFunctions();
+  instFuncs.push_back("atf");
   map<uint64_t,string> instLabels;
   for(string s:instFuncs) {
     off_t addrs = inst_exe->symbolVal(s);
@@ -1077,7 +1078,7 @@ string Binary::print_assembly() {
   utils::printAsm(att_asm,0,new_sec.start_sym,SymBind::NOBIND,file_name); 
   utils::printLbl(new_sec.end_sym,file_name);
   utils::printLbl(".new_codesegment_end",file_name);
-  utils::append_files(TOOL_PATH"/src/instrument/atf.s",file_name);
+  //utils::append_files(TOOL_PATH"/src/instrument/atf.s",file_name);
   return file_name;
 }
 

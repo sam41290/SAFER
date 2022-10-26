@@ -40,7 +40,7 @@ public:
   };
 
   string attTableAsm() {
-    string tbl = ".atf_ptr: .8byte .atf_function - .elf_header_start\n";
+    string tbl = ".atf_ptr: .8byte .atf - .elf_header_start\n";
     int ctr = 0;
     for (auto & e : attTable_) {
       e.lookupEntrySym_ = ".attentry_lookup" + to_string(ctr);
