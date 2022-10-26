@@ -14,7 +14,7 @@
 
 #define KNOWN_CODE_POINTER_ROOT
 
-#define DISASMONLY
+//#define DISASMONLY
 
 #define CFGCONSISTENCYCHECK
 
