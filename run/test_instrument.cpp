@@ -20,6 +20,10 @@ main (int argc, char *args[]) {
   //arglst.push_back(InstArg::RIP);
   //arglst.push_back(InstArg::INDIRECT_TARGET);
   //b.registerInstrumentation(InstPoint::INDIRECT_CF,"LOG",arglst);
+
+  vector<InstArg> arglst;
+  arglst.push_back(InstArg::INDIRECT_TARGET);
+  b.registerInstrumentation(InstPoint::ADDRS_TRANS,"GTF",arglst);
   //
   //vector<InstArg> arglst2;
   //arglst2.push_back(InstArg::EXENAME);

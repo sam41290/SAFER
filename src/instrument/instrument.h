@@ -28,7 +28,8 @@ enum class InstPoint
   ALL_FUNCTIONS,
   INDIRECT_CF,
   LEA_INS_PRE,
-  LEA_INS_POST
+  LEA_INS_POST,
+  ADDRS_TRANS
 };
 
 

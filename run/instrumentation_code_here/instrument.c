@@ -48,6 +48,9 @@ void LOGRAX(char *exe, uint64_t RIP, uint64_t tgt)
   myprintf("::::::%s ||RIP: %p RAX val: %p\n", exe,RIP,tgt);
 }
 
+unsigned long atf(unsigned long att, unsigned long addr) {
+  return 0;
+}
 
 void
 install_signal ()

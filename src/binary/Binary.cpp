@@ -800,6 +800,8 @@ Binary::genInstAsm() {
   vector <section> inst_code_section =
     inst_exe->sections(section_types::RorX);;
 
+  //ofstream ofile;
+  //ofile.open("inst_text.s", ofstream::out | ofstream::app);
   for(section sec:inst_code_section) {
     int byte_count = sec.size;
 
@@ -807,8 +809,6 @@ Binary::genInstAsm() {
     utils::READ_FROM_FILE(inst_Binary_path, section_data,sec.offset,
         byte_count);
 
-    ofstream ofile;
-    ofile.open("inst_text.s", ofstream::out | ofstream::app);
 
 
     uint64_t sec_start = sec.vma;
@@ -829,9 +829,12 @@ Binary::genInstAsm() {
 
     free(section_data);
 
-    ofile.close();
 
   }
+  ofile<<".GTF:\n";
+  ofile<<"jmp .dispatcher(%rip)\n";
+
+  ofile.close();
 }
 
 void
