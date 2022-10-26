@@ -29,7 +29,7 @@ do
 done
 
 export LD_LIBRARY_PATH=/usr/lib/ocaml
-cp ${TOOL_PATH}/run/randmodes/LLRK.h ${TOOL_PATH}/run/config.h
+cp ${TOOL_PATH}/run/randmodes/NoRand.h ${TOOL_PATH}/run/config.h
 
 
 cd ${TOOL_PATH}/src/lift/lift-code

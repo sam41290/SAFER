@@ -1077,7 +1077,7 @@ string Binary::print_assembly() {
   utils::printAsm(att_asm,0,new_sec.start_sym,SymBind::NOBIND,file_name); 
   utils::printLbl(new_sec.end_sym,file_name);
   utils::printLbl(".new_codesegment_end",file_name);
-  utils::append_files(TOOL_PATH"/src/instrument/atf.s",file_name)
+  utils::append_files(TOOL_PATH"/src/instrument/atf.s",file_name);
   return file_name;
 }
 
