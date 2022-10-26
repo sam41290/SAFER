@@ -1469,11 +1469,11 @@ Cfg::handleLoopIns(vector <BasicBlock *> &bb_list) {
   vector <BasicBlock *> tramp_bbs;
   for(auto & bb : bb_list) {
     if(bb->lastIns()->isJump() && bb->lastIns()->asmIns().find("loop") != string::npos &&
-       bb->targetBB() != NULL) {
+       bb->targetBB() != NULL && bb->target() != bb->start()) {
       randomizer_->addTrampForBB(bb->targetBB());
       auto tramp_bb = bb->targetBB()->tramp();
       tramp_bbs.push_back(tramp_bb);
-      bb->targetBB(tramp_bb);
+      //bb->targetBB(tramp_bb);
     }
   }
   bb_list.insert(bb_list.end(), tramp_bbs.begin(), tramp_bbs.end());
@@ -1491,7 +1491,11 @@ Cfg::printFunc(uint64_t fstart, string file_name) {
   Function *f = fn_map[fstart];
   vector <BasicBlock *> defbbs = f->getDefCode();
   vector <BasicBlock *> unknwnbbs = f->getUnknwnCode();
-  handleLoopIns(unknwnbbs);
+  vector <BasicBlock *> psbl_code;
+  for(auto & bb : unknwnbbs)
+    if(dataByProperty(bb) == false)
+      psbl_code.push_back(bb);
+  handleLoopIns(psbl_code);
 #ifdef OPTIMIZED_EH_METADATA 
   if(defbbs.size() > 0) {
     //Intra unwinding block randomization for definite code.
@@ -1521,17 +1525,17 @@ Cfg::printFunc(uint64_t fstart, string file_name) {
       randomizer_->print(defbbs, file_name, fstart);
     return;
   }
-  if (unknwnbbs.size() > 0)  {
+  if (psbl_code.size() > 0)  {
     //Since EH metadata for possible code is not optimized at this point, follow
     //normal randomization.
-    randomizer_->print(unknwnbbs, file_name, fstart);
+    randomizer_->print(psbl_code, file_name, fstart);
     return;
   }
 #else
   if(defbbs.size() > 0)
     randomizer_->print(defbbs, file_name, fstart);
-  if (unknwnbbs.size() > 0)
-    randomizer_->print(unknwnbbs, file_name, fstart);
+  if (psbl_code.size() > 0)
+    randomizer_->print(psbl_code, file_name, fstart);
 #endif
   return;
 }

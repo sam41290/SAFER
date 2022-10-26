@@ -1301,18 +1301,23 @@ PointerAnalysis::hasValidRoot(BasicBlock *bb) {
 
 void
 PointerAnalysis::classifyEntry(uint64_t entry) {
+  auto bb = getBB(entry);
+  if(bb == NULL)
+    return;
+  vector <BasicBlock *> lst = bbSeq(bb,SEQTYPE::INTRAFN);
+  for(auto & bb2 : lst) {
+    if(bb2->isCode() == false) {
+      if(dataByProperty(bb2))
+        markAsDefData(bb2->start());
+    }
+  }
   if(Conflicts_.find(entry) == Conflicts_.end()) {
-    auto bb = getBB(entry);
     if(bb != NULL && dataByProperty(bb) == false) {
-      vector <BasicBlock *> lst = bbSeq(bb,SEQTYPE::INTRAFN);
       DEF_LOG("Classifying entry: "<<hex<<entry);
       for(auto & bb2 : lst) {
         if(bb2->isCode() == false) {
-          if(dataByProperty(bb2))
-            markAsDefData(bb2->start());
-          else if(Conflicts_.find(bb2->start()) == Conflicts_.end() && 
-                  nonCodeScore(entry) >= CODE_SCORE) {
-            //DEF_LOG("Marking as defcode BB: "<<hex<<bb2->start());
+          if(Conflicts_.find(bb2->start()) == Conflicts_.end() && 
+             nonCodeScore(entry) >= CODE_SCORE) {
             markAsDefCode(bb2->start());
           }
         }
