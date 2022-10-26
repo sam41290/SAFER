@@ -832,7 +832,7 @@ Binary::genInstAsm() {
 
   }
   ofile<<".GTF:\n";
-  ofile<<"jmp .dispatcher(%rip)\n";
+  ofile<<"jmp *.dispatcher(%rip)\n";
 
   ofile.close();
 }
