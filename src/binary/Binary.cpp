@@ -505,7 +505,7 @@ Binary::print_data_segment(string file_name) {
   //In some cases, section regions might overlap. To assign correct labels to
   //section ends, we create the below map.
   
-  for(section sec:rwSections_) {
+  for(section & sec : rwSections_) {
     section new_sec = sec;
     new_sec.start_sym = sec.name + "_dup";
     new_sec.end_sym = sec.name + "_dup_end";
@@ -613,7 +613,7 @@ Binary::print_old_code_and_data(string file_name) {
     ctr++;
   }
   ofile<<".old_end:\n";
-  ofile<<".align "<<manager_->segAlign()<<endl;
+  //ofile<<".align "<<manager_->segAlign()<<endl;
   ofile.close();
 
   print_data_segment(file_name);
