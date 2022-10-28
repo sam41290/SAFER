@@ -35,6 +35,7 @@ Binary::Binary(string Binary_path) {
 
   exitCallPlt_ = manager_->exitPlts();
   mayExitPlt_ = manager_->mayExitPlts();
+  allPltSlots_ = manager_->allJmpSlots();
   //get trampoline address for __libc_Start_main function.
 
   libcStartMain_ = manager_->jmpSlot("__libc_start_main");
@@ -121,6 +122,7 @@ Binary::set_codeCFG_params() {
   codeCFG_->functions(funcMap_);
   codeCFG_->exitCall(exitCallPlt_);
   codeCFG_->mayExitPlt(mayExitPlt_);
+  codeCFG_->allPltSlots(allPltSlots_);
   codeCFG_->type(manager_->type());
   codeCFG_->dataSegmntStart(rwSections_[0].vma);
   codeCFG_->rxSections(rxSections_);
@@ -329,10 +331,10 @@ Binary::rewrite() {
   instrument();
   string file_name = print_assembly();
   manager_->rewrite(file_name);
-  if(manager_->type() == exe_type::NOPIE) {
-    calcTrampData();
-    manager_->placeHooks(trampData_);
-  }
+  //if(manager_->type() == exe_type::NOPIE) {
+  //  calcTrampData();
+  //  manager_->placeHooks(trampData_);
+  //}
 }
 
 void
@@ -703,7 +705,7 @@ Binary::check_segfault_handler() {
    * Instruments main to make a call to sigaction system call.
    */
   string label = "segfault_checker";
-  string inst_code = generate_hook(label, false, 0,"");
+  string inst_code = generate_hook(label);
   off_t hook_point = manager_->symbolVal("main");
   if(hook_point == -1)
     return;
@@ -734,7 +736,7 @@ Binary::install_segfault_handler() {
 
   string label = "fill_sigaction";
   uint64_t sigaction_addrs = manager_->symbolVal("sigaction");	//get address of sigaction in GLIBC
-  string inst_code = generate_hook(label, true, sigaction_addrs,"");
+  string inst_code = generate_hook(label,"","",HookType::SEGFAULT, sigaction_addrs);
 
   LOG("Installing signal handler at libcStartMain_" <<hex <<hook_point);
 

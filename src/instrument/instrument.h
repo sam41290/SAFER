@@ -32,6 +32,13 @@ enum class InstPoint
   ADDRS_TRANS
 };
 
+enum class HookType
+{
+  SEGFAULT,
+  ADDRS_TRANS,
+  GENERAL_INST
+};
+
 
 enum class InstArg {
   NONE = 0,
@@ -83,12 +90,14 @@ public:
       instCodeSymbol,vector<InstArg>argsLst);
   void registerInstrumentation(string fnName,string
       instCodeSymbol,vector<InstArg>argsLst);
-  string generate_hook(string hook_target, bool is_segfault_hook, uint64_t
-      sigaction_addrs, string args);
+  string generate_hook(string hook_target, string args = "",
+                          string mne = "",
+                          HookType h = HookType::GENERAL_INST,
+                          uint64_t sigaction_addrs = 0);
   string getRegVal(string reg);  
   virtual void instrument() = 0;
 
 private:
-  string save();
-  string restore();
+  string save(HookType h);
+  string restore(HookType h);
 };

@@ -3,6 +3,8 @@
 
 const vector <string> savedReg_{"flags","%rax",
     "%rdi","%rsi","%rdx","%rcx","%r8","%r9","%r10","%r11"};
+const vector <string> atfSavedReg_{"flags","%rax",
+    "%rdi", "%rsi", "%rdx","%rcx","%r8"};
 
 /*
 string
@@ -140,8 +142,10 @@ Instrument::registerInstrumentation(uint64_t tgtAddrs,string
 }
 
 string
-Instrument::generate_hook(string hook_target, bool is_segfault_hook, uint64_t
-             sigaction_addrs = 0, string args="") {
+Instrument::generate_hook(string hook_target, string args,
+                          string mne,
+                          HookType h, 
+                          uint64_t sigaction_addrs) {
 
   /* Generates assembly code stub to be put at the instrumentation point
    *(basic block or function).
@@ -149,10 +153,10 @@ Instrument::generate_hook(string hook_target, bool is_segfault_hook, uint64_t
    *  Then makes a call to the instrumentation code.
    */
   string inst_code = "";
-  inst_code += save();
+  inst_code += save(h);
   inst_code += args + "call ." + hook_target + "\n";
 
-  if(is_segfault_hook) {
+  if(h == HookType::SEGFAULT) {
     /* If the stub is supposed to install seg-fault handler, we need to make
      * an additional call to sigaction system call.
      */
@@ -161,16 +165,28 @@ Instrument::generate_hook(string hook_target, bool is_segfault_hook, uint64_t
                             "mov $0, %rdx\n" +
                             "call ." + to_string(sigaction_addrs) + "\n";
   }
+  if(h == HookType::ADDRS_TRANS) {
+    inst_code += "mov %rax,-8(%rsp)\n";
+  }
 
-  inst_code = inst_code + restore();
+  inst_code = inst_code + restore(h);
+  if(h == HookType::ADDRS_TRANS) {
+    inst_code += mne + " *-64(%rsp)\n";
+  }
   return inst_code;
 }
 
 string
-Instrument::save() {
+Instrument::save(HookType h) {
   string ins = "";
 
-  for(string str:savedReg_) {
+  vector <string> reg_list;
+  if(h == HookType::ADDRS_TRANS)
+    reg_list = atfSavedReg_;
+  else
+    reg_list = savedReg_;
+
+  for(string & str : reg_list) {
     if(str == "flags")
       ins += "pushf\n";
     else
@@ -180,10 +196,16 @@ Instrument::save() {
 }
 
 string
-Instrument::restore() {
+Instrument::restore(HookType h) {
   string ins = "";
-  auto it = savedReg_.end();
-  while(it != savedReg_.begin()) {
+  vector <string> reg_list;
+  if(h == HookType::ADDRS_TRANS)
+    reg_list = atfSavedReg_;
+  else
+    reg_list = savedReg_;
+
+  auto it = reg_list.end();
+  while(it != reg_list.begin()) {
     it = prev(it);
     if(*it == "flags")
       ins += "popf\n";

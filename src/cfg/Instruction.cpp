@@ -52,6 +52,7 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
     if(operand.length()> 0) {
       if(operand.find("*") != string::npos) {
         isIndirectCf(true);
+        atRequired_ = true;
         if(ENCODE == 1)
           decode(true);
       }
@@ -443,8 +444,10 @@ Instruction::instrument() {
         break;
     }
     if(tgt.first == InstPoint::LEA_INS_POST)
-      instAsmPost_ += generate_hook(tgt.second,false,0,args);
+      instAsmPost_ += generate_hook(tgt.second,args,mnemonic_);
+    else if(tgt.first == InstPoint::ADDRS_TRANS)
+      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::ADDRS_TRANS);
     else
-      instAsmPre_ += generate_hook(tgt.second,false,0,args);
+      instAsmPre_ += generate_hook(tgt.second,args,mnemonic_);
   }
 }

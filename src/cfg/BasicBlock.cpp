@@ -313,9 +313,16 @@ BasicBlock::instrument() {
   }
   vector<pair<InstPoint,string>> targetPos = targetPositions();
   for(auto p:targetPos) {
-    if(p.first == InstPoint::INDIRECT_CF || p.first == InstPoint::ADDRS_TRANS) {
+    if(p.first == InstPoint::INDIRECT_CF) {
       auto ins_it = lastIns();
       if(ins_it->isIndirectCf()) {
+        ins_it->registerInstrumentation(p.first,p.second,allargs[p.second]);
+        //ins_it->second.instrument();
+      }
+    }
+    else if(p.first == InstPoint::ADDRS_TRANS) {
+      auto ins_it = lastIns();
+      if(ins_it->isIndirectCf() && ins_it->atRequired()) {
         ins_it->registerInstrumentation(p.first,p.second,allargs[p.second]);
         //ins_it->second.instrument();
       }

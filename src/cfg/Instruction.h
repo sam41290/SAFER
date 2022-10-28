@@ -61,11 +61,14 @@ private:
   vector<string> paramIns_;
   bool decode_ = false;
   bool encode_ = false;
+  bool atRequired_ = false;
 public:
   Instruction() {}
   Instruction(uint64_t address, char *mnemonic, char *op_str, uint8_t
 	       * bytes, int size);
   string prefix() { return prefix_; }
+  void atRequired(bool val) { atRequired_ = val; }
+  bool atRequired() { return atRequired_; }
   void instAsmPre(string code) { instAsmPre_ += code; }
   void location(uint64_t p_loc) { loc_ = p_loc;}
   bool isCode() { return isCode_; }

@@ -24,6 +24,7 @@ class Binary:public Instrument
   vector <section> rwSections_;
   set <uint64_t> exitCallPlt_;
   set <uint64_t> mayExitPlt_;
+  set <uint64_t> allPltSlots_;
   uint64_t codeSegmentStart_ = INT_MAX;
   uint64_t codeSegmentEnd_ = 0;
   uint64_t entryPoint_ = 0;

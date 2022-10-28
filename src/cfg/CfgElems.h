@@ -194,6 +194,7 @@ namespace SBI {
     map <uint64_t, Function *> funcMap_;
     set <uint64_t> exitCallPlt_;
     set <uint64_t> mayExitPlt_;
+    set <uint64_t> allPltSlots_;
     vector <JumpTable> jmpTables_;
     vector <section> roSections_;
     vector <section> rxSections_;
@@ -257,6 +258,14 @@ namespace SBI {
     }
     void mayExitPlt(set <uint64_t> &exit_call) {
       mayExitPlt_ = exit_call;
+    }
+    void allPltSlots(set <uint64_t> &all_plt) {
+      allPltSlots_ = all_plt;
+    }
+    bool isPlt(uint64_t slot) {
+      if(allPltSlots_.find(slot) != allPltSlots_.end())
+        return true;
+      return false;
     }
     bool mayExitCall(uint64_t addr) {
       if(mayExitPlt_.find(addr) != mayExitPlt_.end())

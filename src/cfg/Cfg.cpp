@@ -1621,6 +1621,8 @@ Cfg::processIndrctJmp(Instruction *call_ins, BasicBlock *bb,code_type t) {
       LOG("may exit call found. Marking bb: "<<hex<<bb->start()<<" may be returning");
       bb->type(BBType::MAY_BE_RETURNING);
     }
+    if(isPlt(jump_slot))
+      call_ins->atRequired(false);
   }
 }
 
