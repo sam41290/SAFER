@@ -181,9 +181,9 @@ Instrument::save(HookType h) {
   string ins = "";
 
   vector <string> reg_list;
-  if(h == HookType::ADDRS_TRANS)
-    reg_list = atfSavedReg_;
-  else
+  //if(h == HookType::ADDRS_TRANS)
+  //  reg_list = atfSavedReg_;
+  //else
     reg_list = savedReg_;
 
   for(string & str : reg_list) {
@@ -199,9 +199,9 @@ string
 Instrument::restore(HookType h) {
   string ins = "";
   vector <string> reg_list;
-  if(h == HookType::ADDRS_TRANS)
-    reg_list = atfSavedReg_;
-  else
+  //if(h == HookType::ADDRS_TRANS)
+  //  reg_list = atfSavedReg_;
+  //else
     reg_list = savedReg_;
 
   auto it = reg_list.end();
