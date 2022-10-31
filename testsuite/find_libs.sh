@@ -6,7 +6,7 @@ then
   exit
 fi
 
-TOOL_PATH="${HOME}/SBR"
+TOOL_PATH="${HOME}/SBI"
 
 create_lib_list() {
 

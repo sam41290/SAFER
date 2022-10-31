@@ -27,6 +27,13 @@ fi
 
 rand_mode=`echo $args | grep "rand_mode" | cut -d"=" -f2`
 
+len=`echo -n $rand_mode | wc -m`
+
+if [ $len -le 0 ]
+then
+    rand_mode="NoRand"
+fi
+
 export LD_LIBRARY_PATH=/usr/lib/ocaml
 
 

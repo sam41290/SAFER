@@ -345,8 +345,10 @@ Instruction::print(string file_name, string lbl_sfx) {
 }
 
 void
-Instruction::setInstParams() {
+Instruction::setInstParams(HookType h) {
   string operand = op1_;
+  instParams_.clear();
+  paramIns_.clear();
   instParams_.push_back("$0");
   paramIns_.push_back("mov");
   instParams_.push_back("$" + to_string(loc_));
@@ -358,7 +360,7 @@ Instruction::setInstParams() {
     {
       string operand = op1_;
       operand.replace(0,1,"");
-      instParams_.push_back(getRegVal(operand));
+      instParams_.push_back(getRegVal(operand,h));
     }
   }
   else
@@ -368,27 +370,27 @@ Instruction::setInstParams() {
     size_t pos = operand.find (",");
     string pointer = operand.substr(0, pos);
     string reg = operand.substr(pos + 2);
-    instParams_.push_back(getRegVal(reg));
+    instParams_.push_back(getRegVal(reg,h));
   }
   else
     instParams_.push_back("$0");
   paramIns_.push_back("mov");
-  instParams_.push_back(getRegVal("%r8"));
-  instParams_.push_back(getRegVal("%r9"));
-  instParams_.push_back(getRegVal("%r10"));
-  instParams_.push_back(getRegVal("%r11"));
-  instParams_.push_back(getRegVal("%r12"));
-  instParams_.push_back(getRegVal("%r13"));
-  instParams_.push_back(getRegVal("%r14"));
-  instParams_.push_back(getRegVal("%r15"));
-  instParams_.push_back(getRegVal("%rdi"));
-  instParams_.push_back(getRegVal("%rsi"));
-  instParams_.push_back(getRegVal("%rbp"));
-  instParams_.push_back(getRegVal("%rbx"));
-  instParams_.push_back(getRegVal("%rdx"));
-  instParams_.push_back(getRegVal("%rax"));
-  instParams_.push_back(getRegVal("%rcx"));
-  instParams_.push_back(getRegVal("%rsp"));
+  instParams_.push_back(getRegVal("%r8",h));
+  instParams_.push_back(getRegVal("%r9",h));
+  instParams_.push_back(getRegVal("%r10",h));
+  instParams_.push_back(getRegVal("%r11",h));
+  instParams_.push_back(getRegVal("%r12",h));
+  instParams_.push_back(getRegVal("%r13",h));
+  instParams_.push_back(getRegVal("%r14",h));
+  instParams_.push_back(getRegVal("%r15",h));
+  instParams_.push_back(getRegVal("%rdi",h));
+  instParams_.push_back(getRegVal("%rsi",h));
+  instParams_.push_back(getRegVal("%rbp",h));
+  instParams_.push_back(getRegVal("%rbx",h));
+  instParams_.push_back(getRegVal("%rdx",h));
+  instParams_.push_back(getRegVal("%rax",h));
+  instParams_.push_back(getRegVal("%rcx",h));
+  instParams_.push_back(getRegVal("%rsp",h));
   paramIns_.push_back("mov");
   paramIns_.push_back("mov");
   paramIns_.push_back("mov");
@@ -413,9 +415,12 @@ Instruction::setInstParams() {
 
 void
 Instruction::instrument() {  
-  setInstParams();
   vector<pair<InstPoint,string>> targetPos = targetPositions();
   for(auto tgt:targetPos) {
+    HookType h = HookType::GENERAL_INST;
+    if(tgt.first == InstPoint::ADDRS_TRANS)
+      h = HookType::ADDRS_TRANS;
+    setInstParams(h);
     vector<InstArg> allArgs= instArgs()[tgt.second];
     string args = "";
     switch(allArgs.size()) {

@@ -181,9 +181,9 @@ Instrument::save(HookType h) {
   string ins = "";
 
   vector <string> reg_list;
-  //if(h == HookType::ADDRS_TRANS)
-  //  reg_list = atfSavedReg_;
-  //else
+  if(h == HookType::ADDRS_TRANS)
+    reg_list = atfSavedReg_;
+  else
     reg_list = savedReg_;
 
   for(string & str : reg_list) {
@@ -199,9 +199,9 @@ string
 Instrument::restore(HookType h) {
   string ins = "";
   vector <string> reg_list;
-  //if(h == HookType::ADDRS_TRANS)
-  //  reg_list = atfSavedReg_;
-  //else
+  if(h == HookType::ADDRS_TRANS)
+    reg_list = atfSavedReg_;
+  else
     reg_list = savedReg_;
 
   auto it = reg_list.end();
@@ -216,9 +216,15 @@ Instrument::restore(HookType h) {
 }
 
 string
-Instrument::getRegVal(string reg) {
+Instrument::getRegVal(string reg, HookType h) {
+
+  vector <string> reg_list;
+  if(h == HookType::ADDRS_TRANS)
+    reg_list = atfSavedReg_;
+  else
+    reg_list = savedReg_;
   string val = "";
-  int offt = 8 * (savedReg_.size() - 1);
+  int offt = 8 * (reg_list.size() - 1);
   if(reg == "%rsp") {
     val += to_string(offt) + "(%rsp)";
     return val;
@@ -231,13 +237,13 @@ Instrument::getRegVal(string reg) {
       adjst = stoi (off, 0, 16);
       //cout << "rsp offset: " << off << " adjst: " << adjst << endl;
     }
-    adjst += (8 * savedReg_.size());
+    adjst += (8 * reg_list.size());
     //cout << "new adjustment: " << adjst << endl;
     val = to_string (adjst) + "(%rsp)";
     return val;
   }
 
-  for(string str:savedReg_) {
+  for(string & str:reg_list) {
     if(reg == str) {
       val += to_string(offt) + "(%rsp)";
       return val;

@@ -37,7 +37,7 @@ len=`echo -n $rand_mode | wc -m`
 
 if [ $len -le 0 ]
 then
-	rand_mode="LLRK"
+	rand_mode="NoRand"
 fi
 
 ehopt=`echo $args | grep "eh_opt" | cut -d"=" -f2`

@@ -214,7 +214,7 @@ public:
   vector <uint8_t> insBinary() { return insBinary_;}
   void rltvOfftAdjusted(bool b) { rltvOfftAdjusted_ = b; }
   bool rltvOfftAdjusted() { return rltvOfftAdjusted_; }
-  void setInstParams();
+  void setInstParams(HookType h);
 
   bool indirectCFWithReg();
   void print(string file_name,string lbl_sfx);

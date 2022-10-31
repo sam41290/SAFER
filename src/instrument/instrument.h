@@ -94,7 +94,7 @@ public:
                           string mne = "",
                           HookType h = HookType::GENERAL_INST,
                           uint64_t sigaction_addrs = 0);
-  string getRegVal(string reg);  
+  string getRegVal(string reg, HookType h);  
   virtual void instrument() = 0;
 
 private:
