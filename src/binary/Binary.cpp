@@ -331,10 +331,10 @@ Binary::rewrite() {
   instrument();
   string file_name = print_assembly();
   manager_->rewrite(file_name);
-  //if(manager_->type() == exe_type::NOPIE) {
-  //  calcTrampData();
-  //  manager_->placeHooks(trampData_);
-  //}
+  if(manager_->type() == exe_type::NOPIE) {
+    calcTrampData();
+    manager_->placeHooks(trampData_);
+  }
 }
 
 void
