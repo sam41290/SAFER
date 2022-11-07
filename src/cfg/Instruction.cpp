@@ -420,6 +420,8 @@ Instruction::instrument() {
     HookType h = HookType::GENERAL_INST;
     if(tgt.first == InstPoint::ADDRS_TRANS)
       h = HookType::ADDRS_TRANS;
+    else if(tgt.first == InstPoint::SYSCALL_CHECK)
+      h = HookType::SYSCALL_CHECK;
     setInstParams(h);
     vector<InstArg> allArgs= instArgs()[tgt.second];
     string args = "";
@@ -452,6 +454,8 @@ Instruction::instrument() {
       instAsmPost_ += generate_hook(tgt.second,args,mnemonic_);
     else if(tgt.first == InstPoint::ADDRS_TRANS)
       asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::ADDRS_TRANS);
+    else if(tgt.first == InstPoint::SYSCALL_CHECK)
+      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SYSCALL_CHECK);
     else
       instAsmPre_ += generate_hook(tgt.second,args,mnemonic_);
   }

@@ -260,182 +260,158 @@ cfi_table::print_cfi (uint64_t addrs, string fname, int ins_sz, string label)
    *    4. fname: file onto which ASM directives are to be written.
    */
 
-  if (CFI.size () > 0)
-    {
-      //Find the unwinding block to which the address belongs.
+  if (CFI.size () > 0) {
+    //Find the unwinding block to which the address belongs.
 
-      auto cfi_it = is_within(addrs, CFI);
-      EH_LOG ("address: " << addrs << " CFI block: " << hex << cfi_it->
-	      first << "\n");
-
-
-      EH_LOG ("last rec: " << hex << last_rec << " last pc: " << last_pc <<
-	      "\n");
+    auto cfi_it = is_within(addrs, CFI);
+    EH_LOG ("address: " << addrs << " CFI block: " << hex << cfi_it->
+        first << "\n");
 
 
-      EH_LOG ("required cfa state || cfa : " << cfi_it->second.
-	      cfa_state << " cfa_reg: " << cfi_it->second.
-	      cfa_reg_state << "\n");
-      uint32_t distance_op;
-      string op_size;
-      //uint64_t alignment = 0;
-      /*
-         if(ins_sz < 0xff)
-         {
-         distance_op = DW_CFA_advance_loc1;
-         op_size = ".byte ";
-         }
-         else if(ins_sz < 0xffff)
-         {
-         distance_op = DW_CFA_advance_loc2;
-         op_size = ".2byte ";
-         }
-         else if(ins_sz <= 0xffffffff)
-         {
-         distance_op = DW_CFA_advance_loc4;
-         op_size = ".long ";
-         }
-       */
-
-      distance_op = DW_CFA_advance_loc4;
-      op_size = ".long ";
+    EH_LOG ("last rec: " << hex << last_rec << " last pc: " << last_pc <<
+        "\n");
 
 
-      if (cfi_it->first == last_rec)
-	    {
-          //Stack or Reg states haven't changed. No need to print new
-          //instructions.
+    EH_LOG ("required cfa state || cfa : " << cfi_it->second.
+        cfa_state << " cfa_reg: " << cfi_it->second.
+        cfa_reg_state << "\n");
+    uint32_t distance_op;
+    string op_size;
+    //uint64_t alignment = 0;
+    /*
+       if(ins_sz < 0xff)
+       {
+       distance_op = DW_CFA_advance_loc1;
+       op_size = ".byte ";
+       }
+       else if(ins_sz < 0xffff)
+       {
+       distance_op = DW_CFA_advance_loc2;
+       op_size = ".2byte ";
+       }
+       else if(ins_sz <= 0xffffffff)
+       {
+       distance_op = DW_CFA_advance_loc4;
+       op_size = ".long ";
+       }
+     */
 
-	      //distance += ins_sz + alignment;
-	      return 0;
-	    }
-      ofstream unwind_file;
-      unwind_file.open (fname, ofstream::out | ofstream::app);
-
-      string pc_symbol = label;
-      /*
-         if(trampoline_blocks.find(addrs) != trampoline_blocks.end())
-         pc_symbol = "." + to_string(addrs) + "_tramp";
-         else
-         pc_symbol = "." + to_string(addrs);
-       */
-      if (last_pc.length () == 0)
-	    {
-
-          /* First instruction of the function. No need to mark unwinding block
-           * start.
-           */
-	      //unwind_file<<".byte "<<distance_op<<"\n";
-	      //unwind_file<<op_size<<pc_symbol<<" - .frame_"<<frame<<"\n";
-	    }
-      else
-	    {
-	      unwind_file << ".byte " << distance_op << "\n";
-	      unwind_file << op_size << pc_symbol << " - " << last_pc << "\n";
-	    }
-
-      map < int, unwinding_op >::iterator op_it;
+    distance_op = DW_CFA_advance_loc4;
+    op_size = ".long ";
 
 
-      EH_LOG ("current cfa state: " << dec << cur_cfa << "\n");
-      string cfa = encode_cfa (cfi_it);
-      unwind_file << cfa;
-      map < uint64_t, int >::iterator reg_it1;
-      map < uint64_t, int >::iterator reg_it2;
+    if (cfi_it->first == last_rec) {
+      //Stack or Reg states haven't changed. No need to print new
+      //instructions.
 
-      EH_LOG ("register state size: " << cfi_it->second.reg_state.
-	      size () << "\n");
-      reg_it1 = cfi_it->second.reg_state.begin ();
-      EH_LOG ("new reg states: \n");
-      while (reg_it1 != cfi_it->second.reg_state.end ())
-	    {
-          /* Map cur_reg_state holds the state of a REG in the last printed
-           * instruction.
-           */
-
-	      reg_it2 = cur_reg_state.find (reg_it1->first);
-	      if (reg_it2 == cur_reg_state.end ()
-	          || reg_it2->second != reg_it1->second)
-	        {
-              //Change in state. Print corresponding unwinding instruction.
-
-	          EH_LOG ("reg: " << reg_it1->first << " new state: "
-	    	      << reg_it1->second << "\n");
-	          op_it = operations.find (reg_it1->second);
-	          EH_LOG ("op size: " << op_it->second.instructions.
-	    	      size () << "\n");
-	          if (op_it->second.opcode == DW_CFA_restore
-	    	  || op_it->second.opcode == DW_CFA_restore_extended)
-	    	    {
-                  //If a REG is being restored, then put the instructions for
-                  //previous state to avoid any side effects.
-
-	    	      map < uint64_t, int >::iterator reg_it3;;
-	    	      reg_it3 = cfi_it->second.restored_reg.find (reg_it1->first);
-	    	      if (reg_it3 != cfi_it->second.restored_reg.end () &&
-	    	          reg_it3->second != reg_it2->second)
-	    	        {
-	    	          map < int, unwinding_op >::iterator op_it2;
-	    	          op_it2 = operations.find (reg_it3->second);
-	    	          for (int i = 0; i < op_it->second.instructions.size ();
-	    	    	   i++)
-	    	    	    {
-	    	    	      unwind_file << ".byte "
-	    	    	        << (uint32_t) (op_it->second.
-	    	    	    		   instructions[i]) << "\n";
-	    	    	    }
-
-	    	        }
-	    	    }
-              //Put out the bytes of the unwinding instructions.
-	          for (int i = 0; i < op_it->second.instructions.size (); i++)
-	    	    {
-	    	      unwind_file << ".byte "
-	    	        << (uint32_t) (op_it->second.instructions[i]) << "\n";
-	    	    }
-	          //}
-	        }
-	      reg_it1++;
-	    }
-
-      /* Due to randomization and reordering of blocks, few REG states might
-       * have been defined in the previous unwinding instruction, but do not
-       * need to be defined in this unwinding instruction.
-       * We need to undefine those.
-       */
-      //Undefine registers
-
-      reg_it1 = cur_reg_state.begin ();
-      while (reg_it1 != cur_reg_state.end ())
-	    {
-	      reg_it2 = cfi_it->second.reg_state.find (reg_it1->first);
-	      if (reg_it2 == cfi_it->second.reg_state.end ())
-	        {
-	          EH_LOG ("undefining register: " << reg_it1->first << "\n");
-	          vector < uint8_t > reg =
-	    	    encode_unsigned_leb128 (reg_it1->first, 0);
-
-	          unwind_file << ".byte " << DW_CFA_undefined << "\n";
-	          for (int i = 0; i < reg.size (); i++)
-	    	    unwind_file << ".byte " << (uint32_t) reg[i] << "\n";
-	        }
-	      reg_it1++;
-	    }
-
-      /* Update the current REG state and last printed unwinding block
-       */
-
-      cur_reg_state = cfi_it->second.reg_state;
-      last_rec = cfi_it->first;
-      if (last_pc.length () == 0)
-	    last_pc = ".frame_" + to_string (frame);
-      else
-	    last_pc = label;
-      // last_pc = "." + to_string(addrs);
-
-      unwind_file.close ();
-      return 1;
+      //distance += ins_sz + alignment;
+      return 0;
     }
+    ofstream unwind_file;
+    unwind_file.open (fname, ofstream::out | ofstream::app);
+
+    string pc_symbol = label;
+    /*
+       if(trampoline_blocks.find(addrs) != trampoline_blocks.end())
+       pc_symbol = "." + to_string(addrs) + "_tramp";
+       else
+       pc_symbol = "." + to_string(addrs);
+     */
+    if (last_pc.length () == 0) {
+
+      /* First instruction of the function. No need to mark unwinding block
+       * start.
+       */
+      //unwind_file<<".byte "<<distance_op<<"\n";
+      //unwind_file<<op_size<<pc_symbol<<" - .frame_"<<frame<<"\n";
+    }
+    else {
+      unwind_file << ".byte " << distance_op << "\n";
+      unwind_file << op_size << pc_symbol << " - " << last_pc << "\n";
+    }
+
+    map <int, unwinding_op>::iterator op_it;
+
+
+    EH_LOG ("current cfa state: " << dec << cur_cfa << "\n");
+    string cfa = encode_cfa (cfi_it);
+    unwind_file << cfa;
+    map < uint64_t, int >::iterator reg_it1;
+    map < uint64_t, int >::iterator reg_it2;
+
+    EH_LOG ("register state size: " << cfi_it->second.reg_state.size () << "\n");
+    reg_it1 = cfi_it->second.reg_state.begin ();
+    EH_LOG ("new reg states: \n");
+    while (reg_it1 != cfi_it->second.reg_state.end ()) {
+      /* Map cur_reg_state holds the state of a REG in the last printed
+       * instruction.
+       */
+
+      reg_it2 = cur_reg_state.find (reg_it1->first);
+      if (reg_it2 == cur_reg_state.end () || reg_it2->second != reg_it1->second) {
+        //Change in state. Print corresponding unwinding instruction.
+
+        EH_LOG ("reg: " << reg_it1->first << " new state: "<< reg_it1->second << "\n");
+        op_it = operations.find (reg_it1->second);
+        EH_LOG ("op size: " << op_it->second.instructions.size () << "\n");
+        if (op_it->second.opcode == DW_CFA_restore || op_it->second.opcode == DW_CFA_restore_extended) {
+          //If a REG is being restored, then put the instructions for
+          //previous state to avoid any side effects.
+
+    	  map < uint64_t, int >::iterator reg_it3;;
+    	  reg_it3 = cfi_it->second.restored_reg.find (reg_it1->first);
+    	  if (reg_it3 != cfi_it->second.restored_reg.end () &&
+    	      reg_it3->second != reg_it2->second) {
+    	    map < int, unwinding_op >::iterator op_it2;
+    	    op_it2 = operations.find (reg_it3->second);
+    	    for (int i = 0; i < op_it->second.instructions.size (); i++) {
+    	      unwind_file << ".byte "<< (uint32_t) (op_it->second.instructions[i]) << "\n";
+    	    }
+          }
+    	}
+        //Put out the bytes of the unwinding instructions.
+        for (int i = 0; i < op_it->second.instructions.size (); i++) {
+    	  unwind_file << ".byte " << (uint32_t) (op_it->second.instructions[i]) << "\n";
+    	}
+      }
+      reg_it1++;
+    }
+
+    /* Due to randomization and reordering of blocks, few REG states might
+     * have been defined in the previous unwinding instruction, but do not
+     * need to be defined in this unwinding instruction.
+     * We need to undefine those.
+     */
+    //Undefine registers
+
+    reg_it1 = cur_reg_state.begin ();
+    while (reg_it1 != cur_reg_state.end ()) {
+      reg_it2 = cfi_it->second.reg_state.find (reg_it1->first);
+      if (reg_it2 == cfi_it->second.reg_state.end ()) {
+        EH_LOG ("undefining register: " << reg_it1->first << "\n");
+        vector < uint8_t > reg =
+    	  encode_unsigned_leb128 (reg_it1->first, 0);
+
+        unwind_file << ".byte " << DW_CFA_undefined << "\n";
+        for (int i = 0; i < reg.size (); i++)
+    	  unwind_file << ".byte " << (uint32_t) reg[i] << "\n";
+      }
+      reg_it1++;
+    }
+
+    /* Update the current REG state and last printed unwinding block
+     */
+
+    cur_reg_state = cfi_it->second.reg_state;
+    last_rec = cfi_it->first;
+    if (last_pc.length () == 0)
+      last_pc = ".frame_" + to_string (frame);
+    else
+      last_pc = label;
+
+    unwind_file.close ();
+    return 1;
+  }
 
   return 0;
 
@@ -832,5 +808,5 @@ cfi_table::read_cfi_table (uint8_t * fde_tbl, uint64_t pc_begin, uint64_t
 
   cur_reg_state = initial_CFI.reg_state;
   is_cur_cfa_exp = initial_CFI.is_cfa_exp;
-  last_pc = ".frame_" + to_string (pc_begin);
+  //last_pc = ".frame_" + to_string (pc_begin);
 }

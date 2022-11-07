@@ -87,8 +87,12 @@ private:
   uint64_t validityWindow_ = 0;
   uint64_t frame_ = 0;
   //vector <BasicBlock *> defExitCalls_;
-
+  vector <BasicBlock *> mergedBBs_;
+  bool lockJump_ = false;
 public:
+  void lockJump(bool val) { lockJump_ = val; }
+  bool lockJump() { return lockJump_; }
+  void mergeBB(BasicBlock *bb) { mergedBBs_.push_back(bb); }
   uint64_t frame() { return frame_; }
   void frame(uint64_t f) { frame_ = f; }
   uint64_t validityWindow() { return validityWindow_; }
@@ -286,6 +290,7 @@ public:
   BasicBlock *tramp() { return tramp_; }
   void updateType();
   bool noConflict(uint64_t addrs);
+  void addTrampToTgt();
 private:
   void inferType(unordered_set <uint64_t> &passed);
 };

@@ -650,6 +650,13 @@ exception_handler::print_call_site_tbl (uint64_t addrs, uint64_t start,
 }
 
 void
+exception_handler::printAllCallSiteTbls() {
+  for(auto & lsda : lsda_list) {
+    lsda.printAllCallSiteEntry();
+  }
+}
+
+void
 exception_handler::print_eh_frame (uint64_t data_segment)
 {
   /* Print ASM directives for every CIE in the EH_FRAME section.

@@ -1770,10 +1770,10 @@ ElfClass::changeEntryPnt (string bname) {
   utils::WRITE_TO_FILE (bname, elfHeader_, code_segment_offset,
 			sizeof (Elf64_Ehdr));
 
-  elfHeader_->e_phoff -= code_segment_offset;
+  //elfHeader_->e_phoff -= code_segment_offset;
 
-  utils::WRITE_TO_FILE (bname, elfHeader_, new_codesegment_start,
-			sizeof (Elf64_Ehdr));
+  //utils::WRITE_TO_FILE (bname, elfHeader_, new_codesegment_start,
+	//		sizeof (Elf64_Ehdr));
 
 }
 

@@ -117,6 +117,7 @@ public:
 			     index, uint64_t offset);
   void print_lsda (uint64_t data_segment);
   void print_call_site_tbl (uint64_t addrs, uint64_t start);
+  void printAllCallSiteEntry();
   uint64_t get_pc_begin ();
 
 };

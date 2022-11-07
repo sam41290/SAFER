@@ -308,6 +308,7 @@ Cfg::checkLockPrefix(BasicBlock *bb ,code_type t) {
     if(fall_through_ins[0]->prefix().find("lock") != string::npos) {
       target = 0;
       bb->target(0);
+      bb->lockJump(true);
       string mnemonic = last_ins->mnemonic();
       last_ins->asmIns(mnemonic + " ." + to_string(fall_through) +
                  " + 1");
@@ -868,7 +869,7 @@ Cfg::cnsrvtvDisasm() {
   disassembleGaps();
   possibleCodeDisasm();
   //phase1NonReturningCallResolution();
-  addHintBasedEntries();
+  //addHintBasedEntries();
   linkAllBBs();
   //markAllCallTgtsAsDefCode();
   //for(auto & ptr : ptr_map) {
@@ -1466,17 +1467,19 @@ Cfg::randomizer() {
 
 void
 Cfg::handleLoopIns(vector <BasicBlock *> &bb_list) {
-  vector <BasicBlock *> tramp_bbs;
+  //vector <BasicBlock *> tramp_bbs;
   for(auto & bb : bb_list) {
     if(bb->lastIns()->isJump() && bb->lastIns()->asmIns().find("loop") != string::npos &&
        bb->targetBB() != NULL && bb->target() != bb->start()) {
-      randomizer_->addTrampForBB(bb->targetBB());
-      auto tramp_bb = bb->targetBB()->tramp();
-      tramp_bbs.push_back(tramp_bb);
+      bb->addTrampToTgt();
+      //randomizer_->addTrampForBB(bb->targetBB());
+      //auto tramp_bb = bb->targetBB()->tramp();
+      //bb->mergeBB(tramp_bb);
+      //tramp_bbs.push_back(tramp_bb);
       //bb->targetBB(tramp_bb);
     }
   }
-  bb_list.insert(bb_list.end(), tramp_bbs.begin(), tramp_bbs.end());
+  //bb_list.insert(bb_list.end(), tramp_bbs.begin(), tramp_bbs.end());
 }
 
 void
@@ -1523,13 +1526,11 @@ Cfg::printFunc(uint64_t fstart, string file_name) {
     }
     else
       randomizer_->print(defbbs, file_name, fstart);
-    return;
   }
   if (psbl_code.size() > 0)  {
     //Since EH metadata for possible code is not optimized at this point, follow
     //normal randomization.
     randomizer_->print(psbl_code, file_name, fstart);
-    return;
   }
 #else
   if(defbbs.size() > 0)

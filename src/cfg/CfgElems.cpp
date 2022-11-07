@@ -2001,10 +2001,10 @@ CfgElems::instrument() {
     if(x.first == InstPoint::BASIC_BLOCK) {
       for(auto fn : funcMap_) {
         vector<BasicBlock *> bbs = fn.second->getDefCode();
-        for(auto bb:bbs)
+        for(auto & bb : bbs)
           bb->registerInstrumentation(bb->start(),x.second,instArgs()[x.second]);
         vector<BasicBlock *> bbs2 = fn.second->getUnknwnCode();
-        for(auto bb:bbs2)
+        for(auto & bb : bbs2)
           bb->registerInstrumentation(bb->start(),x.second,instArgs()[x.second]);
       }
     }

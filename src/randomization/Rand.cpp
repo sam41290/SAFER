@@ -29,8 +29,9 @@ Rand::printBasicBlocks(vector <BasicBlock *> &bbs, string fileName,
     LOG("Printing basic block: " << hex << randBBStrt);
     auto callSiteIt = all_call_sites.find(randBBStrt);
     if(callSiteIt != all_call_sites.end()) {
-      eh_frame.print_call_site_tbl(callSiteIt->second.start,
-    				callSiteIt->second.start, fStart);
+      //utils::bindLabel(randBBStrt, bb->label());
+   //   eh_frame.print_call_site_tbl(callSiteIt->second.start,
+   // 				callSiteIt->second.start, fStart);
       utils::printLbl(".call_site_" + to_string(callSiteIt->first),fileName);
     }
 
@@ -78,14 +79,14 @@ Rand::printUnwindRec(uint64_t frame, BasicBlock * bb) {
 
   vector <Instruction *> insList = bb->insList();
 
-  for(auto it : insList) {
+  for(auto & it : insList) {
     string label = it->label() + bb->lblSuffix();
     if(if_exists(it->location(), functionMap_) == true ||
-    if_exists(it->location(), pointerMap_) == true)
+       if_exists(it->location(), pointerMap_) == true)
       unwndBlkSz += 16;
     if(if_exists(frame, unwinding_info) == true) {
       if(unwinding_info[frame].
-        print_cfi(it->location(),
+         print_cfi(it->location(),
       	 "tmp/" + to_string(frame) + "_unwind.s",
       	 unwndBlkSz + xtraJmp, label) == 1) {
         unwndBlkSz = 0;

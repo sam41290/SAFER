@@ -90,7 +90,7 @@ eh_log(const LogData <List> &data) {
 }
 
 
-// #define DEBUG 0
+//#define DEBUG 0
 
 #ifdef DEBUG
 #define LOG(x)(log(__FILE__,__LINE__,LogData<None>() <<x))
@@ -576,6 +576,23 @@ public:
       ofile<<label<<":\n";
     ofile<<asmbly<<endl;
     ofile.close();
+  }
+
+  static string getLabel(uint64_t addrs) {
+    //DEF_LOG("getting label: "<<hex<<addrs);
+    if(sym_bindings.find(addrs) != sym_bindings.end()) {
+      string label = sym_bindings[addrs];
+      DEF_LOG("bound label: "<<label);
+      return label;
+    }
+    string label = "." + to_string(addrs);
+    //DEF_LOG("Returning default label: "<<label);
+    return label;
+  }
+
+  static void bindLabel(uint64_t addrs, string label) {
+    //DEF_LOG("Binding label: "<<hex<<addrs<<label);
+    sym_bindings[addrs] = label;
   }
 
   static void printLbl(string label, string file_name) {

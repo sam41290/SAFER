@@ -126,6 +126,7 @@ BasicBlock::split(uint64_t address) {
     BasicBlock *new_bb = new BasicBlock(new_bb_start, new_bb_end,
         source_,rootSrc_,newInsList2);
     new_bb->isLea(isLea);
+    new_bb->lockJump(lockJump_);
     //LOG("Parent BB fall through: "<<hex<<fallThrough_<<" "
     //    <<fallThroughBB_);
     new_bb->fallThrough(fallThrough_);
@@ -146,6 +147,7 @@ BasicBlock::split(uint64_t address) {
     //LOG("is code set");
     insList_ = newInsList1;
     end_ = lastIns()->location();
+
     //LOG("End updated");
     LOG("In basic block split: " <<start_ <<"-" <<end_ <<
          " Fall through: " <<hex<<fallThrough_<<" target: "
@@ -209,18 +211,28 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
   }
   for(auto & it:insList_) {
     it->isCode(isCode());
-    if((it->isJump() || it->isCall()) && targetBB_ != NULL) {
-      it->asmIns(it->mnemonic() + " " + targetBB_->label());
-      it->op1(targetBB_->label());
+    if((it->isJump() || it->isCall())) {
+      if(targetBB_ != NULL) {
+        it->asmIns(it->mnemonic() + " " + targetBB_->label());
+        it->op1(targetBB_->label());
+      }
+      else if(it->isIndirectCf() == false && lockJump_ && fallThroughBB_ != NULL) {
+        it->asmIns(it->mnemonic() + " " + fallThroughBB_->label() + " + 1");
+        it->op1(fallThroughBB_->label() + " + 1");
+      }
     }
     it->print(file_name,ins_lbl_sfx);
   }
   printFallThroughJmp(file_name);
+  for(auto & bb: mergedBBs_)
+    bb->print(file_name, map_of_pointer);
   ofstream ofile;
   ofile.open(file_name, ofstream::out | ofstream::app);
   for(int i = 0; i < traps_; i++)
     ofile <<".byte 0xcc\n";
   ofile.close();
+
+
 }
 
 
@@ -325,6 +337,12 @@ BasicBlock::instrument() {
       if(ins_it->isIndirectCf() && ins_it->atRequired()) {
         ins_it->registerInstrumentation(p.first,p.second,allargs[p.second]);
         //ins_it->second.instrument();
+      }
+    }
+    else if(p.first == InstPoint::SYSCALL_CHECK) {
+      for(auto & ins : insList_) {
+        if(ins->asmIns().find("syscall") != string::npos)
+          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
       }
     }
     else if(p.first == InstPoint::LEA_INS_PRE ||
@@ -456,6 +474,21 @@ void
 BasicBlock::updateType() {
   unordered_set <uint64_t> passed;
   inferType(passed);
+}
+
+void
+BasicBlock::addTrampToTgt() {
+  auto bb = new BasicBlock(target_,target_,source(),source());
+  bb->codeType(codeType_);
+  Instruction *ins = new Instruction();
+  ins->label("." + to_string(target_) + "_" + to_string(start_));
+  ins->isJump(true);
+  ins->mnemonic("jmp");
+  ins->asmIns("jmp " + targetBB_->label());
+  bb->addIns(ins);
+  targetBB(bb);
+  mergeBB(bb);
+
 }
 
 void

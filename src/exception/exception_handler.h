@@ -309,5 +309,6 @@ public:
   void print_eh_frame_hdr ();
   void print_bst (uint64_t frame_addrs);
   void add_fde_to_remove (uint64_t frame_addrs);
+  void printAllCallSiteTbls();
 };
 #endif

@@ -22,7 +22,7 @@ JumpTable::rewriteTgts() {
     size = ".4byte";
   else
     size = ".8byte";
-  string jmp_tbl = "." + to_string(location_) + ":\n";
+  string jmp_tbl;// = "." + to_string(location_) + ":\n";
   string baseLbl = "";
   if(baseBB_ != NULL)
     baseLbl = baseBB_->label();

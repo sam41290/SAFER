@@ -258,26 +258,23 @@ lsda_class::read_call_site_table (string bname, uint8_t * gcc_except_table, int
 void
 lsda_class::print_lsda (uint64_t data_segment)
 {
-
   ofstream lsda_file;
   lsda_file.open ("gcc_except_table.s", ofstream::out | ofstream::app);
   lsda_file << "." << location << ":\n";
   lsda_file << ".byte " << (uint32_t) base_enc << "\n";
 
-  if (base_enc != 0xff)
-    {
-      string cur_location = ".lsda_" + to_string (location) + "_base";
-      lsda_file << cur_location << ":\n";
-      lsda_file << print_encoded_ptr (cur_location, "."
-				      + to_string (base), base_enc);
-    }
+  if (base_enc != 0xff) {
+    string cur_location = ".lsda_" + to_string (location) + "_base";
+    lsda_file << cur_location << ":\n";
+    lsda_file << print_encoded_ptr (cur_location, "."
+  			      + to_string (base), base_enc);
+  }
   lsda_file << ".byte " << (uint32_t) type_table_enc << "\n";
 
-  if (type_table_enc != 0xff)
-    {
-      lsda_file << ".uleb128 ." << location << "_tt_end - ."
-	<< location << "_tt_base\n";
-    }
+  if (type_table_enc != 0xff) {
+    lsda_file << ".uleb128 ." << location << "_tt_end - ."
+              << location << "_tt_base\n";
+  }
   lsda_file << "." << location << "_tt_base:\n";
   lsda_file << ".byte " << (uint32_t) call_site_table_enc << "\n";
   lsda_file << ".uleb128 ." << location << "_call_site_tbl_end - ."
@@ -286,10 +283,9 @@ lsda_class::print_lsda (uint64_t data_segment)
   ifile.open ("tmp/call_site_tbl_" + to_string (pc_begin) + ".s");
   string str;
   lsda_file << "." << location << "_call_site_tbl_start:\n";
-  while (getline (ifile, str))
-    {
-      lsda_file << str << "\n";
-    }
+  while (getline (ifile, str)) {
+    lsda_file << str << "\n";
+  }
   lsda_file << "." << location << "_call_site_tbl_end:\n";
   ifile.close ();
 
@@ -300,29 +296,69 @@ lsda_class::print_lsda (uint64_t data_segment)
   lsda_file << ".align 4\n";
   lsda_file << "." << location << "_tt_start:\n";
   int tt_ctr = 0;
-  while (!type_table.empty ())
-    {
-      string cur_location = "." + to_string (location) + "_tt_entry_"
-	+ to_string (tt_ctr);
-      lsda_file << "." << location << "_tt_entry_" << tt_ctr << ":\n";
-      uint64_t tt_entry = type_table.top ();
-      string tt_entry_str;
-      if (tt_entry >= data_segment)
-	tt_entry_str = ".datasegment_start + " + to_string (tt_entry
-							    - data_segment);
-      else
-	tt_entry_str = "." + to_string (tt_entry);
-      tt_entry_str
-	= print_encoded_ptr (cur_location, tt_entry_str, type_table_enc);
-      lsda_file << tt_entry_str << "\n";
-      type_table.pop ();
-      tt_ctr++;
+  while (!type_table.empty ()) {
+    string cur_location = "." + to_string (location) + 
+                          "_tt_entry_" + to_string (tt_ctr);
+    lsda_file << "." << location << "_tt_entry_" << tt_ctr << ":\n";
+    uint64_t tt_entry = type_table.top ();
+    string tt_entry_str;
+    bool data_seg_rltv = false;
+    if (tt_entry >= data_segment) {
+      tt_entry_str = ".datasegment_start";// + " + to_string (tt_entry - data_segment);
+      data_seg_rltv = true;
     }
+    else
+      tt_entry_str = "." + to_string (tt_entry);
+    if(data_seg_rltv)
+      cur_location += " + " + to_string (tt_entry - data_segment);
+    tt_entry_str
+      = print_encoded_ptr (cur_location, tt_entry_str, type_table_enc);
+    lsda_file << tt_entry_str << "\n";
+    type_table.pop ();
+    tt_ctr++;
+  }
   lsda_file << "." << location << "_tt_end:\n";
   lsda_file.close ();
 }
 
+void
+lsda_class::printAllCallSiteEntry() {
+  ofstream lsda_file;
+  lsda_file.open ("tmp/call_site_tbl_" + to_string (pc_begin)
+		  + ".s", ofstream::out | ofstream::app);
+  for (int j = 0; j < call_site_table.size (); j++) {
+    uint64_t call_site_start = call_site_table[j].start + base;
+    string ptr_str
+      = print_encoded_ptr_lvl2 (call_site_table_enc, ".call_site_"
+      		      + to_string (call_site_start) + " - .frame_"
+      		      + to_string (pc_begin));
+    lsda_file << ptr_str << "\n";
 
+    ptr_str = print_encoded_ptr_lvl2 (call_site_table_enc, ".call_site_"
+      			    + to_string (call_site_start) +
+      			    "_end - .call_site_" +
+      			    to_string(call_site_start));
+
+    lsda_file << ptr_str << "\n";
+    if (call_site_table[j].landing_pad_ptr == 0)
+      lsda_file << ".uleb128 0\n";
+    else {
+      uint64_t pad = call_site_table[j].landing_pad_ptr + base;
+      EH_LOG ("old pad: " << hex << pad << "\n");
+      string pad_lbl = utils::getLabel(pad);
+      ptr_str = pad_lbl + " - .frame_" + to_string (pc_begin);
+      ptr_str = print_encoded_ptr_lvl2 (call_site_table_enc, ptr_str);
+
+      lsda_file << ptr_str << "\n";
+    }
+    for (int k = 0; k < call_site_table[j].encoded_action_index.size ();
+         k++)
+      lsda_file << ".byte " << (uint32_t) call_site_table[j].
+        encoded_action_index[k] << "\n";
+
+  }
+  lsda_file.close ();
+}
 
 void
 lsda_class::print_call_site_tbl (uint64_t addrs, uint64_t start)
@@ -330,49 +366,46 @@ lsda_class::print_call_site_tbl (uint64_t addrs, uint64_t start)
   ofstream lsda_file;
   lsda_file.open ("tmp/call_site_tbl_" + to_string (pc_begin)
 		  + ".s", ofstream::out | ofstream::app);
-  for (int j = 0; j < call_site_table.size (); j++)
-    {
-      uint64_t call_site_start = call_site_table[j].start + base;
-      if (call_site_start == start)
-	    {
-	      EH_LOG ("::::rewriting call site tbl - call_site found:"
-	    	  << hex << start << "\n");
-	      string ptr_str
-	        = print_encoded_ptr_lvl2 (call_site_table_enc, ".call_site_"
-	    			      + to_string (addrs) + " - .frame_"
-	    			      + to_string (pc_begin));
-	      lsda_file << ptr_str << "\n";
+  for (int j = 0; j < call_site_table.size (); j++) {
+    uint64_t call_site_start = call_site_table[j].start + base;
+    if (call_site_start == start) {
+      EH_LOG ("::::rewriting call site tbl - call_site found:"
+    	  << hex << start << "\n");
+      string ptr_str
+        = print_encoded_ptr_lvl2 (call_site_table_enc, ".call_site_"
+    			      + to_string (addrs) + " - .frame_"
+    			      + to_string (pc_begin));
+      lsda_file << ptr_str << "\n";
 
-	      ptr_str = print_encoded_ptr_lvl2 (call_site_table_enc, ".call_site_"
-	    				    + to_string (addrs) +
-	    				    "_end - .call_site_" +
-	    				    to_string (addrs));
+      ptr_str = print_encoded_ptr_lvl2 (call_site_table_enc, ".call_site_"
+    				    + to_string (addrs) +
+    				    "_end - .call_site_" +
+    				    to_string (addrs));
 
-	      lsda_file << ptr_str << "\n";
+      lsda_file << ptr_str << "\n";
 
-	      EH_LOG ("::::rewriting call site tbl - landing pad: "
-	    	  << hex << call_site_table[j].landing_pad_ptr << "\n");
+      EH_LOG ("::::rewriting call site tbl - landing pad: "
+    	  << hex << call_site_table[j].landing_pad_ptr << "\n");
 
-	      if (call_site_table[j].landing_pad_ptr == 0)
-	        lsda_file << ".uleb128 0\n";
-	      else
-	        {
-	          uint64_t pad = call_site_table[j].landing_pad_ptr + base;
-	          EH_LOG ("old pad: " << hex << pad << "\n");
-	          ptr_str = "." + to_string (pad) + " - .frame_"
-	    	+ to_string (pc_begin);
-	          ptr_str = print_encoded_ptr_lvl2 (call_site_table_enc, ptr_str);
+      if (call_site_table[j].landing_pad_ptr == 0)
+        lsda_file << ".uleb128 0\n";
+      else {
+        uint64_t pad = call_site_table[j].landing_pad_ptr + base;
+        EH_LOG ("old pad: " << hex << pad << "\n");
+        string pad_lbl = utils::getLabel(pad);
+        ptr_str = pad_lbl + " - .frame_" + to_string (pc_begin);
+        ptr_str = print_encoded_ptr_lvl2 (call_site_table_enc, ptr_str);
 
-	          lsda_file << ptr_str << "\n";
-	        }
-	      for (int k = 0; k < call_site_table[j].encoded_action_index.size ();
-	           k++)
-	        lsda_file << ".byte " << (uint32_t) call_site_table[j].
-	          encoded_action_index[k] << "\n";
+        lsda_file << ptr_str << "\n";
+      }
+      for (int k = 0; k < call_site_table[j].encoded_action_index.size ();
+           k++)
+        lsda_file << ".byte " << (uint32_t) call_site_table[j].
+          encoded_action_index[k] << "\n";
 
-	      break;
-	    }
+      break;
     }
+  }
 
   lsda_file.close ();
 

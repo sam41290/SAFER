@@ -521,8 +521,15 @@ Binary::print_data_segment(string file_name) {
   uint64_t code_seg_end = rxSections_[last_sec_ind].offset
     + rxSections_[last_sec_ind].size;
 
-  utils::printAsm(".skip " + to_string(data_seg_start - code_seg_end) + "\n",
-      code_seg_end,"." + to_string(code_seg_end), SymBind::BIND,file_name);
+  if(manager_->type() != exe_type::NOPIE) {
+    utils::printAlgn(manager_->segAlign(),file_name);
+    uint64_t mod =  rwSections_[0].vma % manager_->segAlign();
+    utils::printAsm(".skip " + to_string(mod) + "\n", 0,"", SymBind::NOBIND,file_name);
+  }
+  else {
+    utils::printAsm(".skip " + to_string(data_seg_start - code_seg_end) + "\n",
+        code_seg_end,"." + to_string(code_seg_end), SymBind::BIND,file_name);
+  }
   utils::printLbl(".datasegment_start",file_name);
   uint64_t byte_count = 0;
   uint64_t i = rwSections_[0].vma;
@@ -646,6 +653,7 @@ Binary::rewrite_jmp_tbls(string file_name) {
   sort_jmp_tbl(jmp_tbls);
   for(auto & j : jmp_tbls) {
     if(processed_jmp_tbl.find(j.location()) == processed_jmp_tbl.end() &&
+       j.targets().size() > 0 &&
        codeCFG_->isMetadata(j.location()) == false) {
       string tbl = j.rewriteTgts();
       utils::printAsm(tbl,j.location(),"."
@@ -804,17 +812,18 @@ Binary::genInstAsm() {
 
   //ofstream ofile;
   //ofile.open("inst_text.s", ofstream::out | ofstream::app);
-  for(section sec:inst_code_section) {
+  uint64_t prev_sec = 0;
+  for(section & sec:inst_code_section) {
     int byte_count = sec.size;
 
     uint8_t *section_data =(uint8_t *) malloc(byte_count);
     utils::READ_FROM_FILE(inst_Binary_path, section_data,sec.offset,
         byte_count);
 
-
-
     uint64_t sec_start = sec.vma;
-
+    if(prev_sec != 0 && (sec_start - prev_sec) > 0)
+      ofile<<".skip "<<sec_start - prev_sec<<endl;
+   
     for(int j = 0; j <byte_count; j++) {
       auto it = instLabels.find(sec_start);
       if(it != instLabels.end())
@@ -829,12 +838,13 @@ Binary::genInstAsm() {
       sec_start++;
     }
 
+    prev_sec = sec_start;
     free(section_data);
-
-
   }
   ofile<<".GTF:\n";
   ofile<<"jmp *.dispatcher(%rip)\n";
+  ofile<<".SYSCHK:\n";
+  ofile<<"jmp *.syscall_checker(%rip)\n";
 
   ofile.close();
 }
@@ -845,12 +855,12 @@ Binary::instrument() {
   if(instFuncs.size() <= 0)
     return;
   vector<pair<InstPoint,string>> targetPos = targetPositions();
-  for(auto p:targetPos) {
+  for(auto & p : targetPos) {
     codeCFG_->registerInstrumentation(p.first,p.second,instArgs()[p.second]);
   }
   //codeCFG_->instrument();
   vector<pair<string,string>> targetFuncs = targetFunctions();
-  for(auto f:targetFuncs) {
+  for(auto & f : targetFuncs) {
     uint64_t address = manager_->symbolVal(f.first);
     codeCFG_->registerInstrumentation(address,f.second,instArgs()[f.second]);
   }
@@ -1021,7 +1031,7 @@ Binary::printSections() {
   }
 
   //Assembly files for EH sections generated here.
-
+  eh_frame.printAllCallSiteTbls();
   eh_frame.print_eh_frame(rwSections_[0].vma);
   eh_frame.print_lsda(rwSections_[0].vma);
   eh_frame.print_eh_frame_hdr();
@@ -1060,15 +1070,16 @@ string Binary::print_assembly() {
     print_old_code_and_data("old_code_and_data.s");
   utils::append_files("old_code_and_data.s", file_name);
   
-  utils::printLbl(".new_codesegment_start",file_name);
 
   printSections();
 
   //Separate assembly files generated for each section are appended here.
-
   if(manager_->type() != exe_type::NOPIE) {
     print_data_segment(file_name);
   }
+
+  utils::printLbl(".new_codesegment_start",file_name);
+
   stitchSections(section_types::RX,file_name,true);
   stitchSections(section_types::RONLY,file_name, true);
   rewrite_jmp_tbls(file_name);

@@ -51,7 +51,7 @@ public:
           /*+ "." + to_string(e.val_) + "_enc_ptr:*/ + ".8byte " + to_string((int)EncType()) + "\n";
       ctr++;
     }
-    tbl += ".dispatcher: .8byte 0\n.gtt_ind: .8byte 0\n";
+    tbl += ".dispatcher: .8byte 0\n.gtt_ind: .8byte 0\n.syscall_checker: .8byte 0\n";
     return tbl;
   };
 

@@ -324,14 +324,17 @@ cie_class::print_cie_aug_data (uint64_t data_segment)
 	      aug_data_index++;
 	      aug_str += "." + to_string (location) + "_prsnlty:\n";
 	      string ptr_str;
-	      if (personality_rtn_ptr >= data_segment)
-	        ptr_str = ".datasegment_start \
-	    				+ " + to_string (personality_rtn_ptr - data_segment);
+          bool data_seg_rltv = false;
+	      if (personality_rtn_ptr >= data_segment) {
+	        ptr_str = ".datasegment_start";// + " + to_string (personality_rtn_ptr - data_segment);
+            data_seg_rltv = true;
+          }
 	      else
 	        ptr_str = to_string (personality_rtn_ptr);
-	      aug_str += print_encoded_ptr ("." + to_string (location)
-	    				+ "_prsnlty", ptr_str,
-	    				personality_rtn_ptr_enc);
+          string loc_lbl = "." + to_string (location) + "_prsnlty";
+          if(data_seg_rltv)
+            loc_lbl += " + " + to_string(personality_rtn_ptr - data_segment);
+	      aug_str += print_encoded_ptr (loc_lbl, ptr_str, personality_rtn_ptr_enc);
 
 	    }
     }

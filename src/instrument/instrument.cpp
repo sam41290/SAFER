@@ -5,6 +5,8 @@ const vector <string> savedReg_{"flags","%rax",
     "%rdi","%rsi","%rdx","%rcx","%r8","%r9","%r10","%r11"};
 const vector <string> atfSavedReg_{"flags","%rax",
     "%rdi", "%rsi", "%rdx","%rcx","%r8"};
+const vector <string> syscallCheckSavedReg_{"flags","%rax",
+    "%rdi", "%rsi", "%rdx"};
 
 /*
 string
@@ -171,7 +173,7 @@ Instrument::generate_hook(string hook_target, string args,
 
   inst_code = inst_code + restore(h);
   if(h == HookType::ADDRS_TRANS) {
-    inst_code += mne + " *-64(%rsp)\n";
+    inst_code += mne + " *-88(%rsp)\n";
   }
   return inst_code;
 }
@@ -181,9 +183,11 @@ Instrument::save(HookType h) {
   string ins = "";
 
   vector <string> reg_list;
-  if(h == HookType::ADDRS_TRANS)
-    reg_list = atfSavedReg_;
-  else
+  //if(h == HookType::ADDRS_TRANS)
+  //  reg_list = atfSavedReg_;
+  ////else if(h == HookType::SYSCALL_CHECK)
+  ////  reg_list = syscallCheckSavedReg_;
+  //else
     reg_list = savedReg_;
 
   for(string & str : reg_list) {
@@ -199,9 +203,11 @@ string
 Instrument::restore(HookType h) {
   string ins = "";
   vector <string> reg_list;
-  if(h == HookType::ADDRS_TRANS)
-    reg_list = atfSavedReg_;
-  else
+  //if(h == HookType::ADDRS_TRANS)
+  //  reg_list = atfSavedReg_;
+  ////else if(h == HookType::SYSCALL_CHECK)
+  ////  reg_list = syscallCheckSavedReg_;
+  //else
     reg_list = savedReg_;
 
   auto it = reg_list.end();
@@ -219,9 +225,11 @@ string
 Instrument::getRegVal(string reg, HookType h) {
 
   vector <string> reg_list;
-  if(h == HookType::ADDRS_TRANS)
-    reg_list = atfSavedReg_;
-  else
+  //if(h == HookType::ADDRS_TRANS)
+  //  reg_list = atfSavedReg_;
+  ////else if(h == HookType::SYSCALL_CHECK)
+  ////  reg_list = syscallCheckSavedReg_;
+  //else
     reg_list = savedReg_;
   string val = "";
   int offt = 8 * (reg_list.size() - 1);

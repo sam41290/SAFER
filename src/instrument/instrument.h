@@ -29,13 +29,15 @@ enum class InstPoint
   INDIRECT_CF,
   LEA_INS_PRE,
   LEA_INS_POST,
-  ADDRS_TRANS
+  ADDRS_TRANS,
+  SYSCALL_CHECK,
 };
 
 enum class HookType
 {
   SEGFAULT,
   ADDRS_TRANS,
+  SYSCALL_CHECK,
   GENERAL_INST
 };
 
