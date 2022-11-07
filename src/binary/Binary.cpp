@@ -175,18 +175,18 @@ Binary::disassemble() {
 
 void
 Binary::hookPoints() {
-  for(auto & p : pointerMap_) {
-    if((p.second->type() == PointerType::UNKNOWN ||
-        p.second->type() == PointerType::CP ||
-        p.second->type() == PointerType::DEF_PTR) &&
-        codeCFG_->withinCodeSec(p.first) &&
-        (p.second->symbolizable(SymbolizeIf::CONST) ||
-         p.second->symbolizable(SymbolizeIf::IMMOPERAND) ||
-         p.second->symbolizable(SymbolizeIf::RLTV) ||
-         p.second->symbolizable(SymbolizeIf::JMP_TBL_TGT))) {
-      hookPoints_.push_back(p.first);
-    }
-  }
+  //for(auto & p : pointerMap_) {
+  //  if((p.second->type() == PointerType::UNKNOWN ||
+  //      p.second->type() == PointerType::CP ||
+  //      p.second->type() == PointerType::DEF_PTR) &&
+  //      codeCFG_->withinCodeSec(p.first) &&
+  //      (p.second->symbolizable(SymbolizeIf::CONST) ||
+  //       p.second->symbolizable(SymbolizeIf::IMMOPERAND) ||
+  //       p.second->symbolizable(SymbolizeIf::RLTV) ||
+  //       p.second->symbolizable(SymbolizeIf::JMP_TBL_TGT))) {
+  //    hookPoints_.push_back(p.first);
+  //  }
+  //}
   hookPoints_.push_back(codeSegmentEnd_); //Pushing code segment end to ease space calculation.
   sort(hookPoints_.begin(), hookPoints_.end());
 }

@@ -15,15 +15,26 @@ main (int argc, char *args[]) {
   binary_path += args[1];
   cout << binary_path << endl;
   Binary b (binary_path);
+  vector<InstArg> arglst;
+  arglst.push_back(InstArg::EXENAME);
+  arglst.push_back(InstArg::RIP);
+  arglst.push_back(InstArg::INDIRECT_TARGET);
+  b.registerInstrumentation(InstPoint::INDIRECT_CF,"LOG",arglst);
+  //
   //vector<InstArg> arglst;
   //arglst.push_back(InstArg::EXENAME);
   //arglst.push_back(InstArg::RIP);
-  //arglst.push_back(InstArg::INDIRECT_TARGET);
-  //b.registerInstrumentation(InstPoint::INDIRECT_CF,"LOG",arglst);
+  //arglst.push_back(InstArg::REG_RAX);
+  //b.registerInstrumentation(InstPoint::BASIC_BLOCK,"LOGRAX",arglst);
 
-  vector<InstArg> arglst;
-  arglst.push_back(InstArg::INDIRECT_TARGET);
-  b.registerInstrumentation(InstPoint::ADDRS_TRANS,"GTF",arglst);
+  vector<InstArg> arglst2;
+  arglst2.push_back(InstArg::INDIRECT_TARGET);
+  arglst2.push_back(InstArg::RIP);
+  b.registerInstrumentation(InstPoint::ADDRS_TRANS,"GTF",arglst2);
+
+  vector<InstArg> arglst3;
+  arglst3.push_back(InstArg::REG_RAX);
+  b.registerInstrumentation(InstPoint::SYSCALL_CHECK,"SYSCHK",arglst3);
   //
   //vector<InstArg> arglst2;
   //arglst2.push_back(InstArg::EXENAME);
@@ -31,11 +42,6 @@ main (int argc, char *args[]) {
   //arglst2.push_back(InstArg::LEA_VAL);
   //b.registerInstrumentation(InstPoint::LEA_INS_POST,"LOG2",arglst2);
 
-  //vector<InstArg> arglst3;
-  //arglst3.push_back(InstArg::EXENAME);
-  //arglst3.push_back(InstArg::RIP);
-  //arglst3.push_back(InstArg::REG_RAX);
-  //b.registerInstrumentation(InstPoint::BASIC_BLOCK,"LOGRAX",arglst3);
 
 
   b.rewrite();
