@@ -1752,8 +1752,8 @@ void
 ElfClass::changeEntryPnt (string bname) {
   uint64_t code_segment_offset = codeSegOffset();
 
-  elfHeader_->e_entry =
-    encode (newSymVal (elfHeader_->e_entry), elfHeader_->e_entry);
+  elfHeader_->e_entry = newSymVal (elfHeader_->e_entry);
+    //encode (newSymVal (elfHeader_->e_entry), elfHeader_->e_entry);
 
   LOG ("new entry point: " << elfHeader_->e_entry);
 
@@ -1811,14 +1811,14 @@ ElfClass::updDynSection (string bname) {
     dyn[i].d_tag == DT_SYMINFO || dyn[i].d_tag == DT_VERDEF ||
     dyn[i].d_tag == DT_VERNEED || dyn[i].d_tag ==
     0x000000006ffffff0 || dyn[i].d_tag == 0x000000006ffffef5) {
-      dyn[i].d_un.d_ptr = encode(newSymVal
-          (dyn[i].d_un.d_ptr),dyn[i].d_un.d_ptr);
+      dyn[i].d_un.d_ptr = newSymVal(dyn[i].d_un.d_ptr);
+        //encode(newSymVal(dyn[i].d_un.d_ptr),dyn[i].d_un.d_ptr);
     }
     else if (dyn[i].d_tag > DT_ENCODING && (dyn[i].d_tag < DT_HIOS ||
   				      dyn[i].d_tag > DT_LOPROC)) {
       if (dyn[i].d_tag % 2 == 0) {
-        dyn[i].d_un.d_ptr = encode(newSymVal
-            (dyn[i].d_un.d_ptr),dyn[i].d_un.d_ptr);
+        dyn[i].d_un.d_ptr = newSymVal(dyn[i].d_un.d_ptr);
+        //encode(newSymVal(dyn[i].d_un.d_ptr),dyn[i].d_un.d_ptr);
       }
     }
     /*
@@ -1865,7 +1865,7 @@ ElfClass::updTramps (string bname) {
       if (val == 0)
         continue;
 
-      trampoline[ctr] = encode (newSymVal (val), val);	// * 0x0010000000000001;
+      trampoline[ctr] = newSymVal (val);//encode (newSymVal (val), val);	// * 0x0010000000000001;
     }
 
 
@@ -1883,7 +1883,7 @@ ElfClass::updTramps (string bname) {
       if (val == 0)
         continue;
 
-      trampoline[ctr] = encode (newSymVal (val), val);	// * 0x0010000000000001;
+      trampoline[ctr] = newSymVal (val);//encode (newSymVal (val), val);	// * 0x0010000000000001;
     }
 
 
@@ -1920,12 +1920,15 @@ ElfClass::updRelaSections (string bname) {
          addend needs to be updated to point to location in new codesegment
        */
 
-      if (rl[j].r_info == R_X86_64_IRELATIVE
-          || rl[j].r_info == R_X86_64_RELATIVE) {
+      if (rl[j].r_info == R_X86_64_IRELATIVE || rl[j].r_info == R_X86_64_RELATIVE) {
         uint64_t orig_ptr = rl[j].r_addend;
         rl[j].r_addend = encode(newSymVal(rl[j].r_addend),orig_ptr);
-        if(encoded(orig_ptr) && enctype() == EncType::ENC_GTT_ATT)
-          rl[j].r_info = R_X86_64_SBIENC0;
+        if(encoded(orig_ptr) && enctype() == EncType::ENC_GTT_ATT) {
+          if(rl[j].r_info == R_X86_64_IRELATIVE)
+            rl[j].r_info = R_X86_64_ISBIENC0;
+          else
+            rl[j].r_info = R_X86_64_SBIENC0;
+        }
         LOG ("addend: " << hex << rl[j].r_addend);
       }
     }
@@ -1970,9 +1973,9 @@ ElfClass::updSymTbl (string bname) {
       if (sym_tbl[j].st_value == 0 || (sym_tbl[j].st_info & 0xf) == STT_TLS)
         continue;
 
-      sym_tbl[j].st_value	/* = newSymVal(sym_tbl[j].st_value); */
-        = encode (newSymVal (sym_tbl[j].st_value),
-    	      sym_tbl[j].st_value);
+      sym_tbl[j].st_value	 = newSymVal(sym_tbl[j].st_value); 
+        //= encode (newSymVal (sym_tbl[j].st_value),
+    	//      sym_tbl[j].st_value);
 
     }
     utils::WRITE_TO_FILE (bname, sym_tbl, sym_sections[i].offset,

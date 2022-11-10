@@ -36,7 +36,7 @@ ExeManager::encode (uint64_t ptr, uint64_t orig_ptr)
 {
   if (ENCODE == 1) {
     if(encode_.find (orig_ptr) != encode_.end ()) {
-      ptr = encodePtr(ptr);
+      ptr = encodePtr(orig_ptr);
     }
   }
   return ptr;

@@ -145,8 +145,7 @@ Binary::disassemble() {
   funcMap_ = codeCFG_->funcMap();
 
   for(auto it = pointerMap_.begin(); it != pointerMap_.end(); it++) {
-    if(it->second->type() == PointerType::CP
-    && it->second->encodable() == true) {
+    if(it->second->type() == PointerType::CP && it->second->encodable() == true) {
       string sym = codeCFG_->getSymbol(it->first);
       manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
           ".8byte " + sym + " - " + ".elf_header_start");

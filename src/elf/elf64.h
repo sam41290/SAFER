@@ -13,6 +13,7 @@ Reference:
   ((s == 4) ? ".4byte" : (s == 8) ? ".8byte" : (s == 2) ? ".2byte" : ".byte")
 #define PT_SBI_ATT  0x80000000
 #define R_X86_64_SBIENC0 44
+#define R_X86_64_ISBIENC0 45
 /*
 typedef uint64_t Elf64_Addr;
 typedef uint16_t Elf64_Half;
