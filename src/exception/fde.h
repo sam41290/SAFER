@@ -42,6 +42,7 @@ class fde_class
   uint64_t lsda_ptr = 0;
   uint64_t lsda_ptr_padding;
   vector < uint8_t > call_frame_insn;	//      Required
+  string bname_;
 
 public:
   fde_class (uint64_t p_length, uint64_t p_extended_length,

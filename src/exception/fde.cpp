@@ -33,6 +33,7 @@ void
 fde_class::read_fde (string bname, uint8_t * fde_ptr, uint64_t length, uint64_t
 		     offset)
 {
+  bname_ = bname;
   EH_LOG
     ("---------------------------------------------------------------------------\n");
   uint64_t cie_ptr;
@@ -85,10 +86,10 @@ fde_class::read_fde (string bname, uint8_t * fde_ptr, uint64_t length, uint64_t
     }
   uint8_t *fde_tbl;
   while (i < length)
-    {
-      call_frame_insn.push_back (*(fde_ptr + i));
-      i++;
-    }
+  {
+    call_frame_insn.push_back (*(fde_ptr + i));
+    i++;
+  }
 
   fde_tbl = (uint8_t *) malloc (my_cie.initial_instructions.size ()
 				+ call_frame_insn.size ());
@@ -139,15 +140,16 @@ string
 fde_class::print_fde ()
 {
   string fde = "";
-
+  uint64_t addrs = utils::GET_ADDRESS(bname_, location);
+  fde += "." + to_string(addrs) + "_FDE:\n";
   fde += "." + to_string (location) + "_fde_struct:\n";
-
+  
   if (length == 0xffffffff)
-    {
-      fde += ".long 0xffffffff\n";
-      fde += ".quad ." + to_string (location) + "_fde_end - ."
-	+ to_string (location) + "_fde_start\n";
-    }
+  {
+    fde += ".long 0xffffffff\n";
+    fde += ".quad ." + to_string (location) + "_fde_end - ."
+         + to_string (location) + "_fde_start\n";
+  }
   else
     fde += ".long ." + to_string (location) + "_fde_end - ."
       + to_string (location) + "_fde_start\n";
@@ -169,29 +171,24 @@ fde_class::print_fde ()
 				 to_string (pc_begin) + "\n");
 
   if (my_cie.is_aug_data == 1 /*&& my_cieis_lsda_ptr == 1 */ )
-    {
-      fde += ".uleb128 ." + to_string (location) + "_aug_data_end - ."
-	+ to_string (location) + "_aug_data_start\n";
-      fde += "." + to_string (location) + "_aug_data_start:\n";
-      if (aug_data_length > 0)
-	    {
-
-	      fde += print_encoded_ptr ("." + to_string (location)
-	    			    + "_aug_data_start", "."
-	    			    + to_string (lsda_ptr),
-	    			    my_cie.lsda_ptr_enc);
-
-	    }
-      fde += "." + to_string (location) + "_aug_data_end:\n";
+  {
+    fde += ".uleb128 ." + to_string (location) + "_aug_data_end - ."
+        + to_string (location) + "_aug_data_start\n";
+    fde += "." + to_string (location) + "_aug_data_start:\n";
+    if (aug_data_length > 0) {
+      fde += print_encoded_ptr ("." + to_string (location)
+    			                    + "_aug_data_start", "."
+    			                    + to_string (lsda_ptr) + "_LSDA",
+    			                    my_cie.lsda_ptr_enc);
     }
+    fde += "." + to_string (location) + "_aug_data_end:\n";
+  }
   ifstream ifile;
   ifile.open ("tmp/" + to_string (pc_begin) + "_unwind.s");
 
   string str;
   while (getline (ifile, str))
-    {
-      fde += str + "\n";
-    }
+    fde += str + "\n";
 
   ifile.close ();
 
@@ -201,7 +198,6 @@ fde_class::print_fde ()
   fde += "." + to_string (location) + "_fde_end:\n";
 
   return fde;
-
 
 }
 

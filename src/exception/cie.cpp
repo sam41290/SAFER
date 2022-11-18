@@ -221,41 +221,35 @@ cie_class::read_cie (string bname, uint8_t * cie_ptr, uint64_t length, uint64_t
 
 
 void
-cie_class::print_cie (uint64_t data_segment, string print_file, set <uint64_t>
-    fde_to_remove)
-{
+cie_class::print_cie (uint64_t data_segment, string print_file, set <uint64_t> fde_to_remove) {
   ofstream ofile;
   ofile.open (print_file, ofstream::out | ofstream::app);
   ofile << "." << location << "_cie_struct:" << "\n";
   if (length != 0xffffffff)
     ofile << ".long .cie_" << location << "_end - .cie_" << location << "_start"
-      << "\n";
-  else
-    {
-      ofile << ".long " << length << "\n";
-      ofile << ".quad .cie_" << location << "_end - .cie_" << location <<
-	"_start" << "\n";
-    }
+          << "\n";
+  else {
+    ofile << ".long " << length << "\n";
+    ofile << ".quad .cie_" << location << "_end - .cie_" << location <<
+             "_start" << "\n";
+  }
   ofile << ".cie_" << location << "_start:" << "\n";
   ofile << ".long " << cie_id << "\n";
   ofile << ".byte " << (uint32_t) version << "\n";
   ofile << ".cie_" << location << "_aug_string:\n";
 
-  for (int j = 0; j < aug_string.length (); j++)
-    {
-      ofile << ".byte " << (uint32_t) aug_string[j] << "\n";
-    }
+  for (int j = 0; j < aug_string.length (); j++) {
+    ofile << ".byte " << (uint32_t) aug_string[j] << "\n";
+  }
 
   ofile << ".byte " << (uint32_t) '\0' << "\n";
 
   ofile << ".cie_" << location << "_eh_data:\n";
   if (is_eh_data == 1)
-    {
-      for (int j = 0; j < 8; j++)
-	    {
-	      ofile << ".byte " << (uint32_t) eh_data[j] << "\n";
-	    }
-    }
+  {
+    for (int j = 0; j < 8; j++)
+      ofile << ".byte " << (uint32_t) eh_data[j] << "\n";
+  }
 
   for (int j = 0; j < encoded_code_align.size (); j++)
     ofile << ".byte " << (uint32_t) encoded_code_align[j] << "\n";
@@ -270,16 +264,14 @@ cie_class::print_cie (uint64_t data_segment, string print_file, set <uint64_t>
   ofile << ".cie_" << location << "_aug_data_length:\n";
 
   if (is_aug_data == 1)
-    {
-      for (int j = 0; j < encoded_aug_data_length.size (); j++)
-	    {
-	      ofile << ".byte " << (uint32_t) encoded_aug_data_length[j] << "\n";
-	    }
+  {
+    for (int j = 0; j < encoded_aug_data_length.size (); j++)
+      ofile << ".byte " << (uint32_t) encoded_aug_data_length[j] << "\n";
 
-      ofile << ".cie_" << location << "_aug_data:\n";
+    ofile << ".cie_" << location << "_aug_data:\n";
 
-      ofile << print_cie_aug_data (data_segment);
-    }
+    ofile << print_cie_aug_data (data_segment);
+  }
   ofile << ".cie_" << location << "_initial_ins:\n";
 
   for (int j = 0; j < initial_instructions.size (); j++)
@@ -288,13 +280,13 @@ cie_class::print_cie (uint64_t data_segment, string print_file, set <uint64_t>
   ofile << ".align 8,0x0\n";
   ofile << ".cie_" << location << "_end:" << "\n";
   for (int j = 0; j < fde_list.size (); j++)
+  {
+    if(fde_to_remove.find(fde_list[j].get_pc_begin()) == fde_to_remove.end())
     {
-      if(fde_to_remove.find(fde_list[j].get_pc_begin()) == fde_to_remove.end())
-      {
-        string fde = fde_list[j].print_fde ();	//change the params
-        ofile << fde << "\n";
-      }
+      string fde = fde_list[j].print_fde ();	//change the params
+      ofile << fde << "\n";
     }
+  }
   ofile.close ();
 
 }

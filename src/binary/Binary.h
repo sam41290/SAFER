@@ -53,7 +53,7 @@ public:
   void populate_ptr_sym_table();
   //void assignLabeltoFn(string label, string func_name);
   void get_section_asm(string sec_name, string sec_file);
-  string printPsblData();
+  //string printPsblData();
   Cfg *codeCfg() { return codeCFG_; }
 private:
   void init();
@@ -87,6 +87,7 @@ private:
   void instrument();
   void printSections();
   void stitchSections(section_types t,string file_name, bool align);
+  void printOldCodeAndData(string file_name);
 };
 }
 #endif

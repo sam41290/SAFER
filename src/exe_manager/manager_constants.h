@@ -32,7 +32,9 @@ struct section
 {
   string name = "";
   section_types sec_type;
+  bool load = true;
   bool is_metadata = false;
+  bool printed = false;
   bool is_att = false;
   uint64_t offset = 0;
   uint64_t size = 0;

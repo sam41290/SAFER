@@ -181,7 +181,7 @@ ElfClass::readSection64 (Elf64_Shdr * sh) {
 
   if (!buff) {
       LOG (__func__ << ":Failed to allocate " << sh->sh_size << " bytes");
-    }
+  }
 
   assert (buff != NULL);
   assert (lseek (fd, (off_t) sh->sh_offset, SEEK_SET) == (off_t) sh->sh_offset);
@@ -260,13 +260,14 @@ vector < pheader > ElfClass::ptLoadHeaderes () {
 void
 ElfClass::readSectionHdrTbl64 () {
   uint32_t i;
-
+  LOG("Reading section header table at: "<<hex<<elfHeader_->e_shoff<<" cnt: "<<elfHeader_->e_shnum<<" str tbl index: "<<elfHeader_->e_shstrndx);
   assert (lseek (fd, (off_t) elfHeader_->e_shoff, SEEK_SET) ==
 	  (off_t) elfHeader_->e_shoff);
   for (i = 0; i < elfHeader_->e_shnum; i++) {
     Elf64_Shdr *sh = new Elf64_Shdr ();
     assert (read (fd, (void *) sh, elfHeader_->e_shentsize)
         == elfHeader_->e_shentsize);
+    LOG("Section :"<<i<<" offset: "<<hex<<sh->sh_offset<<" name index "<<sh->sh_name);
     shTable_.push_back (sh);
 
   }
@@ -307,8 +308,9 @@ ElfClass::readSymTbl64 (int32_t symbol_table) {
   str_tbl = readSection64 (shTable_[str_tbl_ndx]);
 
   symbol_count = (shTable_[symbol_table]->sh_size / sizeof (Elf64_Sym));
+  LOG("Symbol count: "<<symbol_count);
   for (i = 0; i < symbol_count; i++) {
-
+    LOG("Symbol string index: "<<sym_tbl[i].st_name<<" val: "<<hex<<sym_tbl[i].st_value);
     string name ((str_tbl + sym_tbl[i].st_name));
     allSyms_[name] = (off_t) sym_tbl[i].st_value;
   }
@@ -437,6 +439,7 @@ ElfClass::codeObjects () {
 
 void
 ElfClass::readSymbols64 () {
+  LOG("-----Reading symbols-------");
   uint32_t i;
 
   for (i = 0; i < elfHeader_->e_shnum; i++) {
@@ -556,6 +559,22 @@ vector < elf_section > ElfClass::relaSections () {
   vector < elf_section > rela_sections;
   SECTIONS(SHT_RELA,rela_sections);
   return rela_sections;
+}
+
+bool 
+ElfClass::isEhSection(uint64_t addrs) {
+  for(auto & s : allSections_) {
+    if(s.second.sh->sh_addr != 0 && addrs >= s.second.sh->sh_addr &&
+       addrs < (s.second.sh->sh_addr + s.second.sh->sh_size)) {
+      if(ehSections_.find(s.first) != ehSections_.end()) {
+        LOG("Section: "<<s.first<<" at "<<hex<<addrs<<"|"<<hex<<s.second.sh->sh_addr<<" is EH");
+        return true;
+      }
+      else
+        return false;
+    }
+  }
+  return false;
 }
 
 bool 
@@ -777,10 +796,10 @@ ElfClass::usedAtRunTime(uint64_t addrs) {
 
 void
 ElfClass::readRelocs() {
-  
+  LOG("-------------Reading relocs----------------"); 
   vector <elf_section> rela_sections = relaSections ();
   for(auto & sec : rela_sections) {
-    ////LOG("Reading section "<<sec.name);
+    LOG("Reading section "<<sec.name);
     Elf64_Rela *rl
       = (Elf64_Rela *)section_data(sec.sh->sh_offset,sec.sh->sh_size,binaryName());
     int entry_count = sec.sh->sh_size / sizeof (Elf64_Rela);
@@ -1213,6 +1232,8 @@ ElfClass::printPHdrs(string fname) {
   pheader cur_ph;
   pheader att_ph;
   for(auto & sec : new_secs) {
+    if(sec.load == false)
+      continue;
     if(SAME_ACCESS_PERM(cur_ph.p_flag, sec.sec_type)) {
       SEGEND(cur_ph,sec);
     }
@@ -1236,17 +1257,19 @@ ElfClass::printPHdrs(string fname) {
   ofile.open(fname);
   ofile<<".pheader_loc:\n";
   uint64_t addrs = utils::GET_ADDRESS(binaryName(),elfHeader_->e_phoff);
-  ofile<<"."<<addrs<<":\n";
+  utils::bind(addrs, ".pheader_loc", SymBind::FORCEBIND);
+  //ofile<<"."<<addrs<<":\n";
   for(auto & p : phTable_) {
     if(p->p_type != PT_LOAD) {
 
       pheader ph(p->p_offset,p->p_vaddr,p->p_filesz,p->p_memsz);
       newPheader(ph);
+      string label = utils::getLabel(p->p_vaddr);
       ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<p->p_type<<endl;
       ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<p->p_flags<<endl;
-      ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Off))<<" ."<<p->p_vaddr<<" - .elf_header_start"<<endl;
-      ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Addr))<<" ."<<p->p_vaddr<<" - .elf_header_start"<<endl;
-      ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Addr))<<" ."<<p->p_paddr<<" - .elf_header_start"<<endl;
+      ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Off))<<" "<<label<<" - .elf_header_start"<<endl;
+      ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Addr))<<" "<<label<<" - .elf_header_start"<<endl;
+      ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Addr))<<" "<<label<<" - .elf_header_start"<<endl;
       ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<p->p_filesz<<endl;
       ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<p->p_memsz<<endl;
       ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<p->p_align<<endl;
@@ -1664,8 +1687,7 @@ ElfClass::updateWithoutObjCopy(string bname,string obj_file) {
 }
 
 void
-ElfClass::rewrite (string asm_file) {
-
+ElfClass::printNonLoadSecs(string asm_file) {
   vector <section> non_load_secs = sections(section_types::NONLOAD);
   int ctr = 0;
   ofstream ofile;
@@ -1674,6 +1696,7 @@ ElfClass::rewrite (string asm_file) {
   for(auto & sec : non_load_secs) {
     section new_sec = sec;
     new_sec.start_sym = ".nonload" + to_string(ctr);
+    new_sec.load = false;
     new_sec.end_sym = ".nonload" + to_string(ctr) + "_end";
     ofile<<".nonload"<<ctr<<":\n";
     uint8_t *bytes = (uint8_t *)malloc(sec.size);
@@ -1691,12 +1714,16 @@ ElfClass::rewrite (string asm_file) {
     newSection(new_sec);
   }
   ofile.close();
+}
 
-  printPHdrs("pheader.s");
-  printExeHdr("exe_hdr.s");
+void
+ElfClass::rewrite (string asm_file) {
 
-  utils::append_files("exe_hdr.s","final_asm.s");
-  utils::append_files("pheader.s","final_asm.s");
+  //printPHdrs("pheader.s");
+  //printExeHdr("exe_hdr.s");
+
+  //utils::append_files("exe_hdr.s","final_asm.s");
+  //utils::append_files("pheader.s","final_asm.s");
   utils::append_files(asm_file,"final_asm.s");
 
   printNewSectionHdrs("section_hdrs.s");
@@ -2018,7 +2045,7 @@ ElfClass::readJmpSlots () {
   /* Finds out the memory location designated to store the address of standard
    * library functions used by the ELF executable.
    */
- 
+  LOG("----------Reading jump slots----------------------"); 
   string bname = binaryName ();
   Elf64_Shdr *dynsym_sh = NULL;
 

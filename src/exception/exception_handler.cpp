@@ -663,12 +663,12 @@ exception_handler::print_eh_frame (uint64_t data_segment)
    */
   ofstream ofile;
   ofile.open ("eh_frame.s", ofstream::out | ofstream::app);
-  ofile<<"."<<frame_addr<<":\n"; 
+  //ofile<<"."<<frame_addr<<":\n"; 
   ofile.close();
   for (int i = 0; i < cie.size (); i++)
-    {
-      cie[i].print_cie (data_segment, "eh_frame.s", fde_to_remove);
-    }
+  {
+    cie[i].print_cie (data_segment, "eh_frame.s", fde_to_remove);
+  }
   ofile.open ("eh_frame.s", ofstream::out | ofstream::app);
   ofile << ".long 0x0\n";	//Marks end of eh frame section
   ofile.close ();
@@ -705,10 +705,10 @@ exception_handler::read_eh_frame (string fname)
   uint8_t *eh_frame_ptr = (uint8_t *) malloc (eh_frame_size);
 
   if (eh_frame_ptr == NULL)
-    {
-      EH_LOG ("Error assigning memory to eh_frame_ptr" << "\n");
-      exit (0);
-    }
+  {
+    EH_LOG ("Error assigning memory to eh_frame_ptr" << "\n");
+    exit (0);
+  }
 
   utils::READ_FROM_FILE(fname, eh_frame_ptr, eh_frame_offset, eh_frame_size);
 
@@ -732,93 +732,93 @@ exception_handler::read_eh_frame (string fname)
    */
 
   while (1)
+  {
+    uint64_t location = eh_frame_offset;
+    if (location >= (frame_offset + frame_size))
+      break;
+    length = *((uint32_t *) (eh_frame_ptr + i));
+    i = i + sizeof (uint32_t);
+    eh_frame_offset = eh_frame_offset + sizeof (uint32_t);
+    if (length == 0)
+      break;
+    else if (length == 0xffffffff)
     {
-      uint64_t location = eh_frame_offset;
-      if (location >= (frame_offset + frame_size))
-        break;
-      length = *((uint32_t *) (eh_frame_ptr + i));
-      i = i + sizeof (uint32_t);
-      eh_frame_offset = eh_frame_offset + sizeof (uint32_t);
-      if (length == 0)
-	    break;
-      else if (length == 0xffffffff)
-	    {
-	      EH_LOG ("extended length" << "\n");
-	      extended_length = *((uint64_t *) (eh_frame_ptr + i));
-	      cie_length = extended_length;
-	      i = i + sizeof (uint64_t);
-	      eh_frame_offset = eh_frame_offset + sizeof (uint64_t);
-	    }
-      else
-	    cie_length = length;
-
-      cie_id = *((uint32_t *) (eh_frame_ptr + i));
-      if (cie_id == 0)
-	    {
-	      cie_class x (length, extended_length, location);
-	      //cie.push_back(x);
-	      EH_LOG (hex << eh_frame_offset << ":CIE structure found | length: " <<
-	    	  cie_length << "\n");
-	      x.read_cie (fname, eh_frame_ptr + i, cie_length, eh_frame_offset);
-	      cie.push_back (x);
-	      cur_cie = cie_ctr;
-	      cie_ctr++;
-	    }
-      else
-	    {
-	      fde_class f (length, extended_length, location);;
-	      EH_LOG (hex << eh_frame_offset << ":FDE structure found | length: " <<
-	    	  cie_length << "\n");
-
-
-	      uint64_t cie_ptr = *((uint32_t *) (eh_frame_ptr + i));
-	      //i = i + sizeof(uint32_t);
-	      int l;
-	      for (l = 0; l < cie.size (); l++)
-	        {
-	          //Search for the parent CIE of the current FDE.
-
-	          if (cie[l].get_location () == (eh_frame_offset - cie_ptr))
-	    	    break;
-	        }
-	      if (l >= cie.size ())
-	        {
-	          EH_LOG ("cie not found for FDE at " << hex << eh_frame_offset <<
-	    	      "\n");
-	          exit (0);
-	        }
-	      //eh_frame_offset += sizeof(uint32_t);
-
-	      //Set the parent CIE
-
-	      f.set_my_cie (cie[l].get_location (), cie[l].get_fde_enc (),
-	    		cie[l].get_lsda_enc (), cie[l].get_is_aug_data (),
-	    		cie[l].get_initial_instructions ());
-
-	      f.read_fde (fname, eh_frame_ptr + i + sizeof (uint32_t), cie_length
-	    	      - sizeof (uint32_t), eh_frame_offset + sizeof (uint32_t));
-
-	      int lsda_index = 0;
-
-	      if (cie[l].get_is_lsda () == 1
-	          && processed_lsda[f.get_lsda_ptr ()] != 1
-	          && f.get_lsda_ptr () != 0)
-	        {
-	          //If FDE has LSDA data assosciated.
-
-	          lsda_class l (f.get_pc_begin ());
-	          l.read_lsda (fname, f.get_lsda_ptr (), elf_obj);
-	          lsda_list.push_back (l);
-	          lsda_index++;
-	          processed_lsda[f.get_lsda_ptr ()] = lsda_index;
-	        }
-	      cie[cur_cie].add_fde (f);
-	    }
-      i = i + cie_length;
-      eh_frame_offset = eh_frame_offset + cie_length;
-      //cie_id = *((uint32_t *)(eh_frame + i))
-      //i = i + sizeof(uint32_t);
+      EH_LOG ("extended length" << "\n");
+      extended_length = *((uint64_t *) (eh_frame_ptr + i));
+      cie_length = extended_length;
+      i = i + sizeof (uint64_t);
+      eh_frame_offset = eh_frame_offset + sizeof (uint64_t);
     }
+    else
+      cie_length = length;
+
+    cie_id = *((uint32_t *) (eh_frame_ptr + i));
+    if (cie_id == 0)
+    {
+      cie_class x (length, extended_length, location);
+      //cie.push_back(x);
+      EH_LOG (hex << eh_frame_offset << ":CIE structure found | length: " <<
+    	  cie_length << "\n");
+      x.read_cie (fname, eh_frame_ptr + i, cie_length, eh_frame_offset);
+      cie.push_back (x);
+      cur_cie = cie_ctr;
+      cie_ctr++;
+    }
+    else
+    {
+      fde_class f (length, extended_length, location);;
+      EH_LOG (hex << eh_frame_offset << ":FDE structure found | length: " <<
+    	  cie_length << "\n");
+
+
+      uint64_t cie_ptr = *((uint32_t *) (eh_frame_ptr + i));
+      //i = i + sizeof(uint32_t);
+      int l;
+      for (l = 0; l < cie.size (); l++)
+      {
+        //Search for the parent CIE of the current FDE.
+
+        if (cie[l].get_location () == (eh_frame_offset - cie_ptr))
+          break;
+      }
+      if (l >= cie.size ())
+      {
+        EH_LOG ("cie not found for FDE at " << hex << eh_frame_offset <<
+            "\n");
+        exit (0);
+      }
+      //eh_frame_offset += sizeof(uint32_t);
+
+      //Set the parent CIE
+
+      f.set_my_cie (cie[l].get_location (), cie[l].get_fde_enc (),
+    		cie[l].get_lsda_enc (), cie[l].get_is_aug_data (),
+    		cie[l].get_initial_instructions ());
+
+      f.read_fde (fname, eh_frame_ptr + i + sizeof (uint32_t), cie_length
+    	      - sizeof (uint32_t), eh_frame_offset + sizeof (uint32_t));
+
+      int lsda_index = 0;
+
+      if (cie[l].get_is_lsda () == 1
+          && processed_lsda[f.get_lsda_ptr ()] != 1
+          && f.get_lsda_ptr () != 0)
+      {
+        //If FDE has LSDA data assosciated.
+
+        lsda_class l (f.get_pc_begin ());
+        l.read_lsda (fname, f.get_lsda_ptr (), elf_obj);
+        lsda_list.push_back (l);
+        lsda_index++;
+        processed_lsda[f.get_lsda_ptr ()] = lsda_index;
+      }
+      cie[cur_cie].add_fde (f);
+    }
+    i = i + cie_length;
+    eh_frame_offset = eh_frame_offset + cie_length;
+    //cie_id = *((uint32_t *)(eh_frame + i))
+    //i = i + sizeof(uint32_t);
+  }
   free (eh_frame_ptr);
 
 }
@@ -956,18 +956,18 @@ exception_handler::print_bst (uint64_t frame_addrs)
 
   uint64_t fde = 0;
   for (int i = 0; i < header.lookup_tbl.size (); i++)
+  {
+    if (header.lookup_tbl[i].fde_pc_begin == frame_addrs)
     {
-      if (header.lookup_tbl[i].fde_pc_begin == frame_addrs)
-	    {
-	      fde = header.lookup_tbl[i].fde_ptr;
-	      break;
-	    }
+      fde = header.lookup_tbl[i].fde_ptr;
+      break;
     }
+  }
   if (fde == 0)
-    {
-      LOG ("No FDE for frame: " << hex << frame_addrs << "\n");
-      return;
-    }
+  {
+    LOG ("No FDE for frame: " << hex << frame_addrs << "\n");
+    return;
+  }
   new_bst_size++;
 
   ofstream ofile;
@@ -977,7 +977,7 @@ exception_handler::print_bst (uint64_t frame_addrs)
 			      ".frame_" + to_string (frame_addrs),
 			      header.table_enc);
   ofile << print_encoded_ptr (".bst_for_" + to_string (frame_addrs),
-			      "." + to_string (fde), header.table_enc);
+			      "." + to_string (fde) + "_FDE", header.table_enc);
 
   //keep_eh_data.insert(frame_addrs);
 
@@ -994,7 +994,7 @@ exception_handler::print_eh_frame_hdr ()
   ofstream ofile;
   ofile.open ("eh_frame_hdr.s", ofstream::out | ofstream::app);
 
-  ofile << "." << frame_hdr_addr << ":\n";
+  //ofile << "." << frame_hdr_addr << ":\n";
   ofile << ".byte " << (uint32_t) header.version << "\n";
   ofile << ".byte " << (uint32_t) header.eh_frame_ptr_enc << "\n";
   ofile << ".byte " << (uint32_t) header.fde_count_enc << "\n";
@@ -1014,9 +1014,9 @@ exception_handler::print_eh_frame_hdr ()
 
   string str;
   while (getline (ifile, str))
-    {
-      ofile << str + "\n";
-    }
+  {
+    ofile << str + "\n";
+  }
 
   ifile.close ();
   ofile.close ();

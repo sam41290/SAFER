@@ -260,7 +260,7 @@ lsda_class::print_lsda (uint64_t data_segment)
 {
   ofstream lsda_file;
   lsda_file.open ("gcc_except_table.s", ofstream::out | ofstream::app);
-  lsda_file << "." << location << ":\n";
+  lsda_file << "." << location << "_LSDA:\n";
   lsda_file << ".byte " << (uint32_t) base_enc << "\n";
 
   if (base_enc != 0xff) {

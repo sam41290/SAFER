@@ -99,6 +99,7 @@ public:
   virtual uint64_t segAlign () = 0;
   virtual void printExeHdr(string fname) = 0;
   virtual void printPHdrs(string fname) = 0;
+  virtual void printNonLoadSecs(string fname) = 0;
   virtual void printNewSectionHdrs(string fname) = 0;
   
   virtual int newPHdrSz() = 0;
@@ -107,6 +108,7 @@ public:
   virtual vector <Object> dataObjects() = 0;
   virtual vector <Object> noTypeObjects() = 0;
   virtual bool isMetaData(uint64_t addrs) = 0;
+  virtual bool isEhSection(uint64_t addrs) = 0;
   void placeHooks(map <uint64_t, vector <uint8_t>> &hooks);
   vector <string> additionSecs();
   //virtual void extraRelocs() = 0;

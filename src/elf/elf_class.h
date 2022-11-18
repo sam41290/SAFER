@@ -67,6 +67,7 @@ class ElfClass:public ExeManager
       ".note.ABI-tag",".gnu.hash",".dynstr",".gnu.version",
       ".gnu.version_r",".rela.dyn",".rela.plt",".eh_frame_hdr",
       ".eh_frame",".gcc_except_table"};
+  const unordered_set <string> ehSections_ = {".eh_frame_hdr", ".eh_frame",".gcc_except_table"};
   uint64_t oldDataSeg_;
 public:
 
@@ -100,6 +101,7 @@ public:
   uint64_t memAddrs(uint64_t offt);
   uint64_t segAlign();
   exe_type type();
+  void printNonLoadSecs(string asm_file);
   void printExeHdr(string fname);
   void printNewSectionHdrs(string fname);
   void printPHdrs(string fname);
@@ -112,6 +114,7 @@ public:
   vector <Object> dataObjects();
   vector <Object> noTypeObjects();
   bool isMetaData(uint64_t addrs);
+  bool isEhSection(uint64_t addrs);
 private:
   void readElfHeader64 ();
   char *readSection64 (Elf64_Shdr * sh);
