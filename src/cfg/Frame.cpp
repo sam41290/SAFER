@@ -411,6 +411,24 @@ Frame::nxtDefCode(uint64_t addrs) {
 }
 
 void
+Frame::linkCFToJumpTable(JumpTable *j, uint64_t ins_loc) {
+  for(auto & bb2 : defCodeBBs_) {
+    if(bb2->end() == ins_loc) {
+      j->cfBB(bb2);
+      bb2->addrTransMust(false);
+    }
+      //bb2->jTable(j);
+  }
+  for(auto & bb2 : unknwnCodeBBs_) {
+    if(bb2->end() == ins_loc) {
+      j->cfBB(bb2);
+      bb2->addrTransMust(false);
+    }
+      //bb2->jTable(j);
+  }
+}
+
+void
 Frame::addIndrctTgt(uint64_t ins_loc, BasicBlock *tgt) {
   for(auto & bb2 : defCodeBBs_) {
     if(bb2->end() == ins_loc)

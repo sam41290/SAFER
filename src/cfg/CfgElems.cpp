@@ -5,6 +5,66 @@
 #include "PointerAnalysis.h"
 using namespace SBI;
 
+//bool 
+//CfgElems::rewritableJmpTbl(JumpTable &j) {
+//
+//  return true;
+//}
+
+void
+CfgElems::chkJmpTblRewritability() {
+  for(auto & j : jmpTables_) {
+    auto loc_ptr = ptr(j.location());
+    auto base_ptr = ptr(j.base());
+    if(j.type() == 2 || j.type() == 3 || loc_ptr == NULL || base_ptr == NULL ||
+      (type_ == exe_type::NOPIE && 
+      (loc_ptr->symbolizable(SymbolizeIf::IMMOPERAND) || base_ptr->symbolizable(SymbolizeIf::IMMOPERAND))) ||
+      (loc_ptr->symbolizable(SymbolizeIf::RLTV) && loc_ptr->type() == PointerType::CP) ||
+      (base_ptr->symbolizable(SymbolizeIf::RLTV) && base_ptr->type() == PointerType::CP)) {
+      j.rewritable(false);
+      auto cf_bbs = j.cfBBs();
+      for(auto & bb : cf_bbs) {
+        bb->addrTransMust(true);
+      }
+    }
+
+  }
+  bool repeat = true;
+  while(repeat) {
+    repeat = false;
+    for(auto & j : jmpTables_) {
+      if(j.rewritable()) {
+        auto cf_bbs = j.cfBBs();
+        bool addr_trans_must = false;
+        for(auto & bb : cf_bbs) {
+          if(bb->addrTransMust()) {
+            addr_trans_must = true;
+            break;
+          }
+        }
+        if(addr_trans_must) {
+          j.rewritable(false);
+          for(auto & bb : cf_bbs) {
+            if(bb->addrTransMust() == false) {
+              bb->addrTransMust(true);
+              repeat = true;
+            }
+          }
+        }
+      }
+    }
+  }
+  /*
+  for(auto & j : jmpTables_) {
+    if(j.rewritable()) {
+      auto cf_bbs = j.cfBBs();
+      for(auto & bb : cf_bbs) {
+        bb->lastIns()->removeInstrumentation(InstPoint::ADDRS_TRANS);
+      }
+    }
+  }
+  */
+}
 
 bool
 validJumpForScore(Instruction *ins) {
@@ -2052,9 +2112,38 @@ CfgElems::instrument(uint64_t hook_point,string code) {
 }
 
 bool
+CfgElems::rewritableJmpTblBase(uint64_t addrs) {
+  for(unsigned int i = 0; i < jmpTables_.size (); i++) {
+    if(jmpTables_[i].base () == addrs &&
+       jmpTables_[i].rewritable())
+      return true;
+  }
+  return false;
+}
+
+bool
+CfgElems::rewritableJmpTblLoc(uint64_t addrs) {
+  for(unsigned int i = 0; i < jmpTables_.size (); i++) {
+    if(jmpTables_[i].location () == addrs &&
+       jmpTables_[i].rewritable())
+      return true;
+  }
+  return false;
+}
+
+bool
 CfgElems::isJmpTblLoc(uint64_t addrs) {
   for(unsigned int i = 0; i < jmpTables_.size (); i++) {
     if(jmpTables_[i].location () == addrs)
+      return true;
+  }
+  return false;
+}
+
+bool
+CfgElems::isJmpTblBase(uint64_t addrs) {
+  for(unsigned int i = 0; i < jmpTables_.size (); i++) {
+    if(jmpTables_[i].base () == addrs)
       return true;
   }
   return false;
@@ -2074,6 +2163,13 @@ CfgElems::addIndrctTgt(uint64_t ins_loc, BasicBlock *tgt) {
   auto fn = is_within(ins_loc, funcMap_);
   if(fn != funcMap_.end())
     fn->second->addIndrctTgt(ins_loc, tgt);
+}
+
+void
+CfgElems::linkCFToJumpTable(JumpTable *j, uint64_t ins_loc) {
+  auto fn = is_within(ins_loc, funcMap_);
+  if(fn != funcMap_.end())
+    fn->second->linkCFToJumpTable(j, ins_loc);
 }
 
 bool

@@ -78,6 +78,14 @@ class Instrument
   string exeNameLabel_ = ".exename";
 public:
   Instrument(){}
+  void removeInstrumentation(InstPoint p) {
+    for(auto it = targetPos_.begin(); it != targetPos_.end(); it++) {
+      if((*it).first == p) {
+        targetPos_.erase(it);
+        break;
+      }
+    }
+  }
   vector<pair<InstPoint,string>> targetPositions() { return targetPos_;}
   vector<pair<string,string>> targetFunctions() { return targetFuncs_;}
   vector<string> instFunctions() { return instFuncs_;}

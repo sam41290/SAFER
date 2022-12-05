@@ -119,6 +119,12 @@ using namespace std;
        SymbolType stype = SymbolType::RLTV;\
        ADDSYMBOLCANDIDATE(addrs,storage,symbolize,t,stype);\
        break;}\
+     case PointerSource::CONSTMEM : \
+     {\
+       bool symbolize = false;\
+       SymbolType stype = SymbolType::OPERAND;\
+       ADDSYMBOLCANDIDATE(addrs,storage,symbolize,t,stype);\
+       break;}\
      case PointerSource::CONSTOP : \
      {\
        bool symbolize = false;\
@@ -209,6 +215,7 @@ namespace SBI {
 
   public:
     DisasmEngn *disassembler_;
+    exe_type type_;
     uint64_t entryPoint_ = 0;
     uint64_t codeSegEnd_ = 0;
     uint64_t libcStrtMain_ = 0;
@@ -229,6 +236,10 @@ namespace SBI {
 
     string exeName() {
       return exeName_;
+    }
+    void type(exe_type t) { 
+      LOG("Exe Type: "<<dec<<(int)t);
+      type_ = t; 
     }
     uint64_t sectionEnd(uint64_t addrs);
     void picConstReloc(vector <Reloc> & r) { picConstReloc_ = r; }
@@ -389,10 +400,14 @@ namespace SBI {
     void instrument(uint64_t hook_point,string code);
     vector <JumpTable> jumpTables() { return jmpTables_; }
     void jumpTable(JumpTable j) { jmpTables_.push_back(j); }
+    bool rewritableJmpTblLoc(uint64_t addrs);
+    bool rewritableJmpTblBase(uint64_t addrs);
     bool isJmpTblLoc(uint64_t addrs);
+    bool isJmpTblBase(uint64_t addrs);
     unsigned int jumpTableCnt() { return jmpTables_.size(); }
     void updateJmpTblTgts() {
       for(auto & j : jmpTables_) {
+        linkCFToJumpTable(&j, j.cfLoc());
         vector<uint64_t> targets = j.targets();
         for(auto tgt : targets) {
           auto bb = getBB(tgt);
@@ -400,8 +415,8 @@ namespace SBI {
             LOG("Not BB for jump table target: "<<hex<<tgt);
             exit(0);
           }
-          //LOG("BB: "<<hex<<bb->start());
           j.addTargetBB(bb);
+          //addIndrctTgt(j.cfLoc(), bb);
         }
       }
     }
@@ -411,6 +426,7 @@ namespace SBI {
     void markAsDefData(uint64_t addrs);
     bool readableMemory(uint64_t addrs);
     void addIndrctTgt(uint64_t ins_loc, BasicBlock *tgt);
+    void linkCFToJumpTable(JumpTable *j, uint64_t ins_loc);
     uint64_t nextCodeBlock(uint64_t addrs);
     vector<Gap> getGaps();
     BasicBlock *getDataBlock(uint64_t addrs);
@@ -427,6 +443,7 @@ namespace SBI {
     void markAllCallTgtsAsDefCode();
     void markCallTgtAsDefCode(BasicBlock *bb);
     long double fnSigScore(vector <Instruction *> &ins_list);
+    void chkJmpTblRewritability();
   private:
     void readIndrctTgts(BasicBlock *bb,uint64_t fn_addrs);
     BasicBlock *readBB(ifstream & file);

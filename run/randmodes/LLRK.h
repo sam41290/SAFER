@@ -45,7 +45,13 @@
 #define SYMBOLIZERLTV(ptr) symbolizeRltvPtr(ptr)
 #define SYMBOLIZENONSTRING(ptr) symbolizeNonString(ptr)
 
-#define SYMBOLIZE(ptr)
+//#define SYMBOLIZE(ptr)
+
+#define SYMBOLIZE(ptr) { \
+  SYMBOLIZERELOCATEDCONST(ptr); \
+  SYMBOLIZERELOCATEDIMM(ptr); \
+  SYMBOLIZERLTV(ptr); \
+}
 
 /*
 #define SYMBOLIZE(ptr) { \
@@ -88,7 +94,7 @@
 #endif
 
 
-#define TOOL_PATH "/home/sbr/SBI/"
+#define TOOL_PATH "/home/soumyakant/SBI/"
 #define INST_CODE_PATH TOOL_PATH"run/instrumentation_code_here/"
 #define INST_BINARY "tutorial"
 

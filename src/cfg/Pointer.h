@@ -101,6 +101,12 @@ public:
       symbolize_ = true;
     }
   }
+  bool symbolized(SymbolizeIf cnd, uint64_t loc) {
+    if(symbolizable(cnd,loc)) {
+      return symbolize_;
+    }
+    return false;
+  }
   void symbolize(bool yes) { symbolize_ = yes; }
   void dump(ofstream & ofile) {
     ofile<<"symcandidate "<<dec<<location_;
@@ -124,7 +130,8 @@ enum class PointerSource
 {
   //Tells from where the Pointer is obtained.
   //DONOT change the sequence. 
-  //The sources are arranged in the increasing order of their reachability.
+  //The sources are arranged in the increasing order of their likelyhood of
+  //being pointer.
   NONE,
   CALL_TGT_2,
   CALL_TGT_1,
@@ -162,6 +169,8 @@ class Pointer
   bool encodable_ = true;
   uint64_t loadPoint_ = 0;
   vector <Symbol> symCandidates_;
+  //bool jmpTblBase_ = false;
+  //bool jmpTblLoc_ = false;
   //vector <pair<uint64_t,SymbolType>> symbolize_;
 public:
   Pointer(uint64_t ptr, PointerType ptr_type, PointerSource p_source) {
@@ -169,6 +178,10 @@ public:
     type_ = ptr_type;
     source_ = p_source;
   }
+  //bool jmpTblLoc() { return jmpTblLoc_; }
+  //void jmpTblLoc(bool val) { jmpTblLoc_ = val; }
+  //bool jmpTblBase() { return jmpTblBase_; }
+  //void jmpTblBase(bool val) { jmpTblBase_ = val; }
   void rootSrc(PointerSource src) { rootSrc_ = src; }
   PointerSource rootSrc() { return rootSrc_; }
   uint64_t address() { return address_; }
@@ -193,6 +206,20 @@ public:
     symCandidates_.push_back(s); 
   }
   vector <Symbol> symCandidate() { return symCandidates_; }
+  bool symbolized(SymbolizeIf cnd, ...) {
+    va_list args;
+    va_start(args,cnd);
+    uint64_t loc = 0;
+    if(cnd == SymbolizeIf::SYMLOCMATCH ||
+       cnd == SymbolizeIf::IMMOP_LOC_MATCH)
+      loc = va_arg(args,uint64_t);
+    for(auto & sym : symCandidates_) {
+      if(sym.symbolized(cnd,loc))
+        return true;
+    }
+    va_end(args);
+    return false;
+  }
   void symbolize(SymbolizeIf cnd, ...) {
     va_list args;
     va_start(args,cnd);

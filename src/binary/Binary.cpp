@@ -145,7 +145,7 @@ Binary::disassemble() {
   funcMap_ = codeCFG_->funcMap();
 
   for(auto it = pointerMap_.begin(); it != pointerMap_.end(); it++) {
-    if(it->second->type() == PointerType::CP && it->second->encodable() == true) {
+    if(it->second->type() == PointerType::CP /*&& it->second->encodable() == true*/) {
       string sym = codeCFG_->getSymbol(it->first);
       manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
           ".8byte " + sym + " - " + ".elf_header_start");
@@ -156,8 +156,8 @@ Binary::disassemble() {
       if(sym != "") {
         manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
             ".8byte " + sym + " - " + ".elf_header_start");
-        manager_->addAttEntry(it->first,".8byte ." + to_string(it->first) + " - " + ".elf_header_start",
-            ".8byte " + sym + " - " + ".elf_header_start");
+        //manager_->addAttEntry(it->first,".8byte ." + to_string(it->first) + " - " + ".elf_header_start",
+        //    ".8byte " + sym + " - " + ".elf_header_start");
       }
     }
   }
@@ -703,7 +703,7 @@ Binary::printOldCodeAndData(string file_name) {
       }
       SymBind b = SymBind::BIND;
       string label = "." + to_string(addr);
-      if(codeCFG_->isJmpTblLoc(addr)) {
+      if(codeCFG_->rewritableJmpTblLoc(addr)) {
         label = "";
         b = SymBind::NOBIND;
       }
@@ -808,7 +808,8 @@ Binary::rewrite_jmp_tbls(string file_name) {
   for(auto & j : jmp_tbls) {
     if(processed_jmp_tbl.find(j.location()) == processed_jmp_tbl.end() &&
        j.targets().size() > 0 &&
-       codeCFG_->isMetadata(j.location()) == false) {
+       codeCFG_->isMetadata(j.location()) == false &&
+       j.rewritable()) {
       string tbl = j.rewriteTgts();
       utils::printAsm(tbl,j.location(),"."
           + to_string(j.location()),SymBind::FORCEBIND,file_name); 

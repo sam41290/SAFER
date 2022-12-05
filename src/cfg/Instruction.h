@@ -62,8 +62,11 @@ private:
   bool decode_ = false;
   bool encode_ = false;
   bool atRequired_ = false;
+  //bool addrTransMust_ = false;
 public:
   Instruction() {}
+  //void addrTransMust(bool val) { addrTransMust_ = val; }
+  //bool addrTransMust() { return addrTransMust_; }
   Instruction(uint64_t address, char *mnemonic, char *op_str, uint8_t
 	       * bytes, int size);
   string prefix() { return prefix_; }

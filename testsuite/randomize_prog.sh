@@ -59,7 +59,7 @@ do
 	if [ $? -eq 0 ]
 	then
 		pattern=`echo $file | sed 's/\./\\\./g'`
-		mode=`cat ${TOOL_PATH}/testsuite/randomized.dat | grep "^${pattern}" | cut -d":" -f2`
+		mode=`cat ${TOOL_PATH}/testsuite/randomized.dat | grep "^${pattern}:" | cut -d":" -f2`
 		if [ "${mode}" = "${rand_mode}" ]
 		then
 			if [ ${len} -eq 0 ]

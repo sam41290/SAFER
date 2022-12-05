@@ -943,8 +943,10 @@ vector <uint64_t> ElfClass::dynSyms () {
   vector <elf_section> dyn_sym_sections;
   SECTIONS(SHT_DYNSYM,dyn_sym_sections);
 
-  for (auto & sec : dyn_sym_sections)
+  for (auto & sec : dyn_sym_sections) {
     symtbl_to_ptr(sec.sh,code_ph,sym_values,binaryName(),STT_FUNC);
+    symtbl_to_ptr(sec.sh,code_ph,sym_values,binaryName(),STT_GNU_IFUNC);
+  }
 
   return sym_values;
 }
@@ -1678,9 +1680,9 @@ ElfClass::updateWithoutObjCopy(string bname,string obj_file) {
   populateNewSymAddrs ();
   updAllSecHdrsV2(new_bname);
   insertDataSeg (new_bname);
-  updSymTbl (new_bname);
+  //updSymTbl (new_bname);
   updRelaSections (new_bname);
-  updTramps (new_bname);
+  //updTramps (new_bname);
   updDynSection (new_bname);
   changeEntryPnt (new_bname);
   instBname(new_bname);
@@ -2089,13 +2091,18 @@ ElfClass::readJmpSlots () {
 
       uint32_t type = (uint32_t) rl[j].r_info;
 
-      if (type == R_X86_64_GLOB_DAT || type == R_X86_64_JUMP_SLOT) {
-        uint32_t indx = (uint32_t) (rl[j].r_info >> 32);
-        uint64_t strng_tbl_indx = sym_tbl[indx].st_name;
-
+      if (type == R_X86_64_GLOB_DAT || type == R_X86_64_JUMP_SLOT || type == R_X86_64_IRELATIVE) {
         string symname;
-        for(int i = strng_tbl_indx; all_strings[i] != '\0'; i++)
-          symname.push_back (all_strings[i]);
+        if(type == R_X86_64_IRELATIVE) {
+          symname = to_string(rl[j].r_addend);
+        }
+        else {
+          uint32_t indx = (uint32_t) (rl[j].r_info >> 32);
+          uint64_t strng_tbl_indx = sym_tbl[indx].st_name;
+
+          for(int i = strng_tbl_indx; all_strings[i] != '\0'; i++)
+            symname.push_back (all_strings[i]);
+        }
         //LOG("jump slot: "<<hex<<rl[j].r_offset<<" symbol name: "<<symname);
         //allJmpSlots_[rl[j].r_offset] = symname;
 

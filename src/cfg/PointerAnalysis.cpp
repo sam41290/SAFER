@@ -119,7 +119,11 @@ PointerAnalysis::symbolize() {
 #else
   for(auto & ptr : ptrMap) {
     LOG("Symbolizing: "<<hex<<ptr.second->address());
-    if(ptr.second->type() != PointerType::DP && definiteCode(ptr.first)) {
+    if(ptr.second->type() != PointerType::DP && definiteCode(ptr.first) &&
+       isJmpTblLoc(ptr.first) == false) {
+      if(isJmpTblBase(ptr.first)) {
+        continue;
+      }
       SYMBOLIZE(ptr.second);
     }
     else

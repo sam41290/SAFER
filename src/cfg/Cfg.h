@@ -57,17 +57,12 @@ class Cfg:public PointerAnalysis, public virtual CfgElems
   //map <uint64_t, BasicBlock *> basicBlkMap_;
   priority_queue <int, vector <int>, greater <int>> disasmRoots_;
   set <PointerSource> ignoreRoots_;
-  exe_type type_;
   Rand *randomizer_;
   PointerSource rootSrc_ = PointerSource::NONE;
   uint64_t currentRoot_;
 public:
     Cfg(uint64_t memstrt, uint64_t memend);
    ~Cfg() {};
-  void type(exe_type t) { 
-    LOG("Exe Type: "<<dec<<(int)t);
-    type_ = t; 
-  }
   void rootSrc(PointerSource src) { rootSrc_ = src; } 
   bool addToCfg(uint64_t addrs, PointerSource t);
   void disasmRoots(PointerType p_type);

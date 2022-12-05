@@ -44,7 +44,13 @@
 #define SYMBOLIZERLTV(ptr) symbolizeRltvPtr(ptr)
 #define SYMBOLIZENONSTRING(ptr) symbolizeNonString(ptr)
 
-#define SYMBOLIZE(ptr)
+//#define SYMBOLIZE(ptr)
+
+#define SYMBOLIZE(ptr) { \
+  SYMBOLIZERELOCATEDCONST(ptr); \
+  SYMBOLIZERELOCATEDIMM(ptr); \
+  SYMBOLIZERLTV(ptr); \
+}
 
 /*
 #define SYMBOLIZE(ptr) { \

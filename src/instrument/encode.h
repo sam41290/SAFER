@@ -43,12 +43,13 @@ public:
     string tbl = ".atf_ptr: .8byte .atf - .elf_header_start\n";
     int ctr = 0;
     for (auto & e : attTable_) {
-      e.lookupEntrySym_ = ".attentry_lookup" + to_string(ctr);
-      e.tgtEntrySym_ = ".attentry_tgt" + to_string(ctr);
+      e.lookupEntrySym_ = ".attentry_lookup_" + to_string(e.val_);
+      e.tgtEntrySym_ = ".attentry_tgt_" + to_string(e.val_);
       tbl += e.lookupEntrySym_ + ":\n"
           + e.oldPtr_ + "\n" + e.tgtEntrySym_ + ":\n"
           + e.newPtr_ + "\n"
-          /*+ "." + to_string(e.val_) + "_enc_ptr:*/ + ".8byte " + to_string((int)EncType()) + "\n";
+          + "." + to_string(e.val_) + "_enc_ptr:\n" 
+          + ".8byte " + to_string((int)EncType()) + "\n";
       ctr++;
     }
     tbl += ".dispatcher: .8byte 0\n.gtt_ind: .8byte 0\n.syscall_checker: .8byte 0\n";

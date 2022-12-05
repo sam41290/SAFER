@@ -5,6 +5,7 @@
 #include <vector>
 #include <bits/stdc++.h>
 #include "BasicBlock.h"
+#include "JumpTable.h"
 
 /* class frame represents a contiguous memory region to which a function belongs. 
  * 1 frame for every function.
@@ -91,6 +92,7 @@ public:
   vector <pair <uint64_t, uint64_t>> gaps();
   vector <BasicBlock *> allBBs();
   BasicBlock *getDataBlock(uint64_t addrs);
+  void linkCFToJumpTable(JumpTable *j, uint64_t ins_loc);
   uint64_t firstCodeAddress();
   virtual vector <uint64_t> allValidEntries() = 0;
 private:

@@ -39,7 +39,7 @@ Cfg::disassemble() {
   all_const_relocs.insert(all_const_relocs.end(),xtra_reloc.begin(), xtra_reloc.end());
   allConstRelocs(all_const_relocs);
   genCFG();
-  classifyPtrs();
+  //classifyPtrs();
   populateRltvTgts();
   randomizer();
   prntPtrStats();
@@ -1309,6 +1309,7 @@ Cfg::genCFG() {
 #ifdef GROUND_TRUTH
   groundTruthDisasm();
   classifyPtrs();
+  chkJmpTblRewritability();
   symbolize();
   string key("/");
   size_t found = exePath_.rfind(key);
@@ -1354,6 +1355,7 @@ Cfg::genCFG() {
   dump();
 #endif
   classifyPtrs();
+  chkJmpTblRewritability();
   symbolize();
   string key("/");
   size_t found = exePath_.rfind(key);
@@ -1379,6 +1381,7 @@ Cfg::genCFG() {
   cfgConsistencyAnalysis();
 //#endif
   classifyPtrs();
+  chkJmpTblRewritability();
   symbolize();
   string key("/");
   size_t found = exePath_.rfind(key);
@@ -1622,8 +1625,8 @@ Cfg::processIndrctJmp(Instruction *call_ins, BasicBlock *bb,code_type t) {
       LOG("may exit call found. Marking bb: "<<hex<<bb->start()<<" may be returning");
       bb->type(BBType::MAY_BE_RETURNING);
     }
-    if(isPlt(jump_slot))
-      call_ins->atRequired(false);
+    //if(isPlt(jump_slot))
+    //  call_ins->atRequired(false);
   }
 }
 

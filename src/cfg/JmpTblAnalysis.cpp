@@ -34,17 +34,17 @@ JmpTblAnalysis::readTargets (JumpTable & jt, uint64_t jloc)
       uint64_t end = dataSegmntEnd(jt.location ());
       jt.end(min(jt.end(),end));
       //linkAllBBs();
-      bb = withinBB(jloc);
-      bb->isJmpTblBlk(true);
-      DEF_LOG("Updating indirect target for bb: "<<hex<<bb->start()<<" tgt: "
-          <<hex<<tgt);
+      //bb = withinBB(jloc);
+      //bb->isJmpTblBlk(true);
+      //DEF_LOG("Updating indirect target for bb: "<<hex<<bb->start()<<" tgt: "
+      //    <<hex<<tgt);
       //while(bb->fallThrough() != 0)
       //  bb = bb->fallThroughBB();
       auto tgt_bb = getBB(tgt);
       if(tgt_bb != NULL) {
         addIndrctTgt(bb->end(),tgt_bb);
         newPointer(tgt,PointerType::UNKNOWN,PointerSource::JUMPTABLE,bb->start());
-        LOG("indirect target added");
+        //LOG("indirect target added");
         jt.addTarget(tgt);
       }
     }
@@ -58,72 +58,32 @@ JmpTblAnalysis::readTargets (JumpTable & jt, uint64_t jloc)
 void
 JmpTblAnalysis::decodeJmpTblTgts(analysis::JTable j_lst) {
   map <uint64_t, Function *>funMap = funcMap();
-  /* ~~ offset + *(base + index * stride) ~~ */
+  vector <JumpTable> jmp_tbls;
   for (auto& [jloc, jtable]: j_lst.type1()) {
+  /* ~~ offset + *(base + index * stride) ~~ */
     JumpTable j;
     j.type(1);
     j.base(jtable.offset.val);
+
     j.location(jtable.mem.addr.base.val);
     if (definiteCode(j.location()))
       continue;
-    if (isJmpTblLoc(j.location()))
-      continue;
+
     j.entrySize(jtable.mem.addr.range.stride);
-    //auto h = (uint64_t)(j.location()+jtable.mem.addr.range.h);
-    //j.end(std::min(h,dataSegmntEnd(j.location())));
-    j.end(dataSegmntEnd(j.location()));
-    if (j.end() == 0) {
-      LOG ("Unexpected end!!!");
-      continue;
-    }
-    LOG("Decoding jump table: ");
-    DEF_LOG("Location: "<<hex<<j.location()<<" base: "<<j.base()<<" end: "<<hex<<j.end());
-    uint64_t cf_loc = jloc;
-    //BasicBlock *cfbb = withinBB(jloc);
-    //cfbb->isJmpTblBlk(true);
-    auto fn = is_within(cf_loc,funMap);
-    j.function(fn->first);
-    readTargets(j,cf_loc);
-    if(j.base() != 0) {
-      auto basebb = getBB(j.base());
-      if(basebb != NULL)
-        j.baseBB(basebb);
-    }
-    jumpTable(j);
+    j.cfLoc(jloc);
+    jmp_tbls.push_back(j);
   }
-  /* ~~~~~~~~ base + index * stride ~~~~~~~~ */
   for (auto& [jloc, jtable]: j_lst.type2()) {
+  /* ~~~~~~~~ base + index * stride ~~~~~~~~ */
     JumpTable j;
     j.type(2);
     j.base(jtable.base.val);
     j.location(jtable.base.val);
     if (definiteCode(j.location()))
       continue;
-    if (isJmpTblLoc(j.location()))
-      continue;
     j.entrySize(jtable.range.stride);
-    //auto h = (uint64_t)(j.location()+jtable.range.h);
-    //j.end(std::min(h, dataSegmntEnd(j.location())));
-
-    j.end(dataSegmntEnd(j.location()));
-    if (j.end() == 0) {
-      LOG ("Unexpected end!!!");
-      continue;
-    }
-    LOG("Decoding jump table: ");
-    DEF_LOG("Location: "<<hex<<j.location()<<" base: "<<j.base()<<" end: "<<hex<<j.end());
-    uint64_t cf_loc = jloc;
-    //BasicBlock *cfbb = withinBB(jloc);
-    //cfbb->isJmpTblBlk(true);
-    auto fn = is_within(cf_loc,funMap);
-    j.function(fn->first);
-    readTargets(j,cf_loc);
-    if(j.base() != 0) {
-      auto basebb = getBB(j.base());
-      if(basebb != NULL)
-        j.baseBB(basebb);
-    }
-    jumpTable(j);
+    j.cfLoc(jloc);
+    jmp_tbls.push_back(j);
   }
   /* ~~~~~~ *(base + index * stride) ~~~~~~~ */
   for (auto& [jloc, jtable]: j_lst.type3()) {
@@ -133,31 +93,34 @@ JmpTblAnalysis::decodeJmpTblTgts(analysis::JTable j_lst) {
     j.location(jtable.addr.base.val);
     if (definiteCode(j.location()))
       continue;
-    if (isJmpTblLoc(j.location()))
-      continue;
     j.entrySize(jtable.addr.range.stride);
-    //auto h = (uint64_t)(j.location()+jtable.addr.range.h);
-    //j.end(std::min(h, dataSegmntEnd(j.location())));
-    j.end(dataSegmntEnd(j.location()));
-
-    if (j.end() == 0) {
-      LOG ("Unexpected end!!!");
-      continue;
+    j.cfLoc(jloc);
+    jmp_tbls.push_back(j);
+  }
+  for(auto & j : jmp_tbls) {
+    if (isJmpTblLoc(j.location()) == false) {
+      //auto h = (uint64_t)(j.location()+jtable.mem.addr.range.h);
+      //j.end(std::min(h,dataSegmntEnd(j.location())));
+      j.end(dataSegmntEnd(j.location()));
+      if (j.end() == 0) {
+        LOG ("Unexpected end!!!");
+        continue;
+      }
+      LOG("Decoding jump table: ");
+      DEF_LOG("Location: "<<hex<<j.location()<<" base: "<<j.base()<<" end: "<<hex<<j.end());
+      //BasicBlock *cfbb = withinBB(jloc);
+      //cfbb->isJmpTblBlk(true);
+      auto cf_loc = j.cfLoc();
+      auto fn = is_within(cf_loc,funMap);
+      j.function(fn->first);
+      readTargets(j,cf_loc);
+      if(j.base() != 0) {
+        auto basebb = getBB(j.base());
+        if(basebb != NULL)
+          j.baseBB(basebb);
+      }
+      jumpTable(j);
     }
-    LOG("Decoding jump table: ");
-    DEF_LOG("Location: "<<hex<<j.location()<<" base: "<<j.base()<<" end: "<<hex<<j.end());
-    uint64_t cf_loc = jloc;
-    //BasicBlock *cfbb = withinBB(jloc);
-    //cfbb->isJmpTblBlk(true);
-    auto fn = is_within(cf_loc,funMap);
-    j.function(fn->first);
-    readTargets(j,cf_loc);
-    if(j.base() != 0) {
-      auto basebb = getBB(j.base());
-      if(basebb != NULL)
-        j.baseBB(basebb);
-    }
-    jumpTable(j);
   }
 }
 

@@ -4,6 +4,7 @@
 #include "Instruction.h"
 #include "Pointer.h"
 #include "config.h"
+//#include "JumpTable.h"
 #include <set>
 
 /* class basic block represents a basic block in the CFG with one entry and one
@@ -57,7 +58,6 @@ private:
   uint64_t fallThrough_ = 0;
   bool isFuncExit_ = false;
   bool isLea_ = false;
-  //bool isCode_ = false;
   code_type codeType_ = code_type::UNKNOWN;
   Instruction fallThroughIns_;
   vector <BasicBlock *> parents_;
@@ -74,8 +74,6 @@ private:
   PointerSource source_;
   PointerSource rootSrc_;
   bool isTramp_ = false;
-  //CFStatus jmpTblConsistency_ = CFStatus::NOT_EXAMINED;
-  //CFStatus CFConsistency_ = CFStatus::NOT_EXAMINED;
   unordered_set <BasicBlock *> roots_;
   vector <BasicBlock *> entries_;
   bool rootsComputed_ = false;
@@ -86,10 +84,11 @@ private:
   unordered_map <uint64_t, unordered_map <int, bool>> contextProps_;
   uint64_t validityWindow_ = 0;
   uint64_t frame_ = 0;
-  //vector <BasicBlock *> defExitCalls_;
   vector <BasicBlock *> mergedBBs_;
   bool lockJump_ = false;
 public:
+  void addrTransMust(bool val) { lastIns()->atRequired(val); }
+  bool addrTransMust() { return lastIns()->atRequired(); }
   void lockJump(bool val) { lockJump_ = val; }
   bool lockJump() { return lockJump_; }
   void mergeBB(BasicBlock *bb) { mergedBBs_.push_back(bb); }
@@ -241,6 +240,7 @@ public:
   bool isLea() { return isLea_; }
   void isLea(bool isIt) { isLea_ = isIt; }
   vector <BasicBlock *> &indirectTgts() { return indirectTgts_;}
+  void indirectTgts(vector <BasicBlock *> &lst) { indirectTgts_ = lst; }
   void addIndrctTgt(BasicBlock *bb) { 
     for(auto & b : indirectTgts_)
       if(b->start() == bb->start())
@@ -291,6 +291,7 @@ public:
   void updateType();
   bool noConflict(uint64_t addrs);
   void addTrampToTgt();
+
 private:
   void inferType(unordered_set <uint64_t> &passed);
 };

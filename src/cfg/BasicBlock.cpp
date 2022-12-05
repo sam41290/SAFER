@@ -144,6 +144,8 @@ BasicBlock::split(uint64_t address) {
     new_bb->codeType(codeType_);
     new_bb->type(type_);
     new_bb->callType(callType_);
+    new_bb->isJmpTblBlk(isJmpTblBlk());
+    new_bb->indirectTgts(indirectTgts_);
     //LOG("is code set");
     insList_ = newInsList1;
     end_ = lastIns()->location();
@@ -262,14 +264,23 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
       }
       else {
         auto p = ptr_map.find(rip_rltv_offset);
-        if(p == ptr_map.end() || p->second->type() == PointerType::CP) {
-          for (auto & bb : rltvTgts_) {
-            if(bb->start() == rip_rltv_offset) {
-              string op = utils::symbolizeRltvAccess(it->op1(),
-                   bb->label(),rip_rltv_offset,SymBind::FORCEBIND);
-              it->asmIns(it->prefix() + it->mnemonic() + " " + op);
-              it->op1(op);
-              break;
+        if(p != ptr_map.end() && p->second->type() == PointerType::CP && 
+           p->second->symbolized(SymbolizeIf::RLTV)) {
+          if(it->encode()) {
+            string op = it->op1();
+            size_t pos = op.find (",");
+            string reg = op.substr (pos + 1);
+            it->asmIns("mov ." + to_string(rip_rltv_offset) + "_enc_ptr(%rip)," + reg);
+          }
+          else {
+            for (auto & bb : rltvTgts_) {
+              if(bb->start() == rip_rltv_offset) {
+                string op = utils::symbolizeRltvAccess(it->op1(),
+                     bb->label(),rip_rltv_offset,SymBind::FORCEBIND);
+                it->asmIns(it->prefix() + it->mnemonic() + " " + op);
+                it->op1(op);
+                break;
+              }
             }
           }
         }
@@ -314,8 +325,8 @@ void
 BasicBlock::instrument() {
   vector<pair<uint64_t,string>> tgtAddrs = targetAddrs();
   map<string,vector<InstArg>>allargs = instArgs();
-  for(auto tgt:tgtAddrs) {
-    for(auto ins_it:insList_) {
+  for(auto & tgt : tgtAddrs) {
+    for(auto & ins_it : insList_) {
       if(ins_it->location() == tgt.first) {
         ins_it->registerInstrumentation(InstPoint::BASIC_BLOCK,
           tgt.second,allargs[tgt.second]);
@@ -324,19 +335,19 @@ BasicBlock::instrument() {
     }
   }
   vector<pair<InstPoint,string>> targetPos = targetPositions();
-  for(auto p:targetPos) {
+  for(auto & p : targetPos) {
     if(p.first == InstPoint::INDIRECT_CF) {
       auto ins_it = lastIns();
       if(ins_it->isIndirectCf()) {
         ins_it->registerInstrumentation(p.first,p.second,allargs[p.second]);
-        //ins_it->second.instrument();
       }
     }
     else if(p.first == InstPoint::ADDRS_TRANS) {
-      auto ins_it = lastIns();
-      if(ins_it->isIndirectCf() && ins_it->atRequired()) {
-        ins_it->registerInstrumentation(p.first,p.second,allargs[p.second]);
-        //ins_it->second.instrument();
+      for(auto & ins : insList_) {
+        if(ins->isRltvAccess() && ins->isLea())
+          ins->encode(true);
+        if(ins->isIndirectCf() && ins->atRequired())
+          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
       }
     }
     else if(p.first == InstPoint::SYSCALL_CHECK) {
