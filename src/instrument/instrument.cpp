@@ -1,12 +1,9 @@
 #include "instrument.h"
 #include "libutils.h"
 
-const vector <string> savedReg_{"flags","%rax",
-    "%rdi","%rsi","%rdx","%rcx","%r8","%r9","%r10","%r11"};
-const vector <string> atfSavedReg_{"flags","%rax",
-    "%rdi", "%rsi", "%rdx","%rcx","%r8"};
-const vector <string> syscallCheckSavedReg_{"flags","%rax",
-    "%rdi", "%rsi", "%rdx"};
+const vector <string> savedReg_{"%rax","%rdi","%rsi","%rdx","%rcx","%r8","%r9","%r10","%r11"};
+const vector <string> atfSavedReg_{"%rax","%rdi","%rsi"};
+const vector <string> syscallCheckSavedReg_{"%rax","%rdi", "%rsi", "%rdx"};
 
 /*
 string
@@ -173,7 +170,7 @@ Instrument::generate_hook(string hook_target, string args,
 
   inst_code = inst_code + restore(h);
   if(h == HookType::ADDRS_TRANS) {
-    inst_code += mne + " *-88(%rsp)\n";
+    inst_code += mne + " *-40(%rsp)\n";
   }
   return inst_code;
 }
@@ -183,18 +180,24 @@ Instrument::save(HookType h) {
   string ins = "";
 
   vector <string> reg_list;
-  //if(h == HookType::ADDRS_TRANS)
-  //  reg_list = atfSavedReg_;
-  ////else if(h == HookType::SYSCALL_CHECK)
-  ////  reg_list = syscallCheckSavedReg_;
-  //else
+  if(h == HookType::ADDRS_TRANS)
+    reg_list = atfSavedReg_;
+  //else if(h == HookType::SYSCALL_CHECK)
+  //  reg_list = syscallCheckSavedReg_;
+  else
     reg_list = savedReg_;
-
+  ins += "pushf\n";
+  auto offset = 8 * reg_list.size();
+  ins += "sub $" + to_string(offset) + ",%rsp\n";
   for(string & str : reg_list) {
+    offset -= 8;
+    ins += "mov " + str + "," + to_string(offset) + "(%rsp)\n";
+    /*
     if(str == "flags")
       ins += "pushf\n";
     else
       ins+= "push " + str + "\n";
+      */
   }
   return ins;
 }
@@ -203,21 +206,28 @@ string
 Instrument::restore(HookType h) {
   string ins = "";
   vector <string> reg_list;
-  //if(h == HookType::ADDRS_TRANS)
-  //  reg_list = atfSavedReg_;
-  ////else if(h == HookType::SYSCALL_CHECK)
-  ////  reg_list = syscallCheckSavedReg_;
-  //else
+  if(h == HookType::ADDRS_TRANS)
+    reg_list = atfSavedReg_;
+  //else if(h == HookType::SYSCALL_CHECK)
+  //  reg_list = syscallCheckSavedReg_;
+  else
     reg_list = savedReg_;
 
   auto it = reg_list.end();
+  auto offset = 0;//8 * reg_list.size();
   while(it != reg_list.begin()) {
     it = prev(it);
+    ins += "mov " + to_string(offset) + "(%rsp)," + *it + "\n";
+    offset += 8;
+    /*
     if(*it == "flags")
       ins += "popf\n";
     else
       ins+= "pop " + *it + "\n";
+      */
   }
+  ins += "add $" + to_string(8 * reg_list.size()) + ",%rsp\n";
+  ins += "popf\n";
   return ins;
 }
 
@@ -225,11 +235,11 @@ string
 Instrument::getRegVal(string reg, HookType h) {
 
   vector <string> reg_list;
-  //if(h == HookType::ADDRS_TRANS)
-  //  reg_list = atfSavedReg_;
-  ////else if(h == HookType::SYSCALL_CHECK)
-  ////  reg_list = syscallCheckSavedReg_;
-  //else
+  if(h == HookType::ADDRS_TRANS)
+    reg_list = atfSavedReg_;
+  //else if(h == HookType::SYSCALL_CHECK)
+  //  reg_list = syscallCheckSavedReg_;
+  else
     reg_list = savedReg_;
   string val = "";
   int offt = 8 * (reg_list.size() - 1);
@@ -245,7 +255,7 @@ Instrument::getRegVal(string reg, HookType h) {
       adjst = stoi (off, 0, 16);
       //cout << "rsp offset: " << off << " adjst: " << adjst << endl;
     }
-    adjst += (8 * reg_list.size());
+    adjst += (8 * (reg_list.size() + 1/*For pushf*/));
     //cout << "new adjustment: " << adjst << endl;
     val = to_string (adjst) + "(%rsp)";
     return val;

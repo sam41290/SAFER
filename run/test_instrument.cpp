@@ -15,11 +15,11 @@ main (int argc, char *args[]) {
   binary_path += args[1];
   cout << binary_path << endl;
   Binary b (binary_path);
-  vector<InstArg> arglst;
-  arglst.push_back(InstArg::EXENAME);
-  arglst.push_back(InstArg::RIP);
-  arglst.push_back(InstArg::INDIRECT_TARGET);
-  b.registerInstrumentation(InstPoint::INDIRECT_CF,"LOG",arglst);
+  //vector<InstArg> arglst;
+  //arglst.push_back(InstArg::EXENAME);
+  //arglst.push_back(InstArg::RIP);
+  //arglst.push_back(InstArg::INDIRECT_TARGET);
+  //b.registerInstrumentation(InstPoint::INDIRECT_CF,"LOG",arglst);
   //
   //vector<InstArg> arglst;
   //arglst.push_back(InstArg::EXENAME);
