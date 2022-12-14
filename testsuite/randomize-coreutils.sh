@@ -65,7 +65,7 @@ REGEN_DIR="${HOME}/randomized_libs"
     exe=`basename ${line}`
     if [ -f ${REGEN_DIR}/${exe}_2 ]
     then
-  	  cp ${REGEN_DIR}/${exe}_2 ${COREUTILS_SRC_DIR}/${exename}
+  	  cp ${REGEN_DIR}/${exe}_2 ${COREUTILS_SRC_DIR}/${exe}
     else
       echo "Failure encountered for $exe"
       exit
@@ -94,9 +94,10 @@ REGEN_DIR="${HOME}/randomized_libs"
   #done < all_bins.dat
 
   cd ${COREUTILS_SRC_DIR}/..
+  export LD_LIBRARY_PATH=${REGEN_DIR}
   time make check RUN_EXPENSIVE_TESTS=yes RUN_VERY_EXPENSIVE_TESTS=yes #> test.log
   #cp test.log ${thisdir}/data/coreutils_data_${i}/
-  cd ${thisdir}
+  #cd ${thisdir}
 
   #i=`expr $i + 1`
 #done

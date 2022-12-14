@@ -55,6 +55,7 @@ cd ${TOOL_PATH}
 ln -sf ${TOOL_PATH}/randomize.sh ${HOME}/randomize.sh
 
 ln -sf ${TOOL_PATH}/testsuite/randomize-coreutils.sh ${HOME}/randomize-coreutils.sh
+ln -sf ${TOOL_PATH}/testsuite/randomize-suite.sh ${HOME}/randomize-suite.sh
 
 ln -sf ${TOOL_PATH}/testsuite/randomize_prog.sh ${HOME}/randomize_prog.sh
 

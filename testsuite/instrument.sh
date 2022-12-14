@@ -65,31 +65,28 @@ then
     	    ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
     	fi
 
-		continue
+    else
+	  echo "processing ${filepath}"
+      rm ${REGEN_DIR}/${file}_2
+	  cp ${filepath} ${REGEN_DIR}/
+	  ${TOOL_PATH}/randomize.sh ${REGEN_DIR}/${file} ${args}
+	  mode_len=`echo ${#mode}`
+
+	  if [ ${mode_len} -eq 0 ]
+	  then
+	  	echo "${file}:${rand_mode}" >> ${TOOL_PATH}/testsuite/randomized.dat
+	  else
+	  	sed -i "s/${pattern}:${mode}/${file}:${rand_mode}/g" \
+          ${TOOL_PATH}/testsuite/randomized.dat
+	  fi
+
+	  if [ ${len} -eq 0 ]
+	  then
+	      cp ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${file}
+	  else
+	  	linkname=`basename ${link}`
+	      ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
+	  fi
 	fi
-
-
-	echo "processing ${filepath}"
-    rm ${REGEN_DIR}/${file}_2
-	cp ${filepath} ${REGEN_DIR}/
-	${TOOL_PATH}/randomize.sh ${REGEN_DIR}/${file} ${args}
-	mode_len=`echo ${#mode}`
-
-	if [ ${mode_len} -eq 0 ]
-	then
-		echo "${file}:${rand_mode}" >> ${TOOL_PATH}/testsuite/randomized.dat
-	else
-		sed -i "s/${pattern}:${mode}/${file}:${rand_mode}/g" \
-        ${TOOL_PATH}/testsuite/randomized.dat
-	fi
-
-	if [ ${len} -eq 0 ]
-	then
-	    cp ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${file}
-	else
-		linkname=`basename ${link}`
-	    ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
-	fi
-
 fi	
 
