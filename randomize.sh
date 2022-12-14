@@ -56,7 +56,11 @@ fi
 
 export LD_LIBRARY_PATH=/usr/lib/ocaml
 
-cd ${TOOL_PATH}/run
+bin=`basename $binpath`
+mkdir ${TOOL_PATH}/${bin}_run
+cp -r ${TOOL_PATH}/run/* ${TOOL_PATH}/${bin}_run/
+wd=`pwd`
+cd ${TOOL_PATH}/${bin}_run
 
 change_config=`diff config.h randmodes/${rand_mode}.h | wc -w`
 
@@ -68,3 +72,6 @@ fi
 #make clean
 make
 ./run.sh $binpath > ${binpath}.log
+cd ${wd}
+rm -rf ${TOOL_PATH}/${bin}_run
+

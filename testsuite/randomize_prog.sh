@@ -39,66 +39,34 @@ export LD_LIBRARY_PATH=/usr/lib/ocaml
 
 REGEN_DIR="${HOME}/randomized_libs"
 
+exe_cnt=`cat ${TOOL_PATH}/testsuite/deps/${prog}_file_list.dat | wc -l`
+max_batch_cnt=`expr $exe_cnt / 7`
+echo "batch count: ${max_batch_cnt}"
+
+batch_cnt=0
+batch_num=1
+batch_file="/tmp/${prog}_batch_${batch_num}"
+echo -n "" > ${batch_file}
+
 while read line
 do
-	linkdir=`dirname ${line}`
-	#link=`find ${dir} -lname ${line}`
-	filepath=`readlink -f ${line}` 
-	echo "line: ${line} filepath: ${filepath}"
-	file=`basename ${filepath}`
-	link=`find ${linkdir} -lname ${file}`
-	len=`echo ${#link}`
-
-	if [ ${len} -eq 0 ]
-	then
-	  link=`find ${linkdir} -lname ${filepath}`
-      len=`echo ${#link}`
-	fi
-
-	readelf -d ${filepath}
-	if [ $? -eq 0 ]
-	then
-		pattern=`echo $file | sed 's/\./\\\./g'`
-		mode=`cat ${TOOL_PATH}/testsuite/randomized.dat | grep "^${pattern}:" | cut -d":" -f2`
-		if [ "${mode}" = "${rand_mode}" ]
-		then
-			if [ ${len} -eq 0 ]
-        	then
-        	    cp ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${file}
-        	else
-        	    linkname=`basename ${link}`
-        	    ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
-        	fi
-
-			continue
-		fi
-
-
-		echo "processing ${filepath}"
-        rm ${REGEN_DIR}/${file}_2
-		cp ${filepath} ${REGEN_DIR}/
-    	${TOOL_PATH}/randomize.sh ${REGEN_DIR}/${file} ${args}
-		
-		mode_len=`echo ${#mode}`
-
-		if [ ${mode_len} -eq 0 ]
-		then
-			echo "${file}:${rand_mode}" >> ${TOOL_PATH}/testsuite/randomized.dat
-		else
-			sed -i "s/${pattern}:${mode}/${file}:${rand_mode}/g" \
-            ${TOOL_PATH}/testsuite/randomized.dat
-		fi
-
-    	if [ ${len} -eq 0 ]
-    	then
-    	    cp ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${file}
-    	else
-			linkname=`basename ${link}`
-    	    ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
-    	fi
-
-	fi	
-
+  echo "${line}" >> ${batch_file}
+  batch_cnt=`expr $batch_cnt + 1`
+  if [ $batch_cnt -ge $max_batch_cnt ]
+  then
+    nohup ${TOOL_PATH}/testsuite/instrument_batch.sh ${batch_file} ${arg} &
+    batch_cnt=0
+    batch_num=`expr $batch_num + 1`
+    batch_file="/tmp/${prog}_batch_${batch_num}"
+    echo -n "" > ${batch_file}
+  fi
+  #${TOOL_PATH}/testsuite/instrument.sh ${REGEN_DIR}/${file} ${args}
 done < ${TOOL_PATH}/testsuite/deps/${prog}_file_list.dat 
+if [ $batch_cnt -ge $max_batch_cnt ]
+then
+  nohup ${TOOL_PATH}/testsuite/instrument_batch.sh ${batch_file} ${arg} &
+fi
+
+wait
 
 date

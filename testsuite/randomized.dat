@@ -8,10 +8,3 @@ libpython3.6m.so.1.0:LLRK
 libwireshark.so.11.1.10:LLRK
 perl:LLRK
 libicudata.so.60.2:LLRK
-ls_nopie:NoRand
-libc-2.31.so:NoRand
-libdl-2.31.so:NoRand
-libpcre2-8.so.0.9.0:NoRand
-libpthread-2.31.so:NoRand
-libselinux.so.1:NoRand
-libnss_files-2.31.so:NoRand
