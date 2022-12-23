@@ -16,6 +16,8 @@ NoBBRand::print (vector <BasicBlock *> bbs, string file_name, uint64_t fstart)
     }
     prevBB = bb;
   }
+  if(prevBB != NULL && prevBB->fallThrough() != 0)
+    addJmpToFallThru(prevBB);
   vector<uint64_t> brkPoints;
   brkPoints.push_back(bbs[0]->start());
   vector<BasicBlock *> finalbbs;

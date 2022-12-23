@@ -2,7 +2,7 @@
 #include "libutils.h"
 
 const vector <string> savedReg_{"%rax","%rdi","%rsi","%rdx","%rcx","%r8","%r9","%r10","%r11"};
-const vector <string> atfSavedReg_{"%rax","%rdi","%rsi"};
+const vector <string> atfSavedReg_{};//{"%rax","%rdi","%rsi"};
 const vector <string> syscallCheckSavedReg_{"%rax","%rdi", "%rsi", "%rdx"};
 
 /*
@@ -152,8 +152,19 @@ Instrument::generate_hook(string hook_target, string args,
    *  Then makes a call to the instrumentation code.
    */
   string inst_code = "";
-  inst_code += save(h);
-  inst_code += args + "call ." + hook_target + "\n";
+  if(h == HookType::ADDRS_TRANS) {
+    uint64_t rax_offt = 16;
+    if(mne.find("call") != string::npos)
+      rax_offt += 8;
+    if(mne == "jmpq")
+      mne = "jmp";
+    inst_code += "mov %rax,-" + to_string(rax_offt) + "(%rsp)\n"; 
+    inst_code += args + mne + " ." + hook_target + "\n";
+  }
+  else {
+    inst_code += save(h);
+    inst_code += args + "call ." + hook_target + "\n";
+  }
 
   if(h == HookType::SEGFAULT) {
     /* If the stub is supposed to install seg-fault handler, we need to make
@@ -162,16 +173,17 @@ Instrument::generate_hook(string hook_target, string args,
     inst_code = inst_code + "mov $11, %rdi\n" +
                             "mov %rax,%rsi\n" +
                             "mov $0, %rdx\n" +
-                            "call ." + to_string(sigaction_addrs) + "\n";
+                            "call ." + to_string(sigaction_addrs) + "_" + to_string(sigaction_addrs) + "_def_code\n";
   }
-  if(h == HookType::ADDRS_TRANS) {
-    inst_code += "mov %rax,-8(%rsp)\n";
-  }
+  //if(h == HookType::ADDRS_TRANS) {
+  //  inst_code += "mov %rax,-8(%rsp)\n";
+  //}
 
-  inst_code = inst_code + restore(h);
-  if(h == HookType::ADDRS_TRANS) {
-    inst_code += mne + " *-40(%rsp)\n";
-  }
+  if(h != HookType::ADDRS_TRANS)
+    inst_code = inst_code + restore(h);
+  //if(h == HookType::ADDRS_TRANS) {
+  //  inst_code += mne + " *-40(%rsp)\n";
+  //}
   return inst_code;
 }
 
@@ -236,7 +248,8 @@ Instrument::getRegVal(string reg, HookType h) {
 
   vector <string> reg_list;
   if(h == HookType::ADDRS_TRANS)
-    reg_list = atfSavedReg_;
+    return reg;
+    //reg_list = atfSavedReg_;
   //else if(h == HookType::SYSCALL_CHECK)
   //  reg_list = syscallCheckSavedReg_;
   else

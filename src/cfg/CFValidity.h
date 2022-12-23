@@ -39,6 +39,11 @@ namespace SBI {
       InsValidators_[(int)InsValidityRules::VLD_PRFX] = &validPrfx;
       InsValidators_[(int)InsValidityRules::VLD_USRMODE_INS] = &validUsrModeIns;
     }
+    static bool validAddrs(uint64_t addrs) {
+      if(addrs >= memSpaceStart_ && addrs < memSpaceEnd_)
+        return true;
+      return false;
+    }
     static bool validIns(vector <BasicBlock *> &bb_list);
     static bool validOpCode(Instruction *ins);
     static bool validMem(Instruction *ins);

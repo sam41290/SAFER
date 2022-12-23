@@ -11,6 +11,7 @@
 COREUTILS_SRC_DIR=${HOME}/coreutils-8.30/src
 
 COREUTILS_INSTALL=${HOME}/coreutils-install/bin
+COREUTILS_LIB=${HOME}/coreutils-install/libexec/coreutils
 
 TOOL_PATH=${HOME}/SBI
 
@@ -44,7 +45,9 @@ REGEN_DIR="${HOME}/randomized_libs"
   #rm ${COREUTILS_INSTALL}/*.log
   
   ls -1 ${COREUTILS_INSTALL}/* | grep -v "_orig" | grep -v "\.intercepted" | \
-  grep -v "_2" > all_bins.dat
+  grep -v "_2" | grep -v "\.o\|\.c\|\.h" > all_bins.dat
+  ls -1 ${COREUTILS_LIB}/* | grep -v "_orig" | grep -v "\.intercepted" | \
+  grep -v "_2" | grep -v "\.o\|\.c\|\.h" >> all_bins.dat
   #mkdir ${TOOL_PATH}/testsuite/data/coreutils_data_${i}
   echo -n "" > ${TOOL_PATH}/testsuite/deps/coreutils_file_list.dat
   while read line
@@ -60,13 +63,14 @@ REGEN_DIR="${HOME}/randomized_libs"
   mv ${TOOL_PATH}/testsuite/deps/tmp_file_list.dat ${TOOL_PATH}/testsuite/deps/coreutils_file_list.dat
 
   ${TOOL_PATH}/testsuite/randomize_prog.sh coreutils
+  ${TOOL_PATH}/testsuite/randomize_prog.sh libnss_files.so.2
   while read line
   do
     exe=`basename ${line}`
     if [ -f ${REGEN_DIR}/${exe}_2 ]
     then
-      chmod 777 ${REGEN_DIR}/${exe}
-  	  mv ${REGEN_DIR}/${exe} ${COREUTILS_SRC_DIR}/${exe}
+      chmod 777 ${REGEN_DIR}/${exe}_2
+  	  cp ${REGEN_DIR}/${exe}_2 ${COREUTILS_SRC_DIR}/${exe}
     else
       echo "Failure encountered for $exe"
       exit

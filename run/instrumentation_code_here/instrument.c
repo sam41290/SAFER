@@ -18,19 +18,20 @@ segfault_handler (int nSignum, siginfo_t * si, void *vcontext)
   ucontext_t *context = (ucontext_t *) vcontext;
   myprintf ("Segfault at RIP: %p faulting pointer: %p\n",
       context->uc_mcontext.gregs[REG_RIP],context->uc_mcontext.gregs[REG_CR2]);
+  my_exit();
   //context->uc_mcontext.gregs[REG_RIP]++;
   //
   //int *ptr = mymmap (sizeof (int));
   //context->uc_mcontext.gregs[REG_CR2] = (uint64_t)ptr;
   //
 
-  if(context->uc_mcontext.gregs[REG_CR2] & 0xfff0000000000000 != 0)
-  {
-    context->uc_mcontext.gregs[REG_RIP] = 
-      context->uc_mcontext.gregs[REG_CR2] & 0x000fffffffffffff;
-  }
-  else
-    context->uc_mcontext.gregs[REG_RIP]++;
+  //if(context->uc_mcontext.gregs[REG_CR2] & 0xfff0000000000000 != 0)
+  //{
+  //  context->uc_mcontext.gregs[REG_RIP] = 
+  //    context->uc_mcontext.gregs[REG_CR2] & 0x000fffffffffffff;
+  //}
+  //else
+  //  context->uc_mcontext.gregs[REG_RIP]++;
 }
 
 void LOG(char *exe, uint64_t RIP, uint64_t tgt)

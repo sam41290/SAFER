@@ -11,12 +11,20 @@ using namespace SBI;
 //  return true;
 //}
 
+bool
+CfgElems::sameLocDiffBase(uint64_t loc, uint64_t base) {
+  for(auto & j : jmpTables_)
+    if(j.location() == loc && j.base() != base)
+      return true;
+  return false;
+}
+
 void
 CfgElems::chkJmpTblRewritability() {
   for(auto & j : jmpTables_) {
     auto loc_ptr = ptr(j.location());
     auto base_ptr = ptr(j.base());
-    if(j.type() == 2 || j.type() == 3 || loc_ptr == NULL || base_ptr == NULL ||
+    if(j.type() == 2 || j.type() == 3 || loc_ptr == NULL || base_ptr == NULL || sameLocDiffBase(j.location(),j.base()) ||
       (type_ == exe_type::NOPIE && 
       (loc_ptr->symbolizable(SymbolizeIf::IMMOPERAND) || base_ptr->symbolizable(SymbolizeIf::IMMOPERAND))) ||
       (loc_ptr->symbolizable(SymbolizeIf::RLTV) && loc_ptr->type() == PointerType::CP) ||
@@ -2128,6 +2136,15 @@ CfgElems::rewritableJmpTblLoc(uint64_t addrs) {
        jmpTables_[i].rewritable())
       return true;
   }
+  return false;
+}
+
+
+bool
+CfgElems::jmpTblExists(uint64_t loc, uint64_t base) {
+  for(auto & j : jmpTables_)
+    if(j.location() == loc && j.base() == base)
+      return true;
   return false;
 }
 

@@ -77,6 +77,7 @@ typedef struct gpr
 } gpr_t;
 
 int myprintf (const char *fmt, ...);
+void my_exit();
 int my_putchar (int c);
 int my_puts (const char *s);
 int printfflushint (int text, int ctr, char *args);

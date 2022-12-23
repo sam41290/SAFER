@@ -402,6 +402,8 @@ namespace SBI {
     void jumpTable(JumpTable j) { jmpTables_.push_back(j); }
     bool rewritableJmpTblLoc(uint64_t addrs);
     bool rewritableJmpTblBase(uint64_t addrs);
+    bool sameLocDiffBase(uint64_t loc, uint64_t base);
+    bool jmpTblExists(uint64_t loc, uint64_t base);
     bool isJmpTblLoc(uint64_t addrs);
     bool isJmpTblBase(uint64_t addrs);
     unsigned int jumpTableCnt() { return jmpTables_.size(); }

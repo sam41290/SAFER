@@ -425,30 +425,35 @@ Instruction::instrument() {
     setInstParams(h);
     vector<InstArg> allArgs= instArgs()[tgt.second];
     string args = "";
-    switch(allArgs.size()) {
-      case 0:
-        break;
-      case 1:
-        args += PARAM1(allArgs);
-        break;
-      case 2:
-        args += PARAM2(allArgs);
-        break;
-      case 3:
-        args += PARAM3(allArgs);
-        break;
-      case 4:
-        args += PARAM4(allArgs);
-        break;
-      case 5:
-        args += PARAM5(allArgs);
-        break;
-      case 6:
-        args += PARAM6(allArgs);
-        break;
-      default:
-        args += PARAM6(allArgs);
-        break;
+    if(tgt.first == InstPoint::ADDRS_TRANS) {
+      args += "mov " + instParams_[(int)InstArg::INDIRECT_TARGET] + ",%rax\n";
+    }
+    else {
+      switch(allArgs.size()) {
+        case 0:
+          break;
+        case 1:
+          args += PARAM1(allArgs);
+          break;
+        case 2:
+          args += PARAM2(allArgs);
+          break;
+        case 3:
+          args += PARAM3(allArgs);
+          break;
+        case 4:
+          args += PARAM4(allArgs);
+          break;
+        case 5:
+          args += PARAM5(allArgs);
+          break;
+        case 6:
+          args += PARAM6(allArgs);
+          break;
+        default:
+          args += PARAM6(allArgs);
+          break;
+      }
     }
     if(tgt.first == InstPoint::LEA_INS_POST)
       instAsmPost_ += generate_hook(tgt.second,args,mnemonic_);

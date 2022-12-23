@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 TOOL_PATH=${HOME}/SBI
 
@@ -41,12 +41,12 @@ linkdir=`dirname ${exe_path}`
 filepath=`readlink -f ${exe_path}` 
 echo "exe_path: ${exe_path} filepath: ${filepath}"
 file=`basename ${filepath}`
-link=`find ${linkdir} -lname ${file}`
-len=`echo ${#link}`
+link=($(find ${linkdir} -lname ${file}))
+#len=`echo ${#link}`
 
-if [ ${len} -eq 0 ]
+if [ ${#link[@]} -eq 0 ]
 then
-  link=`find ${linkdir} -lname ${filepath}`
+  link=($(find ${linkdir} -lname ${filepath}))
   len=`echo ${#link}`
 fi
 
@@ -57,14 +57,16 @@ then
 	mode=`cat ${TOOL_PATH}/testsuite/randomized.dat | grep "^${pattern}:" | cut -d":" -f2`
 	if [ "${mode}" = "${rand_mode}" ]
 	then
-		if [ ${len} -eq 0 ]
-    	then
-    	    cp ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${file}
-    	else
-    	    linkname=`basename ${link}`
+        if [ ${#link[@]} -eq 0 ]
+        then
+    	  cp ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${file}
+        else
+          for l in "${link[@]}"
+          do
+    	    linkname=`basename ${l}`
     	    ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
-    	fi
-
+          done
+        fi
     else
 	  echo "processing ${filepath}"
       rm ${REGEN_DIR}/${file}_2
@@ -80,13 +82,16 @@ then
           ${TOOL_PATH}/testsuite/randomized.dat
 	  fi
 
-	  if [ ${len} -eq 0 ]
-	  then
-	      cp ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${file}
-	  else
-	  	linkname=`basename ${link}`
-	      ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
-	  fi
+      if [ ${#link[@]} -eq 0 ]
+      then
+        cp ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${file}
+      else
+        for l in "${link[@]}"
+        do
+          linkname=`basename ${l}`
+          ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
+        done
+      fi
 	fi
 fi	
 

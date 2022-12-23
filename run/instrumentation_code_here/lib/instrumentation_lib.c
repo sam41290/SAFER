@@ -9,6 +9,14 @@ Description:
 *------------------------------------------------------------------------*/
 #include "instrumentation_lib.h"
 
+void my_exit() {
+  __asm__(
+  "movq $60, %rax;\n"
+  "movq $0, %rdi;\n"
+  "syscall;\n"
+  );
+}
+
 int my_putchar(int c)
 {
   char *buff=(char*)&c;

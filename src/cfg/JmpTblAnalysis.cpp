@@ -66,9 +66,9 @@ JmpTblAnalysis::decodeJmpTblTgts(analysis::JTable j_lst) {
     j.base(jtable.offset.val);
 
     j.location(jtable.mem.addr.base.val);
+    DEF_LOG("Type 1 Location: "<<hex<<j.location()<<" base: "<<j.base()<<" end: "<<hex<<j.end());
     if (definiteCode(j.location()))
       continue;
-
     j.entrySize(jtable.mem.addr.range.stride);
     j.cfLoc(jloc);
     jmp_tbls.push_back(j);
@@ -98,9 +98,11 @@ JmpTblAnalysis::decodeJmpTblTgts(analysis::JTable j_lst) {
     jmp_tbls.push_back(j);
   }
   for(auto & j : jmp_tbls) {
-    if (isJmpTblLoc(j.location()) == false) {
+    if (jmpTblExists(j.location(),j.base()) == false) {
       //auto h = (uint64_t)(j.location()+jtable.mem.addr.range.h);
       //j.end(std::min(h,dataSegmntEnd(j.location())));
+      if(CFValidity::validAddrs(j.base()) == false)
+        continue;
       j.end(dataSegmntEnd(j.location()));
       if (j.end() == 0) {
         LOG ("Unexpected end!!!");

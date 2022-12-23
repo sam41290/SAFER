@@ -62,3 +62,6 @@ ln -sf ${TOOL_PATH}/testsuite/randomize_prog.sh ${HOME}/randomize_prog.sh
 ln -sf ${TOOL_PATH}/testsuite/replace_libs.sh ${HOME}/replace_libs.sh
 
 ln -sf ${TOOL_PATH}/jmp-table-analysis/asm_format.sh ${HOME}/asm_format.sh
+
+sudo mkdir /inst_libs
+
