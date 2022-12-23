@@ -62,7 +62,7 @@ do
   fi
   #${TOOL_PATH}/testsuite/instrument.sh ${REGEN_DIR}/${file} ${args}
 done < ${TOOL_PATH}/testsuite/deps/${prog}_file_list.dat 
-if [ $batch_cnt -ge $max_batch_cnt ]
+if [ $batch_cnt -lt $max_batch_cnt ]
 then
   nohup ${TOOL_PATH}/testsuite/instrument_batch.sh ${batch_file} ${arg} &
 fi

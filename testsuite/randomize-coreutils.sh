@@ -63,7 +63,8 @@ REGEN_DIR="${HOME}/randomized_libs"
   mv ${TOOL_PATH}/testsuite/deps/tmp_file_list.dat ${TOOL_PATH}/testsuite/deps/coreutils_file_list.dat
 
   ${TOOL_PATH}/testsuite/randomize_prog.sh coreutils
-  ${TOOL_PATH}/testsuite/randomize_prog.sh libnss_files.so.2
+  ${tool_path}/testsuite/randomize_prog.sh libnss_files.so.2
+  ${tool_path}/testsuite/randomize_prog.sh libnss_systemd.so.2
   while read line
   do
     exe=`basename ${line}`
