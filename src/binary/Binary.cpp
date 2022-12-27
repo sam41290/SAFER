@@ -148,17 +148,29 @@ Binary::disassemble() {
     if(it->second->type() == PointerType::CP /*&& it->second->encodable() == true*/) {
       string sym = codeCFG_->getSymbol(it->first);
       manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
-          ".8byte " + sym + " - " + ".elf_header_start");
+                            ".8byte " + sym + " - " + ".elf_header_start",0);
       manager_->ptrsToEncode(it->first);
     }
     else if(it->second->type() != PointerType::DP){
       string sym = codeCFG_->getSymbol(it->first);
       if(sym != "") {
         manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
-            ".8byte " + sym + " - " + ".elf_header_start");
-        //manager_->addAttEntry(it->first,".8byte ." + to_string(it->first) + " - " + ".elf_header_start",
-        //    ".8byte " + sym + " - " + ".elf_header_start");
+            ".8byte " + sym + " - " + ".elf_header_start",1);
       }
+    }
+  }
+  unordered_set<uint64_t> added;
+  int ctr = 0;
+  for(auto & x : all_call_sites) {
+    auto ptr = x.second.landing_pad;
+    if(added.find(ptr) == added.end()) {
+      added.insert(ptr);
+      string sym = codeCFG_->getSymbol(ptr);
+      if(sym != "") {
+        manager_->addAttEntry(ctr,".8byte " + sym + "- .elf_header_start",
+            ".8byte " + sym + " - " + ".elf_header_start",1);
+      }
+      ctr++;
     }
   }
 

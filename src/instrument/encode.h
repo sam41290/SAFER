@@ -26,16 +26,18 @@ struct AttEntry {
   string tgtEntrySym_;
   string oldPtr_;
   string newPtr_;
+  int tt_;
 };
 
 class Encode {
   vector <AttEntry> attTable_;
 public:
-  void addAttEntry(uint64_t addrs, string lookup, string tgt) {
+  void addAttEntry(uint64_t addrs, string lookup, string tgt, int tt) {
     AttEntry a;
     a.val_ = addrs;
     a.oldPtr_ = lookup;
     a.newPtr_ = tgt;
+    a.tt_ = tt;
     attTable_.push_back(a);
   };
 
@@ -49,7 +51,7 @@ public:
           + e.oldPtr_ + "\n" + e.tgtEntrySym_ + ":\n"
           + e.newPtr_ + "\n"
           + "." + to_string(e.val_) + "_enc_ptr:\n" 
-          + ".8byte " + to_string((int)EncType()) + "\n";
+          + ".8byte " + to_string(e.tt_) + "\n";
       ctr++;
     }
     tbl += ".dispatcher: .8byte 0\n.gtt_ind: .8byte 0\n.syscall_checker: .8byte 0\n";
