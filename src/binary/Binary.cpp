@@ -701,8 +701,10 @@ Binary::printOldCodeAndData(string file_name) {
     }
     uint8_t *data = (uint8_t *)malloc(data_sz);
     utils::READ_FROM_FILE (exePath_, data, file_offt, data_sz);
-    for(auto i = 0; i < data_sz; i++) {
+    for(uint64_t i = 0; i < data_sz; ) {
       auto addr = vma + i;
+      bool rw_sec = false;
+      uint64_t sec_size = 0;
       if(section_range_map.find(addr) != section_range_map.end()) {
         for(auto & sec : section_range_map[addr])
           utils::printLbl(sec.end_sym,file_name);
@@ -711,6 +713,10 @@ Binary::printOldCodeAndData(string file_name) {
         for(auto & sec : section_map[addr]) {
           utils::printLbl(sec.start_sym,file_name);
           manager_->newSection(sec);
+          if(sec.sec_type == section_types::RW) {
+            rw_sec = true;
+            sec_size = sec.size;
+          }
         }
       }
       SymBind b = SymBind::BIND;
@@ -719,9 +725,14 @@ Binary::printOldCodeAndData(string file_name) {
         label = "";
         b = SymBind::NOBIND;
       }
-
-      utils::printAsm(".byte " + to_string((uint32_t)data[i]) + "\n",
-                      addr, label, b, file_name);
+      if(rw_sec) {
+        utils::printAsm("\t.skip " + to_string(sec_size) + "\n",addr,label,b,file_name);
+        i += sec_size;
+      }
+      else {
+        utils::printAsm(".byte " + to_string((uint32_t)data[i]) + "\n",addr, label, b, file_name);
+        i++;
+      }
     }
     //ofile<<".old"<<ctr<<"_end:\n";
     utils::printLbl(".old" + to_string(ctr) + "_end",file_name);

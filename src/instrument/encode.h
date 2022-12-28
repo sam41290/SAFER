@@ -11,6 +11,8 @@
 #include <vector>
 #include <regex>
 #include <map>
+#include <math.h>
+#include <algorithm>
 #include "config.h"
 
 using namespace std;
@@ -27,10 +29,72 @@ struct AttEntry {
   string oldPtr_;
   string newPtr_;
   int tt_;
+  int hashInd_ = -1;
 };
 
 class Encode {
   vector <AttEntry> attTable_;
+  int hashTblBit_;
+  int hashTblSize_;
+  uint32_t randKey_;
+  int ctr = 0;
+  bool done = false;
+
+  uint32_t getHash(uint64_t ptr) {
+    ptr = ptr * randKey_;
+    ptr = ptr >> (32 - hashTblBit_);
+    ptr = ptr & (hashTblSize_ - 1);
+    return ptr;
+  }
+
+  bool genAllHash() {
+    unordered_map<int,int> hash_map;
+    for(auto & a : attTable_) {
+      uint32_t ptr = a.val_;
+      ptr = getHash(ptr);
+      if(hash_map.find(ptr) == hash_map.end()) {
+        hash_map[ptr] = a.val_;
+        a.hashInd_ = ptr;
+      }
+      else {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  void createHash() {
+    hashTblBit_ = 16;
+    bool repeat = true;
+    srand((unsigned) time(0));
+    while(repeat) {
+      if(ctr >= 10)
+        break;
+      ctr++;
+      repeat = false;
+      done = true;
+      hashTblSize_ = powl(2,hashTblBit_);
+      uint32_t y  = rand() & 0xff;
+      y |= (rand() & 0xff) << 8;
+      y |= (rand() & 0xff) << 16;
+      y |= (rand() & 0xff) << 24;
+      if(y % 2 == 0)
+        y++;
+      randKey_ = y;
+      done = genAllHash();
+      if(done == false)
+        repeat = true;
+    }
+    if(done == false) {
+      while(true) {
+        hashTblBit_++;
+        hashTblSize_ = powl(2,hashTblBit_);
+        bool done = genAllHash();
+        if(done)
+          break;
+      }
+    }
+  }
 public:
   void addAttEntry(uint64_t addrs, string lookup, string tgt, int tt) {
     AttEntry a;
@@ -42,7 +106,10 @@ public:
   };
 
   string attTableAsm() {
-    string tbl = ".atf_ptr: .8byte .atf - .elf_header_start\n";
+    createHash();
+    string tbl = ".att_key: .8byte " + to_string(randKey_) + "\n";
+    tbl += ".att_tbl_bit: .8byte " + to_string(hashTblBit_) + "\n";
+    tbl += ".att_tbl_sz: .8byte " + to_string(hashTblSize_) + "\n";
     int ctr = 0;
     for (auto & e : attTable_) {
       e.lookupEntrySym_ = ".attentry_lookup_" + to_string(e.val_);
@@ -51,7 +118,7 @@ public:
           + e.oldPtr_ + "\n" + e.tgtEntrySym_ + ":\n"
           + e.newPtr_ + "\n"
           + "." + to_string(e.val_) + "_enc_ptr:\n" 
-          + ".8byte " + to_string(e.tt_) + "\n";
+          + ".8byte " + to_string(e.hashInd_) + "\n";
       ctr++;
     }
     tbl += ".dispatcher: .8byte 0\n.gtt_ind: .8byte 0\n.syscall_checker: .8byte 0\n";
