@@ -715,7 +715,8 @@ Binary::printOldCodeAndData(string file_name) {
           manager_->newSection(sec);
           if(sec.sec_type == section_types::RW) {
             rw_sec = true;
-            sec_size = sec.size;
+            if(sec_size > sec.size || sec_size == 0)
+              sec_size = sec.size;
           }
         }
       }
@@ -726,7 +727,23 @@ Binary::printOldCodeAndData(string file_name) {
         b = SymBind::NOBIND;
       }
       if(rw_sec) {
-        utils::printAsm("\t.skip " + to_string(sec_size) + "\n",addr,label,b,file_name);
+        uint64_t byte_cnt;
+        uint64_t skipped = 0;
+        for(byte_cnt = 1; byte_cnt < sec_size; byte_cnt++) {
+          if(section_range_map.find(addr + byte_cnt) != section_range_map.end()) {
+            if((byte_cnt - skipped) > 0) {
+              utils::printAsm("\t.skip " + to_string(byte_cnt - skipped) + "\n",addr + skipped,
+                              "." + to_string(addr + skipped),b,file_name);
+              skipped = byte_cnt;
+            }
+            for(auto & sec : section_range_map[addr + byte_cnt])
+              utils::printLbl(sec.end_sym,file_name);
+          }
+        }
+        if((byte_cnt - skipped) > 0) {
+          utils::printAsm("\t.skip " + to_string(byte_cnt - skipped) + "\n",addr + skipped,
+                           "." + to_string(addr + skipped),b,file_name);
+        }
         i += sec_size;
       }
       else {

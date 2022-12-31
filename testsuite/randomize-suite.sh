@@ -60,12 +60,13 @@ ${TOOL_PATH}/testsuite/randomize_prog.sh suite
 mkdir ${INST_DIR}
 while read line
 do
-  exe=`basename ${line}`
+  exepath=`readlink -f ${line}`
+  exe=`basename ${exepath}`
+  echo "Copying instrumented ${exe}"
   if [ -f ${REGEN_DIR}/${exe}_2 ]
   then
 	  cp ${REGEN_DIR}/${exe}_2 ${INST_DIR}/${exe}
   else
     echo "Failure encountered for $exe"
-    exit
   fi
 done < ${TOOL_PATH}/testsuite/deps/suite_file_list.dat

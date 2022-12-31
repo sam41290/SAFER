@@ -66,6 +66,8 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
       else {
         uint64_t tgt = calcTarget();
         operand = "." + to_string(tgt);
+        if(asm_opcode == "jmpq")
+          asm_opcode = "jmp";
         //LOG("Target: "<<hex<<tgt);
       }
     }

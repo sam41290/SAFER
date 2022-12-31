@@ -167,6 +167,7 @@ JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
       for (int func_index = 0; ; ++func_index) {
         bool valid_func = analysis::analyze(func_index);
         if (valid_func) {
+          DEF_LOG("Analyzing jump table for: "<<hex<<entries_to_analyze[func_index]);
            decodeJmpTblTgts(analysis::jump_table_analysis());
            linkAllBBs();
         }

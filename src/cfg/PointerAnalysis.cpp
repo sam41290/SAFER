@@ -1513,7 +1513,6 @@ PointerAnalysis::createAnalysisQ(CandidateType t) {
           resolveNoRetCall(bb);
           all_entries.push_back(bb);
           validateIndTgtsFrmEntry(bb);
-          //analyzeEntry(bb);
         }
       }
       //analyzeEntries(all_entries);
@@ -1550,6 +1549,7 @@ PointerAnalysis::createAnalysisQ(CandidateType t) {
         all_entries.push_back(bb);
       }
       analyzeEntries(all_entries);
+      // Uncomment below when evaluating disassembly
       for(auto & e : possibleEntries) {
         auto e_bb = getBB(e);
         auto p = ptr(e);
@@ -1569,6 +1569,7 @@ PointerAnalysis::createAnalysisQ(CandidateType t) {
             else if(p != NULL && p->symbolizable(SymbolizeIf::LINEAR_SCAN) &&
                     e_bb->contextChecked(e_bb->start()) == false) {
               analyzeEntry(e_bb);
+              // Uncomment below when evaluating disassembly
               validateIndTgtsFrmEntry(e_bb);
             }
           }
@@ -1607,8 +1608,10 @@ PointerAnalysis::createAnalysisQ(CandidateType t) {
         }
         score += nonCodeScore(p.first);
         if(score >= 0) {
-          if(codeByProperty(bb))
+          if(codeByProperty(bb)) {
+              // Uncomment below when evaluating disassembly
             validateIndTgtsFrmEntry(bb);
+          }
           else if(isNopPadding(bb)) {
             passAllProps(bb);
             score += nonCodeScore(bb->start());
@@ -1637,6 +1640,7 @@ PointerAnalysis::createAnalysisQ(CandidateType t) {
             DEF_LOG("Adding possible BB (RA source) to Q: "<<hex<<bb->start()<<" score: "<<dec<<score);
             analysisQ_.push(AnalysisCandidate(bb->start(),score));
             possiblePtrs_.insert(bb->start());
+              // Uncomment below when evaluating disassembly
             if(codeByProperty(bb))
               validateIndTgtsFrmEntry(bb);
           }
@@ -1665,6 +1669,7 @@ PointerAnalysis::createAnalysisQ(CandidateType t) {
       if(score >= 0) {
         DEF_LOG("Adding possible ptr(RA/Jmp tbl tgt) to Q: "<<hex<<p<<" score: "<<dec<<score);
         analysisQ_.push(AnalysisCandidate(p,score));
+              // Uncomment below when evaluating disassembly
         if(codeByProperty(bb))
           validateIndTgtsFrmEntry(bb);
       }
