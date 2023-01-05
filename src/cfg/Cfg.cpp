@@ -39,6 +39,39 @@ Cfg::disassemble() {
   all_const_relocs.insert(all_const_relocs.end(),xtra_reloc.begin(), xtra_reloc.end());
   allConstRelocs(all_const_relocs);
   genCFG();
+  ptr_map = pointers();
+  for(auto & p : ptr_map) {
+    if(p.second->symbolizable(SymbolizeIf::RLTV) || p.second->symbolizable(SymbolizeIf::CONST)) {
+      if(p.second->type() == PointerType::CP || isJmpTblLoc(p.first))
+        continue;
+      uint64_t end = dataSegmntEnd(p.first);
+      for(uint64_t i = p.first; i < end; ) {
+        int64_t offt64 = 0;
+        int64_t offt32 = 0;
+        uint64_t file_offt = utils::GET_OFFSET(exePath_,i);
+        utils::READ_FROM_FILE(exePath_, (void *) &offt64, file_offt,8);
+        utils::READ_FROM_FILE(exePath_, (void *) &offt32, file_offt,4);
+        if(getBB(offt64) != NULL) {
+          newPointer(offt64,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt64);
+          i += 8;
+        }
+        else if(getBB(offt32 + p.first) != NULL) {
+          newPointer(offt32 + p.first,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt32 + p.first);
+          i += 4;
+        }
+        else if(getBB(offt64 + p.first) != NULL) {
+          newPointer(offt64 + p.first,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt64 + p.first);
+          i += 8;
+        }
+        else if(getBB(offt32) != NULL) {
+          newPointer(offt32,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt32);
+          i += 4;
+        }
+        else
+          break;
+      }
+    }
+  }
   //classifyPtrs();
   populateRltvTgts();
   randomizer();
@@ -871,6 +904,9 @@ Cfg::cnsrvtvDisasm() {
   //phase1NonReturningCallResolution();
   //addHintBasedEntries();
   linkAllBBs();
+
+
+
   //markAllCallTgtsAsDefCode();
   //for(auto & ptr : ptr_map) {
   //  if(ptr.second->source() == PointerSource::CALL_TGT_1) {
@@ -1137,6 +1173,9 @@ Cfg::disassembleGaps() {
             addToCfg(psbl_fn_start, PointerSource::GAP_PTR);
             //checkPsblEntries(psbl_fn_start, ins->location());
           }
+          else
+            newPointer(psbl_fn_start, PointerType::UNKNOWN,
+              PointerSource::GAP_HINT,PointerSource::GAP_HINT,psbl_fn_start);
         }
         psbl_fn_start = 0;//ins->location() + ins->insSize();
       } 

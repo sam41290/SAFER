@@ -58,7 +58,7 @@ namespace SBI {
     void analyzeFn(Function *fn);
     void decodeJmpTblTgts(analysis::JTable j_lst);
     void readTargets (JumpTable & jt, uint64_t jloc);
-    uint64_t dataSegmntEnd(uint64_t addrs);
+    //uint64_t dataSegmntEnd(uint64_t addrs);
   };
 }
 

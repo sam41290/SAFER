@@ -24,7 +24,8 @@ CfgElems::chkJmpTblRewritability() {
   for(auto & j : jmpTables_) {
     auto loc_ptr = ptr(j.location());
     auto base_ptr = ptr(j.base());
-    if(j.type() == 2 || j.type() == 3 || loc_ptr == NULL || base_ptr == NULL || sameLocDiffBase(j.location(),j.base()) ||
+    if(j.type() == 2 || j.type() == 3 || loc_ptr == NULL || 
+       base_ptr == NULL || sameLocDiffBase(j.location(),j.base()) ||
       (type_ == exe_type::NOPIE && 
       (loc_ptr->symbolizable(SymbolizeIf::IMMOPERAND) || base_ptr->symbolizable(SymbolizeIf::IMMOPERAND))) ||
       (loc_ptr->symbolizable(SymbolizeIf::RLTV) && loc_ptr->type() == PointerType::CP) ||
@@ -35,7 +36,6 @@ CfgElems::chkJmpTblRewritability() {
         bb->addrTransMust(true);
       }
     }
-
   }
   bool repeat = true;
   while(repeat) {
@@ -2204,4 +2204,56 @@ CfgElems::isData(uint64_t addrs) {
       return true;
   }
   return false;
+}
+
+uint64_t
+CfgElems::dataSegmntEnd (uint64_t addrs)
+{
+  //Takes an address  and returns the location of next pointer access.
+  //The whole region starting from addrs to the next pointer access is
+  //considered as one data blk.
+
+  uint64_t next_code = nextCodeBlock(addrs);
+  //if(next_code != 0)
+  //  return next_code;
+
+  uint64_t ro_data_end = 0;
+  /*
+  map < uint64_t, Pointer * >&pointer_map = pointers ();
+
+  auto ptr_it = pointer_map.lower_bound (addrs);
+  ptr_it++;
+  if (ptr_it != pointer_map.end ()) {
+    if(ptr_it->second->source() == PointerSource::RIP_RLTV ||
+       ptr_it->second->source() == PointerSource::CONSTMEM ||
+       ptr_it->second->type() == PointerType::DP) {
+      if(next_code == 0 ||
+        (next_code != 0 && next_code > ptr_it->first))
+        return ptr_it->first;
+      else if(next_code != 0 && next_code < ptr_it->first)
+        return next_code;
+    }
+  }
+  */
+  //else if no subsequent pointer access is found, return the end of read-only
+  //data section.
+
+  if(next_code != 0)
+    return next_code;
+
+  vector < section > rodata_sections = roSections ();
+
+  bool found = false;
+  for (section & sec : rodata_sections)
+  {
+    if (found == true)
+      return sec.vma;
+
+    if (addrs >= sec.vma && addrs <= (sec.vma + sec.size))
+      found = true;
+
+    ro_data_end = sec.vma + sec.size;
+  }
+
+  return ro_data_end;
 }
