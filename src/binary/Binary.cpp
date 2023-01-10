@@ -159,8 +159,8 @@ Binary::disassemble() {
       }
     }
   }
-  unordered_set<uint64_t> added;
   int ctr = 0;
+  unordered_set<uint64_t> added;
   for(auto & x : all_call_sites) {
     auto ptr = x.second.landing_pad;
     if(added.find(ptr) == added.end()) {

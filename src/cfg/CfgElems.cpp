@@ -11,6 +11,16 @@ using namespace SBI;
 //  return true;
 //}
 
+unordered_set <uint64_t>
+CfgElems::allReturnAddresses() {
+  unordered_set <uint64_t> ra_set;
+  for(auto & fn : funcMap_) {
+    auto fn_ra_set = fn.second->allReturnAddresses();
+    ra_set.insert(fn_ra_set.begin(), fn_ra_set.end());
+  }
+  return ra_set;
+}
+
 bool
 CfgElems::sameLocDiffBase(uint64_t loc, uint64_t base) {
   for(auto & j : jmpTables_)

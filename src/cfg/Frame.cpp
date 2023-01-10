@@ -78,6 +78,20 @@ Frame::withinBB(uint64_t addrs) {
   return NULL;
 }
 
+unordered_set <uint64_t>
+Frame::allReturnAddresses() {
+  unordered_set <uint64_t> all_ras;
+  for(auto & bb:defCodeBBs_) {
+    if(bb->isCall() && bb->fallThrough() != 0)
+      all_ras.insert(bb->fallThrough());
+  }
+  for(auto & bb:unknwnCodeBBs_) {
+    if(bb->isCall() && bb->fallThrough() != 0)
+      all_ras.insert(bb->fallThrough());
+  }
+  return all_ras;
+}
+
 bool
 Frame::definiteCode(uint64_t addrs) {
   for(auto & bb : defCodeBBs_) {
