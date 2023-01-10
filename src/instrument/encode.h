@@ -22,6 +22,12 @@ enum class EncType {
   ENC_IND_ATF
 };
 
+struct AttRec {
+  uint64_t old_;
+  uint64_t new_;
+  uint64_t hashInd_;
+};
+
 struct AttEntry {
   uint64_t val_;
   string lookupEntrySym_;
@@ -36,25 +42,26 @@ class Encode {
   vector <AttEntry> attTable_;
   int hashTblBit_;
   int hashTblSize_;
-  uint32_t randKey_;
+  uint64_t randKey_;
   int ctr = 0;
   bool done = false;
 
   uint32_t getHash(uint64_t ptr) {
     ptr = ptr * randKey_;
-    ptr = ptr >> (32 - hashTblBit_);
+    ptr = ptr >> (64 - hashTblBit_);
     ptr = ptr & (hashTblSize_ - 1);
     return ptr;
   }
 
-  bool genAllHash() {
+  bool genAllHash(AttRec *att_tbl, uint64_t entry_cnt) {
     unordered_map<int,int> hash_map;
-    for(auto & a : attTable_) {
-      uint32_t ptr = a.val_;
+
+    for(uint64_t i = 0; i < entry_cnt; i++) {
+      uint64_t ptr = att_tbl[i].old_;
       ptr = getHash(ptr);
       if(hash_map.find(ptr) == hash_map.end()) {
-        hash_map[ptr] = a.val_;
-        a.hashInd_ = ptr;
+        hash_map[ptr] = att_tbl[i].old_;
+        att_tbl[i].hashInd_ = ptr;
       }
       else {
         return false;
@@ -63,38 +70,6 @@ class Encode {
     return true;
   }
 
-  void createHash() {
-    hashTblBit_ = 16;
-    bool repeat = true;
-    srand((unsigned) time(0));
-    while(repeat) {
-      if(ctr >= 10)
-        break;
-      ctr++;
-      repeat = false;
-      done = true;
-      hashTblSize_ = powl(2,hashTblBit_);
-      uint32_t y  = rand() & 0xff;
-      y |= (rand() & 0xff) << 8;
-      y |= (rand() & 0xff) << 16;
-      y |= (rand() & 0xff) << 24;
-      if(y % 2 == 0)
-        y++;
-      randKey_ = y;
-      done = genAllHash();
-      if(done == false)
-        repeat = true;
-    }
-    if(done == false) {
-      while(true) {
-        hashTblBit_++;
-        hashTblSize_ = powl(2,hashTblBit_);
-        bool done = genAllHash();
-        if(done)
-          break;
-      }
-    }
-  }
 public:
   void addAttEntry(uint64_t addrs, string lookup, string tgt, int tt) {
     AttEntry a;
@@ -106,7 +81,7 @@ public:
   };
 
   string attTableAsm() {
-    createHash();
+    //createHash();
     string tbl = ".att_key: .8byte " + to_string(randKey_) + "\n";
     tbl += ".att_tbl_bit: .8byte " + to_string(hashTblBit_) + "\n";
     tbl += ".att_tbl_sz: .8byte " + to_string(hashTblSize_) + "\n";
@@ -142,6 +117,54 @@ public:
     while(getline(ifile,str))
       atf += str;
     return atf;
+  }
+  void createHash(char *att_tbl, uint64_t size) {
+    AttRec *tbl_start = (AttRec *)att_tbl;
+    //Ignore first record and last record;
+    att_tbl += (3 * 8);
+    size -= (3 * 8);
+    double l = log2(attTable_.size());
+    l += 1;
+    hashTblBit_ = l;
+    bool repeat = true;
+    srand((unsigned) time(0));
+    uint64_t y  = rand() & 0xff;
+    y |= (uint64_t)(rand() & 0xff) << 8;
+    y |= (uint64_t)(rand() & 0xff) << 16;
+    y |= (uint64_t)(rand() & 0xff) << 24;
+    y |= (uint64_t)(rand() & 0xff) << 32;
+    y |= (uint64_t)(rand() & 0xff) << 40;
+    y |= (uint64_t)(rand() & 0xff) << 48;
+    y |= (uint64_t)(rand() & 0xff) << 56;
+    //y |= (uint64_t)(rand() & 0xff) << 64;
+    if(y % 2 == 0)
+      y++;
+    randKey_ = 0x9e3779b97f4a7c55;//y;
+    while(repeat) {
+      if(ctr >= 10)
+        break;
+      ctr++;
+      repeat = false;
+      done = true;
+      hashTblSize_ = powl(2,hashTblBit_);
+      done = genAllHash((AttRec *)att_tbl, size/24);
+      if(done == false) {
+        repeat = true;
+        randKey_ += 2;
+      }
+    }
+    if(done == false) {
+      while(true) {
+        hashTblBit_++;
+        hashTblSize_ = powl(2,hashTblBit_);
+        bool done = genAllHash((AttRec *)att_tbl, size/24);
+        if(done)
+          break;
+      }
+    }
+    tbl_start->old_ = randKey_;
+    tbl_start->new_ = hashTblBit_;
+    tbl_start->hashInd_ = hashTblSize_;
   }
   virtual uint64_t encodePtr(uint64_t addrs) = 0;
   virtual string encodeLea(string mne, string op, uint64_t ins_loc, uint64_t ptr) = 0;

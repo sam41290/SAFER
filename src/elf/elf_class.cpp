@@ -1371,6 +1371,10 @@ ElfClass::updAllPHdrsV2(string bname) {
            && (p2->p_offset + p2->p_memsz) > p->p_offset)
           p->p_vaddr = p2->p_vaddr + p->p_offset - p2->p_offset;
       }
+      if(p->p_type == PT_SBI_ATT) {
+        attOffset_ = p->p_offset;
+        attSize_ = p->p_memsz;
+      }
     }
   }
 
@@ -1657,6 +1661,33 @@ ElfClass::insertDataSeg (string bname) {
 
 }
 
+uint64_t
+ElfClass::generateHashTbl(string &bin_asm, section &att_sec) {
+  utils::append_files(bin_asm,"tmp.s");
+  string obj_file = "tmp.o";
+  string cmd = "g++ -c tmp.s";// + bin_asm;
+  if(system (cmd.c_str ()) != 0)
+    LOG("System command failed: "<<cmd);
+  ElfClass elf_obj (obj_file.c_str ());
+  uint64_t start_addr = elf_obj.symbolVal(att_sec.start_sym);
+  uint64_t end_addr = elf_obj.symbolVal(att_sec.end_sym);
+  attSize_ = end_addr - start_addr;
+  DEF_LOG("Att table addr: "<<hex<<start_addr<<" size: "<<attSize_);
+  string dump = xtrctSection(obj_file,".text");
+  //auto offset = utils::GET_OFFSET(obj_file,start_addr);
+  //DEF_LOG("Att table offset: "<<hex<<offset);
+  attTbl_ = (char *) malloc (attSize_);
+  utils::READ_FROM_FILE (dump, (void *)attTbl_, start_addr, attSize_);
+  createHash(attTbl_,attSize_);
+  hashEntryCnt_ = ((AttRec *)attTbl_)->hashInd_;
+  return hashEntryCnt_;
+}
+
+void
+ElfClass::insertHashTbl (string bname) {
+  utils::WRITE_TO_FILE (bname, (void *)attTbl_, attOffset_,attSize_);
+}
+
 void
 ElfClass::updateWithoutObjCopy(string bname,string obj_file) {
   string new_bname = binaryName() + "_2";
@@ -1685,6 +1716,7 @@ ElfClass::updateWithoutObjCopy(string bname,string obj_file) {
   //updTramps (new_bname);
   updDynSection (new_bname);
   changeEntryPnt (new_bname);
+  //insertHashTbl (new_bname);
   instBname(new_bname);
 }
 

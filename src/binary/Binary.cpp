@@ -594,8 +594,9 @@ Binary::printOldCodeAndData(string file_name) {
   //auto all_secs = rxSections_;
   //all_secs.insert(all_secs.end(), rwSections_.begin(), rwSections_.end());
   for(section & sec : rxSections_) {
+    section new_sec = sec;
+    new_sec.sec_type = section_types::RONLY;
     if(manager_->isEhSection(sec.vma) == false && sec.sec_type != section_types::RX) { 
-      section new_sec = sec;
       if(sec.name.rfind(".") == 0) {
         new_sec.start_sym = sec.name + "_dup";
         new_sec.end_sym = sec.name + "_dup_end";
@@ -604,11 +605,17 @@ Binary::printOldCodeAndData(string file_name) {
         new_sec.start_sym = "." + to_string(sec.vma) + "_dup";
         new_sec.end_sym = "." + to_string(sec.vma + sec.size) + "_dup_end";
       }
-      //manager_->newSection(new_sec);
-      section_map[sec.vma].push_back(new_sec);
-      section_range_map[sec.vma + sec.size].push_back(new_sec);
       sec.printed = true;
     }
+    else {
+      new_sec.additional = true;
+      new_sec.name = ".old_" + new_sec.name;
+      new_sec.start_sym = ".old_" + to_string(sec.vma) + "_dup";
+      new_sec.end_sym = ".old_" + to_string(sec.vma + sec.size) + "_dup_end";
+    }
+    //manager_->newSection(new_sec);
+    section_map[sec.vma].push_back(new_sec);
+    section_range_map[sec.vma + sec.size].push_back(new_sec);
   }
   for(section & sec : rwSections_) {
     if(manager_->isEhSection(sec.vma) == false) { 
@@ -1262,6 +1269,7 @@ string Binary::print_assembly() {
   string key("/");
   size_t found = exePath_.rfind(key);
   string file_name = exePath_.substr(found + 1) + "_new.s";
+  string file_tmp = exePath_.substr(found + 1) + "_tmp.s";
   //if(manager_->type() == exe_type::NOPIE)
   //print_old_code_and_data("old_code_and_data.s");
   //utils::append_files("old_code_and_data.s", file_name);
@@ -1283,24 +1291,44 @@ string Binary::print_assembly() {
   stitchSections(section_types::RONLY,"new_code.s", true);
 
   rewrite_jmp_tbls("jmp_tbl.s");
-  section new_sec("att_table",0,0,0,8);
-  new_sec.start_sym=".att_tbl_start";
-  new_sec.end_sym=".att_tbl_end";
-  new_sec.sec_type = section_types::RONLY;
-  new_sec.additional = true;
-  new_sec.is_att = true;
-  manager_->newSection(new_sec);
+  section att_sec("att_table",0,0,0,8);
+  att_sec.start_sym=".att_tbl_start";
+  att_sec.end_sym=".att_tbl_end";
+  att_sec.sec_type = section_types::RONLY;
+  att_sec.additional = true;
+  att_sec.is_att = true;
+  manager_->newSection(att_sec);
   string att_asm = manager_->attTableAsm();
-  utils::printAsm(att_asm,0,new_sec.start_sym,SymBind::NOBIND,"att.s"); 
-  utils::printLbl(new_sec.end_sym,"att.s");
+  utils::printAsm(att_asm,0,att_sec.start_sym,SymBind::NOBIND,"att.s"); 
+  utils::printLbl(att_sec.end_sym,"att.s");
 
   utils::append_files("jmp_tbl.s", "new_code.s");
   utils::append_files("att.s", "new_code.s");
+
+  //section hash_tbl_sec("hash_tbl",0,0,0,8);
+  //hash_tbl_sec.start_sym=".hash_tbl_start";
+  //hash_tbl_sec.end_sym=".hash_tbl_end";
+  //hash_tbl_sec.sec_type = section_types::RONLY;
+  //hash_tbl_sec.additional = true;
+  //manager_->newSection(hash_tbl_sec);
 
   manager_->printNonLoadSecs("nonloadsecs.s");
 
   manager_->printExeHdr("exe_hdr.s");
   manager_->printPHdrs("pheaders.s");
+
+  //utils::append_files("exe_hdr.s", file_tmp);
+  //utils::append_files("old_code_and_data.s", file_tmp);
+  //utils::printAlgn(manager_->segAlign(), file_tmp);
+  //utils::printLbl(".new_codesegment_start",file_tmp);
+  //utils::printLbl(".pheader_start",file_tmp);
+  //utils::append_files("pheaders.s", file_tmp);
+  //utils::printLbl(".pheader_end",file_tmp);
+  //utils::append_files("new_code.s", file_tmp);
+  //utils::printLbl(".new_codesegment_end",file_tmp);
+
+  //uint64_t hash_entry_cnt = manager_->generateHashTbl(file_tmp,att_sec); 
+  //uint64_t hash_tbl_sz = hash_entry_cnt * sizeof(void *);
 
   utils::append_files("exe_hdr.s", file_name);
   utils::append_files("old_code_and_data.s", file_name);
@@ -1310,6 +1338,10 @@ string Binary::print_assembly() {
   utils::append_files("pheaders.s", file_name);
   utils::printLbl(".pheader_end",file_name);
   utils::append_files("new_code.s", file_name);
+  //
+  //utils::printAsm(".skip " + to_string(hash_tbl_sz) + "\n",0,hash_tbl_sec.start_sym,SymBind::NOBIND,file_name);
+  //utils::printLbl(hash_tbl_sec.end_sym,file_name);
+
   utils::printLbl(".new_codesegment_end",file_name);
   utils::append_files("nonloadsecs.s", file_name);
   //utils::append_files(TOOL_PATH"/src/instrument/atf.s",file_name);

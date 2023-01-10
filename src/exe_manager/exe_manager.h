@@ -52,6 +52,8 @@ class ExeManager : public virtual ENCCLASS
   unordered_set < uint64_t > encode_;
   vector <section> newSections_;
   vector <pheader> newPHdrs_;
+  void *attTbl_;
+  uint64_t attTblSz_; 
 public:
   ExeManager() {}
   ExeManager (string p_filename, exe_format fmt);
@@ -76,7 +78,6 @@ public:
   void newSection(section sec) { newSections_.push_back(sec); }
   vector <pheader> newPheaders() { return newPHdrs_; }
   void newPheader(pheader p) { newPHdrs_.push_back(p); }
-
   virtual uint64_t entryPoint () = 0;
   virtual vector<pheader> prgrmHeader (pheader_types p_type, pheader_flags p_flag) = 0;
   virtual section secHeader (string sec_name) = 0;
@@ -109,6 +110,7 @@ public:
   virtual vector <Object> noTypeObjects() = 0;
   virtual bool isMetaData(uint64_t addrs) = 0;
   virtual bool isEhSection(uint64_t addrs) = 0;
+  virtual uint64_t generateHashTbl(string &bin_asm, section &att_sec) = 0;
   void placeHooks(map <uint64_t, vector <uint8_t>> &hooks);
   vector <string> additionSecs();
   //virtual void extraRelocs() = 0;

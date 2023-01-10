@@ -69,6 +69,10 @@ class ElfClass:public ExeManager
       ".eh_frame",".gcc_except_table"};
   const unordered_set <string> ehSections_ = {".eh_frame_hdr", ".eh_frame",".gcc_except_table"};
   uint64_t oldDataSeg_;
+  char *attTbl_ = NULL;
+  uint64_t attOffset_;
+  uint64_t attSize_;
+  uint64_t hashEntryCnt_;
 public:
 
   ElfClass (string name);
@@ -115,7 +119,9 @@ public:
   vector <Object> noTypeObjects();
   bool isMetaData(uint64_t addrs);
   bool isEhSection(uint64_t addrs);
+  uint64_t generateHashTbl(string &bin_asm, section &att_sec);
 private:
+  void insertHashTbl (string bname);
   void readElfHeader64 ();
   char *readSection64 (Elf64_Shdr * sh);
   void readSectionHdrTbl64 ();
