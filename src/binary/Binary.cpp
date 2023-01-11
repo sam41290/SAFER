@@ -1305,30 +1305,30 @@ string Binary::print_assembly() {
   utils::append_files("jmp_tbl.s", "new_code.s");
   utils::append_files("att.s", "new_code.s");
 
-  //section hash_tbl_sec("hash_tbl",0,0,0,8);
-  //hash_tbl_sec.start_sym=".hash_tbl_start";
-  //hash_tbl_sec.end_sym=".hash_tbl_end";
-  //hash_tbl_sec.sec_type = section_types::RONLY;
-  //hash_tbl_sec.additional = true;
-  //manager_->newSection(hash_tbl_sec);
+  section hash_tbl_sec("hash_tbl",0,0,0,8);
+  hash_tbl_sec.start_sym=".hash_tbl_start";
+  hash_tbl_sec.end_sym=".hash_tbl_end";
+  hash_tbl_sec.sec_type = section_types::RONLY;
+  hash_tbl_sec.additional = true;
+  manager_->newSection(hash_tbl_sec);
 
   manager_->printNonLoadSecs("nonloadsecs.s");
 
   manager_->printExeHdr("exe_hdr.s");
   manager_->printPHdrs("pheaders.s");
 
-  //utils::append_files("exe_hdr.s", file_tmp);
-  //utils::append_files("old_code_and_data.s", file_tmp);
-  //utils::printAlgn(manager_->segAlign(), file_tmp);
-  //utils::printLbl(".new_codesegment_start",file_tmp);
-  //utils::printLbl(".pheader_start",file_tmp);
-  //utils::append_files("pheaders.s", file_tmp);
-  //utils::printLbl(".pheader_end",file_tmp);
-  //utils::append_files("new_code.s", file_tmp);
-  //utils::printLbl(".new_codesegment_end",file_tmp);
+  utils::append_files("exe_hdr.s", file_tmp);
+  utils::append_files("old_code_and_data.s", file_tmp);
+  utils::printAlgn(manager_->segAlign(), file_tmp);
+  utils::printLbl(".new_codesegment_start",file_tmp);
+  utils::printLbl(".pheader_start",file_tmp);
+  utils::append_files("pheaders.s", file_tmp);
+  utils::printLbl(".pheader_end",file_tmp);
+  utils::append_files("new_code.s", file_tmp);
+  utils::printLbl(".new_codesegment_end",file_tmp);
 
-  //uint64_t hash_entry_cnt = manager_->generateHashTbl(file_tmp,att_sec); 
-  //uint64_t hash_tbl_sz = hash_entry_cnt * sizeof(void *);
+  uint64_t hash_entry_cnt = manager_->generateHashTbl(file_tmp,att_sec); 
+  uint64_t hash_tbl_sz = hash_entry_cnt * sizeof(void *);
 
   utils::append_files("exe_hdr.s", file_name);
   utils::append_files("old_code_and_data.s", file_name);
@@ -1339,8 +1339,8 @@ string Binary::print_assembly() {
   utils::printLbl(".pheader_end",file_name);
   utils::append_files("new_code.s", file_name);
   //
-  //utils::printAsm(".skip " + to_string(hash_tbl_sz) + "\n",0,hash_tbl_sec.start_sym,SymBind::NOBIND,file_name);
-  //utils::printLbl(hash_tbl_sec.end_sym,file_name);
+  utils::printAsm(".skip " + to_string(hash_tbl_sz) + "\n",0,hash_tbl_sec.start_sym,SymBind::NOBIND,file_name);
+  utils::printLbl(hash_tbl_sec.end_sym,file_name);
 
   utils::printLbl(".new_codesegment_end",file_name);
   utils::append_files("nonloadsecs.s", file_name);

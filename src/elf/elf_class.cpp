@@ -1716,7 +1716,7 @@ ElfClass::updateWithoutObjCopy(string bname,string obj_file) {
   //updTramps (new_bname);
   updDynSection (new_bname);
   changeEntryPnt (new_bname);
-  //insertHashTbl (new_bname);
+  insertHashTbl (new_bname);
   instBname(new_bname);
 }
 
