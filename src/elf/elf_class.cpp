@@ -1683,6 +1683,31 @@ ElfClass::generateHashTbl(string &bin_asm, section &att_sec) {
   return hashEntryCnt_;
 }
 
+string
+ElfClass::hashTblAsm() {
+  string hash_asm = "";
+  if(attTbl_ != NULL) {
+    AttRec *tbl_start = (AttRec *)(attTbl_ + 3 * sizeof(void *));
+    uint64_t entry_cnt = (attSize_/(3 * sizeof(void *))) - 2;
+    uint64_t prev_ind = 0;
+    map<uint64_t, uint64_t> hash_map;
+    for(uint64_t i = 0; i < entry_cnt; i++) {
+      hash_map[tbl_start[i].hashInd_] = tbl_start[i].new_;
+    }
+    uint64_t total_skip = 0;
+    for(auto & e : hash_map) {
+      DEF_LOG("hash ind: "<<hex<<e.first<<" ptr: "<<hex<<e.second);
+      uint64_t skip_bytes = (e.first - prev_ind) * sizeof(void *);
+      total_skip += skip_bytes;
+      DEF_LOG("Total skip: "<<hex<<total_skip<<" entry skip: "<<hex<<skip_bytes);
+      hash_asm += ".skip " + to_string(skip_bytes) + "\n";
+      hash_asm += ".8byte " + to_string(e.second) + "\n";
+      prev_ind = e.first + 1;
+    }
+  }
+  return hash_asm;
+}
+
 void
 ElfClass::insertHashTbl (string bname) {
   utils::WRITE_TO_FILE (bname, (void *)attTbl_, attOffset_,attSize_);

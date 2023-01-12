@@ -120,6 +120,7 @@ public:
   bool isMetaData(uint64_t addrs);
   bool isEhSection(uint64_t addrs);
   uint64_t generateHashTbl(string &bin_asm, section &att_sec);
+  string hashTblAsm();
 private:
   void insertHashTbl (string bname);
   void readElfHeader64 ();

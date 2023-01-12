@@ -155,7 +155,7 @@ Binary::disassemble() {
       string sym = codeCFG_->getSymbol(it->first);
       if(sym != "") {
         manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
-            ".8byte " + sym + " - " + ".elf_header_start",1);
+            ".8byte " + sym + " - " + ".elf_header_start",0);
       }
     }
   }
@@ -167,7 +167,19 @@ Binary::disassemble() {
       added.insert(ptr);
       string sym = codeCFG_->getSymbol(ptr);
       if(sym != "") {
-        manager_->addAttEntry(ctr,".8byte " + sym + "- .elf_header_start",
+        manager_->addAttEntry(ptr,".8byte " + sym + "- .elf_header_start",
+            ".8byte " + sym + " - " + ".elf_header_start",1);
+      }
+      ctr++;
+    }
+  }
+  auto all_ras = codeCFG_->allReturnAddresses();
+  for(auto & r : all_ras) {
+    if(added.find(r) == added.end()) {
+      added.insert(r);
+      string sym = codeCFG_->getSymbol(r);
+      if(sym != "") {
+        manager_->addAttEntry(r,".8byte " + sym + "- .elf_header_start",
             ".8byte " + sym + " - " + ".elf_header_start",1);
       }
       ctr++;
@@ -1339,7 +1351,8 @@ string Binary::print_assembly() {
   utils::printLbl(".pheader_end",file_name);
   utils::append_files("new_code.s", file_name);
   //
-  utils::printAsm(".skip " + to_string(hash_tbl_sz) + "\n",0,hash_tbl_sec.start_sym,SymBind::NOBIND,file_name);
+  string hash_asm = manager_->hashTblAsm();
+  utils::printAsm(hash_asm,0,hash_tbl_sec.start_sym,SymBind::NOBIND,file_name);
   utils::printLbl(hash_tbl_sec.end_sym,file_name);
 
   utils::printLbl(".new_codesegment_end",file_name);

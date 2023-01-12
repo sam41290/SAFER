@@ -34,7 +34,7 @@ struct AttEntry {
   string tgtEntrySym_;
   string oldPtr_;
   string newPtr_;
-  int tt_;
+  int oldOrNew_;
   int hashInd_ = -1;
 };
 
@@ -76,7 +76,7 @@ public:
     a.val_ = addrs;
     a.oldPtr_ = lookup;
     a.newPtr_ = tgt;
-    a.tt_ = tt;
+    a.oldOrNew_ = tt;
     attTable_.push_back(a);
   };
 
@@ -89,10 +89,16 @@ public:
     for (auto & e : attTable_) {
       e.lookupEntrySym_ = ".attentry_lookup_" + to_string(e.val_);
       e.tgtEntrySym_ = ".attentry_tgt_" + to_string(e.val_);
+      string enc_ptr_sym = "." + to_string(e.val_) + "_enc_ptr";
+      if(e.oldOrNew_ == 1) {
+        e.lookupEntrySym_ += "_new";
+        e.tgtEntrySym_ += "_new";
+        enc_ptr_sym += "_new";
+      }
       tbl += e.lookupEntrySym_ + ":\n"
           + e.oldPtr_ + "\n" + e.tgtEntrySym_ + ":\n"
           + e.newPtr_ + "\n"
-          + "." + to_string(e.val_) + "_enc_ptr:\n" 
+          + enc_ptr_sym + ":\n" 
           + ".8byte " + to_string(e.hashInd_) + "\n";
       ctr++;
     }
