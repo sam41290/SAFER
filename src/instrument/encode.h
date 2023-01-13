@@ -46,7 +46,7 @@ class Encode {
   int ctr = 0;
   bool done = false;
 
-  uint32_t getHash(uint64_t ptr) {
+  uint64_t getHash(uint64_t ptr) {
     ptr = ptr * randKey_;
     ptr = ptr >> (64 - hashTblBit_);
     ptr = ptr & (hashTblSize_ - 1);
@@ -54,16 +54,19 @@ class Encode {
   }
 
   bool genAllHash(AttRec *att_tbl, uint64_t entry_cnt) {
-    unordered_map<int,int> hash_map;
+    unordered_map<uint64_t,uint64_t> hash_map;
 
     for(uint64_t i = 0; i < entry_cnt; i++) {
       uint64_t ptr = att_tbl[i].old_;
       ptr = getHash(ptr);
-      if(hash_map.find(ptr) == hash_map.end()) {
+      //cout<<"hash: "<<hex<<att_tbl[i].old_<<"->"<<hex<<ptr<<endl;
+      if(hash_map.find(ptr) == hash_map.end() ||
+         hash_map[ptr] == att_tbl[i].old_) {
         hash_map[ptr] = att_tbl[i].old_;
         att_tbl[i].hashInd_ = ptr;
       }
       else {
+        //cout<<"collision: "<<hex<<att_tbl[i].old_<<"->"<<hex<<hash_map[ptr]<<endl;
         return false;
       }
     }
@@ -99,7 +102,7 @@ public:
           + e.oldPtr_ + "\n" + e.tgtEntrySym_ + ":\n"
           + e.newPtr_ + "\n"
           + enc_ptr_sym + ":\n" 
-          + ".8byte " + to_string(e.hashInd_) + "\n";
+          + ".8byte " + to_string(e.oldOrNew_) + "\n";
       ctr++;
     }
     tbl += ".dispatcher: .8byte 0\n.gtt_ind: .8byte 0\n.syscall_checker: .8byte 0\n";

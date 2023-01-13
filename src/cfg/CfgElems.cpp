@@ -11,6 +11,31 @@ using namespace SBI;
 //  return true;
 //}
 
+vector <string>
+CfgElems::allReturnSyms() {
+  vector <string> ra_syms;
+  unordered_set <uint64_t> added;
+  for(auto & fn : funcMap_) {
+    auto bb_list = fn.second->getDefCode();
+    for(auto & bb : bb_list) {
+      if(bb->isCall() && added.find(bb->start()) == added.end()) {
+        ra_syms.push_back(bb->fallSym());
+        DEF_LOG("Adding ra symbol: "<<hex<<bb->start()<<"->"<<bb->fallThrough()<<":"<<bb->fallSym());
+        added.insert(bb->start());
+      }
+    }
+    bb_list = fn.second->getUnknwnCode();
+    for(auto & bb : bb_list) {
+      if(bb->isCall() && added.find(bb->start()) == added.end()) {
+        DEF_LOG("Adding ra symbol: "<<hex<<bb->start()<<"->"<<bb->fallThrough()<<":"<<bb->fallSym());
+        ra_syms.push_back(bb->fallSym());
+        added.insert(bb->start());
+      }
+    }
+  }
+  return ra_syms;
+}
+
 unordered_set <uint64_t>
 CfgElems::allReturnAddresses() {
   unordered_set <uint64_t> ra_set;

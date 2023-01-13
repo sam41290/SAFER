@@ -448,6 +448,7 @@ namespace SBI {
     void chkJmpTblRewritability();
     uint64_t dataSegmntEnd (uint64_t addrs);
     unordered_set <uint64_t> allReturnAddresses();
+    vector <string> allReturnSyms();
   private:
     void readIndrctTgts(BasicBlock *bb,uint64_t fn_addrs);
     BasicBlock *readBB(ifstream & file);

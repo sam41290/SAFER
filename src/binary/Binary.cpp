@@ -159,7 +159,6 @@ Binary::disassemble() {
       }
     }
   }
-  int ctr = 0;
   unordered_set<uint64_t> added;
   for(auto & x : all_call_sites) {
     auto ptr = x.second.landing_pad;
@@ -170,9 +169,11 @@ Binary::disassemble() {
         manager_->addAttEntry(ptr,".8byte " + sym + "- .elf_header_start",
             ".8byte " + sym + " - " + ".elf_header_start",1);
       }
-      ctr++;
     }
   }
+
+
+  /*
   auto all_ras = codeCFG_->allReturnAddresses();
   for(auto & r : all_ras) {
     if(added.find(r) == added.end()) {
@@ -185,6 +186,7 @@ Binary::disassemble() {
       ctr++;
     }
   }
+  */
 
 #ifdef OPTIMIZED_EH_METADATA
   mark_leaf_functions();
@@ -1310,6 +1312,13 @@ string Binary::print_assembly() {
   att_sec.additional = true;
   att_sec.is_att = true;
   manager_->newSection(att_sec);
+  int ctr = 0;
+  auto all_ras = codeCFG_->allReturnSyms();
+  for(auto & s : all_ras) {
+    manager_->addAttEntry(ctr,".8byte " + s + "- .elf_header_start",
+        ".8byte " + s + " - " + ".elf_header_start",1);
+    ctr++;
+  }
   string att_asm = manager_->attTableAsm();
   utils::printAsm(att_asm,0,att_sec.start_sym,SymBind::NOBIND,"att.s"); 
   utils::printLbl(att_sec.end_sym,"att.s");

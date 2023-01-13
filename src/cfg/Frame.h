@@ -95,6 +95,7 @@ public:
   void linkCFToJumpTable(JumpTable *j, uint64_t ins_loc);
   uint64_t firstCodeAddress();
   unordered_set <uint64_t> allReturnAddresses(); 
+  vector <string> allReturnSyms();
   virtual vector <uint64_t> allValidEntries() = 0;
 private:
 };

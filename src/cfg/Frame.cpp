@@ -92,6 +92,28 @@ Frame::allReturnAddresses() {
   return all_ras;
 }
 
+vector <string>
+Frame::allReturnSyms() {
+  unordered_set <uint64_t> all_ras;
+  vector <string> ra_syms;
+  for(auto & bb:defCodeBBs_) {
+    if(bb->isCall() && bb->fallThrough() != 0 && 
+       all_ras.find(bb->fallThrough()) == all_ras.end()) {
+      all_ras.insert(bb->fallThrough());
+      ra_syms.push_back(bb->fallSym());
+    }
+  }
+  all_ras.clear();
+  for(auto & bb:unknwnCodeBBs_) {
+    if(bb->isCall() && bb->fallThrough() != 0 &&
+       all_ras.find(bb->fallThrough()) == all_ras.end()) {
+      all_ras.insert(bb->fallThrough());
+      ra_syms.push_back(bb->fallSym());
+    }
+  }
+  return ra_syms;
+}
+
 bool
 Frame::definiteCode(uint64_t addrs) {
   for(auto & bb : defCodeBBs_) {

@@ -86,7 +86,9 @@ private:
   uint64_t frame_ = 0;
   vector <BasicBlock *> mergedBBs_;
   bool lockJump_ = false;
+  string fallSym_ = "";
 public:
+  string fallSym() { return fallSym_; }
   void addrTransMust(bool val) { lastIns()->atRequired(val); }
   bool addrTransMust() { return lastIns()->atRequired(); }
   void lockJump(bool val) { lockJump_ = val; }

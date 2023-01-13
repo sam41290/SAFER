@@ -224,6 +224,10 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
       }
     }
     it->print(file_name,ins_lbl_sfx);
+    if(it->isCall()) {
+      fallSym_ = it->label() + ins_lbl_sfx + "_fall";
+      utils::printLbl(fallSym_,file_name);
+    }
   }
   printFallThroughJmp(file_name);
   for(auto & bb: mergedBBs_)
@@ -346,7 +350,7 @@ BasicBlock::instrument() {
       for(auto & ins : insList_) {
         if(ins->isRltvAccess() && ins->isLea())
           ins->encode(true);
-        if(ins->isIndirectCf() && ins->atRequired())
+        if((ins->isIndirectCf() && ins->atRequired()) || ins->asmIns().find("ret") != string::npos)
           ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
       }
     }

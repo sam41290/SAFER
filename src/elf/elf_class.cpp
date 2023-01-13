@@ -202,7 +202,8 @@ ElfClass::readPHdrTbl64 () {
     assert (read (fd, (void *) ph, elfHeader_->e_phentsize)
         == elfHeader_->e_phentsize);
     phTable_.push_back (ph);
-
+    if(ph->p_type == PT_LOAD && ph->p_vaddr <= loadStart_)
+      loadStart_ = ph->p_vaddr;
   }
   LOG("Program header read complete!!\n");
 }
@@ -1319,13 +1320,11 @@ ElfClass::printPHdrs(string fname) {
   ofile.close();
 }
 
+
 void
 ElfClass::updAllPHdrsV2(string bname) {
   LOG("-------------Updating Program Headers------------");
-  vector <pheader> all_load_ph = prgrmHeader (pheader_types::LOAD, pheader_flags::DONTCARE);
-  sort_pheaders(all_load_ph);
-
-  uint64_t load_start = all_load_ph[0].address;
+  uint64_t load_start = loadStart_;
   ElfClass elf_obj(bname);
   vector <Elf64_Phdr *> ph_tbl = elf_obj.phTable();
   uint64_t page = load_start;
@@ -1678,6 +1677,14 @@ ElfClass::generateHashTbl(string &bin_asm, section &att_sec) {
   //DEF_LOG("Att table offset: "<<hex<<offset);
   attTbl_ = (char *) malloc (attSize_);
   utils::READ_FROM_FILE (dump, (void *)attTbl_, start_addr, attSize_);
+  AttRec *tbl_start = (AttRec *)(attTbl_ + 3 * sizeof(void *));
+  uint64_t entry_cnt = (attSize_/(3 * sizeof(void *))) - 2;
+  for(uint64_t i = 0; i < entry_cnt; i++) {
+    if(tbl_start[i].hashInd_ == 1) {
+      cout<<"Updating offset to address: "<<hex<<tbl_start[i].old_<<endl;
+      tbl_start[i].old_ += loadStart_;
+    }
+  }
   createHash(attTbl_,attSize_);
   hashEntryCnt_ = ((AttRec *)attTbl_)->hashInd_;
   return hashEntryCnt_;

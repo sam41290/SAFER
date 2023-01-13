@@ -46,6 +46,7 @@ class ElfClass:public ExeManager
   map <rel, vector<Reloc>>allRelocs_;
   Elf64_Ehdr *elfHeader_; 
   int32_t fd;
+  uint64_t loadStart_ = INT_MAX;
   vector <Elf64_Shdr *> shTable_; //Kept to facilitate rewriting. Donot remove
   vector <Elf64_Phdr *> phTable_; 
   const vector <string> exitSyms
@@ -71,7 +72,7 @@ class ElfClass:public ExeManager
   uint64_t oldDataSeg_;
   char *attTbl_ = NULL;
   uint64_t attOffset_;
-  uint64_t attSize_;
+  uint64_t attSize_ = 0;
   uint64_t hashEntryCnt_;
 public:
 
@@ -122,6 +123,7 @@ public:
   uint64_t generateHashTbl(string &bin_asm, section &att_sec);
   string hashTblAsm();
 private:
+  uint64_t loadStart();
   void insertHashTbl (string bname);
   void readElfHeader64 ();
   char *readSection64 (Elf64_Shdr * sh);

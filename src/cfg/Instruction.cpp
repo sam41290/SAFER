@@ -428,7 +428,11 @@ Instruction::instrument() {
     vector<InstArg> allArgs= instArgs()[tgt.second];
     string args = "";
     if(tgt.first == InstPoint::ADDRS_TRANS) {
-      args += "mov " + instParams_[(int)InstArg::INDIRECT_TARGET] + ",%rax\n";
+      if(mnemonic_.find("ret") != string::npos) {
+        args += "pop %rax\n";
+      }
+      else
+        args += "mov " + instParams_[(int)InstArg::INDIRECT_TARGET] + ",%rax\n";
     }
     else {
       switch(allArgs.size()) {

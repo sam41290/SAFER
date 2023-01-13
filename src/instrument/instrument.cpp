@@ -158,6 +158,10 @@ Instrument::generate_hook(string hook_target, string args,
       rax_offt += 8;
     if(mne == "jmpq")
       mne = "jmp";
+    if(mne.find("ret") != string::npos) {
+      mne = "jmp";
+      rax_offt -= 8;
+    }
     inst_code += "mov %rax,-" + to_string(rax_offt) + "(%rsp)\n"; 
     inst_code += args + mne + " ." + hook_target + "\n";
   }
