@@ -36,10 +36,6 @@ Rand::printBasicBlocks(vector <BasicBlock *> &bbs, string fileName,
     }
 
     bb->adjustRipRltvIns(dataSegmentStart_, pointerMap_);
-    //LOG("Aligning code pointer");
-    if(if_exists(bb->start(), pointerMap_)) {
-      utils::printAlgn(16,fileName);
-    }
 
     bb->print(fileName, pointerMap_);
     printUnwindRec(fStart, bb);

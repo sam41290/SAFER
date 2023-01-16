@@ -422,18 +422,18 @@ Instruction::instrument() {
     HookType h = HookType::GENERAL_INST;
     if(tgt.first == InstPoint::ADDRS_TRANS)
       h = HookType::ADDRS_TRANS;
+    else if(tgt.first == InstPoint::RET_CHK)
+      h = HookType::RET_CHK;
     else if(tgt.first == InstPoint::SYSCALL_CHECK)
       h = HookType::SYSCALL_CHECK;
     setInstParams(h);
     vector<InstArg> allArgs= instArgs()[tgt.second];
     string args = "";
     if(tgt.first == InstPoint::ADDRS_TRANS) {
-      if(mnemonic_.find("ret") != string::npos) {
-        args += "pop %rax\n";
-      }
-      else
-        args += "mov " + instParams_[(int)InstArg::INDIRECT_TARGET] + ",%rax\n";
+      args += "mov " + instParams_[(int)InstArg::INDIRECT_TARGET] + ",%rax\n";
     }
+    else if(tgt.first == InstPoint::RET_CHK)
+      args += "pop %rax\n";
     else {
       switch(allArgs.size()) {
         case 0:

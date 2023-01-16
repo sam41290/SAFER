@@ -30,6 +30,7 @@ enum class InstPoint
   LEA_INS_PRE,
   LEA_INS_POST,
   ADDRS_TRANS,
+  RET_CHK,
   SYSCALL_CHECK,
 };
 
@@ -37,6 +38,7 @@ enum class HookType
 {
   SEGFAULT,
   ADDRS_TRANS,
+  RET_CHK,
   SYSCALL_CHECK,
   GENERAL_INST
 };

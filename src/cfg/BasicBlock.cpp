@@ -211,6 +211,14 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
   if(isCode() == false) {
     ins_lbl_sfx = "_" + to_string(start_) + "_unknown_code";
   }
+  if(if_exists(start_, map_of_pointer)) {
+    auto ptr = map_of_pointer[start_];
+    if(ptr->symbolizable(SymbolizeIf::CONST) ||
+       ptr->symbolizable(SymbolizeIf::IMMOPERAND) ||
+       ptr->symbolizable(SymbolizeIf::RLTV)) {
+      utils::printAlgn(16,file_name);
+    }
+  }
   for(auto & it:insList_) {
     it->isCode(isCode());
     if((it->isJump() || it->isCall())) {
@@ -350,7 +358,13 @@ BasicBlock::instrument() {
       for(auto & ins : insList_) {
         if(ins->isRltvAccess() && ins->isLea())
           ins->encode(true);
-        if((ins->isIndirectCf() && ins->atRequired()) || ins->asmIns().find("ret") != string::npos)
+        if((ins->isIndirectCf() && ins->atRequired())/* || ins->asmIns().find("ret") != string::npos*/)
+          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
+      }
+    }
+    else if(p.first == InstPoint::RET_CHK) {
+      for(auto & ins : insList_) {
+        if(ins->asmIns().find("ret") != string::npos)
           ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
       }
     }

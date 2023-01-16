@@ -1678,7 +1678,7 @@ ElfClass::generateHashTbl(string &bin_asm, section &att_sec) {
   attTbl_ = (char *) malloc (attSize_);
   utils::READ_FROM_FILE (dump, (void *)attTbl_, start_addr, attSize_);
   AttRec *tbl_start = (AttRec *)(attTbl_ + 3 * sizeof(void *));
-  uint64_t entry_cnt = (attSize_/(3 * sizeof(void *))) - 2;
+  uint64_t entry_cnt = (attSize_ - 6 * sizeof(void *))/sizeof(AttRec);
   for(uint64_t i = 0; i < entry_cnt; i++) {
     if(tbl_start[i].hashInd_ == 1) {
       cout<<"Updating offset to address: "<<hex<<tbl_start[i].old_<<endl;
@@ -1686,7 +1686,7 @@ ElfClass::generateHashTbl(string &bin_asm, section &att_sec) {
     }
   }
   createHash(attTbl_,attSize_);
-  hashEntryCnt_ = ((AttRec *)attTbl_)->hashInd_;
+  hashEntryCnt_ = ((AttRec *)attTbl_)->tramp_;
   return hashEntryCnt_;
 }
 
@@ -1695,11 +1695,11 @@ ElfClass::hashTblAsm() {
   string hash_asm = "";
   if(attTbl_ != NULL) {
     AttRec *tbl_start = (AttRec *)(attTbl_ + 3 * sizeof(void *));
-    uint64_t entry_cnt = (attSize_/(3 * sizeof(void *))) - 2;
+    uint64_t entry_cnt = (attSize_ - 6 * sizeof(void *))/sizeof(AttRec);//(attSize_/(3 * sizeof(void *))) - 2;
     uint64_t prev_ind = 0;
     map<uint64_t, uint64_t> hash_map;
     for(uint64_t i = 0; i < entry_cnt; i++) {
-      hash_map[tbl_start[i].hashInd_] = tbl_start[i].new_;
+      hash_map[tbl_start[i].hashInd_] = i;
     }
     uint64_t total_skip = 0;
     for(auto & e : hash_map) {
