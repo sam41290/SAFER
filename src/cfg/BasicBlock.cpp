@@ -350,7 +350,7 @@ BasicBlock::instrument() {
       for(auto & ins : insList_) {
         if(ins->isRltvAccess() && ins->isLea())
           ins->encode(true);
-        if((ins->isIndirectCf() && ins->atRequired()) || ins->asmIns().find("ret") != string::npos)
+        if((ins->isIndirectCf() && ins->atRequired())/* || ins->asmIns().find("ret") != string::npos*/)
           ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
       }
     }
