@@ -45,25 +45,32 @@ Cfg::disassemble() {
       if(p.second->type() == PointerType::CP || isJmpTblLoc(p.first))
         continue;
       uint64_t end = dataSegmntEnd(p.first);
+      DEF_LOG("Guessing jump table locations for: "<<hex<<p.first<<"->"<<hex<<end);
       for(uint64_t i = p.first; i < end; ) {
         int64_t offt64 = 0;
         int64_t offt32 = 0;
         uint64_t file_offt = utils::GET_OFFSET(exePath_,i);
         utils::READ_FROM_FILE(exePath_, (void *) &offt64, file_offt,8);
         utils::READ_FROM_FILE(exePath_, (void *) &offt32, file_offt,4);
+        DEF_LOG("8 byte val: "<<hex<<offt64<<" 4 byte val: "<<hex<<offt32);
         if(getBB(offt64) != NULL) {
+          DEF_LOG("Potential target: "<<hex<<offt64);
           newPointer(offt64,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt64);
           i += 8;
         }
-        else if(getBB(offt32 + p.first) != NULL) {
-          newPointer(offt32 + p.first,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt32 + p.first);
+        else if(getBB((uint32_t)(offt32 + p.first)) != NULL) {
+          uint32_t val = (uint32_t)(offt32 + p.first);
+          DEF_LOG("Potential target: "<<hex<<val);
+          newPointer(val,PointerType::UNKNOWN,PointerSource::JUMPTABLE,val);
           i += 4;
         }
         else if(getBB(offt64 + p.first) != NULL) {
+          DEF_LOG("Potential target: "<<hex<<offt64 + p.first);
           newPointer(offt64 + p.first,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt64 + p.first);
           i += 8;
         }
         else if(getBB(offt32) != NULL) {
+          DEF_LOG("Potential target: "<<hex<<offt32);
           newPointer(offt32,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt32);
           i += 4;
         }

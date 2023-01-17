@@ -136,26 +136,28 @@ Binary::set_codeCFG_params() {
 
 void
 Binary::disassemble() {
-  string key("/");
-  size_t found = exePath_.rfind(key);
-  string exeName = exePath_.substr(found + 1);
+  //string key("/");
+  //size_t found = exePath_.rfind(key);
+  //string exeName = exePath_.substr(found + 1);
 
   codeCFG_->disassemble();
   pointerMap_ = codeCFG_->pointers();
   funcMap_ = codeCFG_->funcMap();
-
+  //ofstream ofile("tramp.s");
   for(auto it = pointerMap_.begin(); it != pointerMap_.end(); it++) {
     if(it->second->type() == PointerType::CP /*&& it->second->encodable() == true*/) {
       string sym = codeCFG_->getSymbol(it->first);
       manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
-                            ".8byte " + sym + " - " + ".elf_header_start",0);
+                            ".8byte " + sym + " - " + ".elf_header_start",
+                            sym, 0);
       manager_->ptrsToEncode(it->first);
     }
     else if(it->second->type() != PointerType::DP){
       string sym = codeCFG_->getSymbol(it->first);
       if(sym != "") {
         manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
-            ".8byte " + sym + " - " + ".elf_header_start",0);
+                              ".8byte " + sym + " - " + ".elf_header_start",
+                              sym, 0);
       }
     }
   }
@@ -167,7 +169,8 @@ Binary::disassemble() {
       string sym = codeCFG_->getSymbol(ptr);
       if(sym != "") {
         manager_->addAttEntry(ptr,".8byte " + sym + "- .elf_header_start",
-            ".8byte " + sym + " - " + ".elf_header_start",1);
+                              ".8byte " + sym + " - " + ".elf_header_start",
+                              sym, 1);
       }
     }
   }
@@ -1057,8 +1060,10 @@ Binary::genInstAsm() {
     prev_sec = sec_start;
     free(section_data);
   }
-  ofile<<".GTF:\n";
-  ofile<<"jmp *.dispatcher(%rip)\n";
+  ofile<<".GTF_ret:\n";
+  ofile<<"jmp *.dispatcher_ret(%rip)\n";
+  ofile<<".GTF_reg:\n";
+  ofile<<"jmp *.dispatcher_reg(%rip)\n";
   ofile<<".SYSCHK:\n";
   ofile<<"jmp *.syscall_checker(%rip)\n";
 
@@ -1302,36 +1307,56 @@ string Binary::print_assembly() {
   phdr_sec.additional = true;
   manager_->newSection(phdr_sec);
   stitchSections(section_types::RX,"new_code.s",true);
+    int ctr = 0;
+    auto all_ras = codeCFG_->allReturnSyms();
+    for(auto & s : all_ras) {
+      manager_->addAttEntry(ctr,".8byte " + s + "- .elf_header_start",
+                            ".8byte " + s + " - " + ".elf_header_start",
+                            s, 1);
+      ctr++;
+    }
+    //ADD ATT TRAMPS
+
+    string tramp_asm = manager_->trampAsm();
+    section tramp_sec("tramp_table",0,0,0,8);
+    tramp_sec.start_sym=".tramp_tbl_start";
+    tramp_sec.end_sym=".tramp_tbl_end";
+    tramp_sec.sec_type = section_types::RX;
+    tramp_sec.additional = true;
+    manager_->newSection(tramp_sec);
+    utils::printLbl(tramp_sec.start_sym,"tramp.s");
+    utils::printAsm(tramp_asm,0,tramp_sec.start_sym,SymBind::NOBIND,"tramp.s"); 
+    utils::printLbl(tramp_sec.end_sym,"tramp.s");
+    utils::append_files("tramp.s", "new_code.s");
   stitchSections(section_types::RONLY,"new_code.s", true);
 
   rewrite_jmp_tbls("jmp_tbl.s");
-  section att_sec("att_table",0,0,0,8);
-  att_sec.start_sym=".att_tbl_start";
-  att_sec.end_sym=".att_tbl_end";
-  att_sec.sec_type = section_types::RONLY;
-  att_sec.additional = true;
-  att_sec.is_att = true;
-  manager_->newSection(att_sec);
-  int ctr = 0;
-  auto all_ras = codeCFG_->allReturnSyms();
-  for(auto & s : all_ras) {
-    manager_->addAttEntry(ctr,".8byte " + s + "- .elf_header_start",
-        ".8byte " + s + " - " + ".elf_header_start",1);
-    ctr++;
-  }
-  string att_asm = manager_->attTableAsm();
-  utils::printAsm(att_asm,0,att_sec.start_sym,SymBind::NOBIND,"att.s"); 
-  utils::printLbl(att_sec.end_sym,"att.s");
+  //{
 
+    //ADD ATT
+    section att_sec("att_table",0,0,0,8);
+    att_sec.start_sym=".att_tbl_start";
+    att_sec.end_sym=".att_tbl_end";
+    att_sec.sec_type = section_types::RONLY;
+    att_sec.additional = true;
+    att_sec.is_att = true;
+    manager_->newSection(att_sec);
+    string att_asm = manager_->attTableAsm();
+    utils::printAsm(att_asm,0,att_sec.start_sym,SymBind::NOBIND,"att.s"); 
+    utils::printLbl(att_sec.end_sym,"att.s");
+  //}
   utils::append_files("jmp_tbl.s", "new_code.s");
   utils::append_files("att.s", "new_code.s");
 
-  section hash_tbl_sec("hash_tbl",0,0,0,8);
-  hash_tbl_sec.start_sym=".hash_tbl_start";
-  hash_tbl_sec.end_sym=".hash_tbl_end";
-  hash_tbl_sec.sec_type = section_types::RONLY;
-  hash_tbl_sec.additional = true;
-  manager_->newSection(hash_tbl_sec);
+  //{
+    //New section for hash table
+    section hash_tbl_sec("hash_tbl",0,0,0,8);
+    hash_tbl_sec.start_sym=".hash_tbl_start";
+    hash_tbl_sec.end_sym=".hash_tbl_end";
+    hash_tbl_sec.sec_type = section_types::RONLY;
+    hash_tbl_sec.additional = true;
+    manager_->newSection(hash_tbl_sec);
+  //}
 
   manager_->printNonLoadSecs("nonloadsecs.s");
 

@@ -25,6 +25,7 @@ enum class EncType {
 struct AttRec {
   uint64_t old_;
   uint64_t new_;
+  uint64_t tramp_;
   uint64_t hashInd_;
 };
 
@@ -34,6 +35,8 @@ struct AttEntry {
   string tgtEntrySym_;
   string oldPtr_;
   string newPtr_;
+  string newPtrSym_;
+  string tramp_;
   int oldOrNew_;
   int hashInd_ = -1;
 };
@@ -74,12 +77,14 @@ class Encode {
   }
 
 public:
-  void addAttEntry(uint64_t addrs, string lookup, string tgt, int tt) {
+  void addAttEntry(uint64_t addrs, string lookup, string tgt, string new_sym, int tt) {
     AttEntry a;
     a.val_ = addrs;
     a.oldPtr_ = lookup;
     a.newPtr_ = tgt;
     a.oldOrNew_ = tt;
+    a.newPtrSym_ = new_sym;// "_tramp_" + to_string(tt);
+    a.tramp_ = new_sym + "_tramp_" + to_string(tt);
     attTable_.push_back(a);
   };
 
@@ -93,21 +98,38 @@ public:
       e.lookupEntrySym_ = ".attentry_lookup_" + to_string(e.val_);
       e.tgtEntrySym_ = ".attentry_tgt_" + to_string(e.val_);
       string enc_ptr_sym = "." + to_string(e.val_) + "_enc_ptr";
+      string tramp_sym = "." + to_string(e.val_) + "_tramp_ptr";
       if(e.oldOrNew_ == 1) {
         e.lookupEntrySym_ += "_new";
         e.tgtEntrySym_ += "_new";
         enc_ptr_sym += "_new";
+        tramp_sym += "_new";
       }
       tbl += e.lookupEntrySym_ + ":\n"
           + e.oldPtr_ + "\n" + e.tgtEntrySym_ + ":\n"
           + e.newPtr_ + "\n"
+          + tramp_sym + ":\n"
+          + ".8byte " + e.tramp_ + " - .elf_header_start\n"
           + enc_ptr_sym + ":\n" 
           + ".8byte " + to_string(e.oldOrNew_) + "\n";
       ctr++;
     }
-    tbl += ".dispatcher: .8byte 0\n.gtt_ind: .8byte 0\n.syscall_checker: .8byte 0\n";
+    tbl += ".dispatcher_ret: .8byte 0\n.dispatcher_reg: .8byte 0\n.syscall_checker: .8byte 0\n";
     return tbl;
   };
+
+  string trampAsm() {
+    string tramp_asm = "";
+    for (auto & e : attTable_) {
+      if(e.newPtrSym_.length() > 0) {
+        tramp_asm += e.tramp_ + ":\n"
+                   + "mov 24(%rsp),%rax\n"
+                   + "add $40,%rsp\n"
+                   + "jmp " + e.newPtrSym_ + "\n";
+      }
+    }
+    return tramp_asm;
+  }
 
   int attIndex(uint64_t val) {
     int ctr = 0;
@@ -131,7 +153,7 @@ public:
     AttRec *tbl_start = (AttRec *)att_tbl;
     //Ignore first record and last record;
     att_tbl += (3 * 8);
-    size -= (3 * 8);
+    size -= (6 * 8);
     double l = log2(attTable_.size());
     l += 1;
     hashTblBit_ = l;
@@ -156,7 +178,7 @@ public:
       repeat = false;
       done = true;
       hashTblSize_ = powl(2,hashTblBit_);
-      done = genAllHash((AttRec *)att_tbl, size/24);
+      done = genAllHash((AttRec *)att_tbl, size/sizeof(AttRec));
       if(done == false) {
         repeat = true;
         randKey_ += 2;
@@ -166,14 +188,14 @@ public:
       while(true) {
         hashTblBit_++;
         hashTblSize_ = powl(2,hashTblBit_);
-        bool done = genAllHash((AttRec *)att_tbl, size/24);
+        bool done = genAllHash((AttRec *)att_tbl, size/sizeof(AttRec));
         if(done)
           break;
       }
     }
     tbl_start->old_ = randKey_;
     tbl_start->new_ = hashTblBit_;
-    tbl_start->hashInd_ = hashTblSize_;
+    tbl_start->tramp_ = hashTblSize_;
   }
   virtual uint64_t encodePtr(uint64_t addrs) = 0;
   virtual string encodeLea(string mne, string op, uint64_t ins_loc, uint64_t ptr) = 0;
