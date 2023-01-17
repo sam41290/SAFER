@@ -1794,7 +1794,7 @@ bool CfgElems::isDataPtr(Pointer * ptr) {
   uint64_t
     val = ptr->address();
   if(val >= codeSegEnd_ || isJmpTblLoc(val) == true 
-     || withinRoSection(val) || withinRWSection(val) || isDatainCode(val))
+     || withinRoSection(val) || withinRWSection(val)/* || isDatainCode(val)*/)
     return true;
 
   return false;
@@ -1831,6 +1831,8 @@ CfgElems::classifyPtrs() {
         ptr->type(PointerType::CP);
       }
       else if(isDataPtr(ptr)) {
+        if(ptr->address() == 0x6b869)
+          DEF_LOG("Marking as data pointer: "<<hex<<ptr->address());
         ptr->type(PointerType::DP);
       }
       else {
@@ -2207,6 +2209,8 @@ CfgElems::getSymbol(uint64_t addrs) {
   auto bb = withinBB(addrs);
   if(bb != NULL && bb->isValidIns(addrs))
     sym = "." + to_string(addrs) + bb->lblSuffix();
+  if(addrs == 0x6b869)
+    DEF_LOG("Address: "<<hex<<addrs<<" symbol: "<<sym);
   return sym;
 }
 
