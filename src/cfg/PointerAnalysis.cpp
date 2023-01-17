@@ -1311,8 +1311,11 @@ PointerAnalysis::classifyEntry(uint64_t entry) {
   vector <BasicBlock *> lst = bbSeq(bb,SEQTYPE::INTRAFN);
   for(auto & bb2 : lst) {
     if(bb2->isCode() == false) {
-      if(dataByProperty(bb2))
+      if(dataByProperty(bb2)) {
+        if(bb2->start() == 0x6b869)
+          DEF_LOG("Marking as data: "<<bb2->start());
         markAsDefData(bb2->start());
+      }
     }
   }
   if(Conflicts_.find(entry) == Conflicts_.end()) {
@@ -1736,8 +1739,6 @@ PointerAnalysis::analyzeCandidates() {
         DEF_LOG("Entry passed: "<<hex<<bb->start());
         auto bb_list = bbSeq(bb);
         for(auto & bb2 : bb_list) {
-          if(bb->start() == 0x1956f)
-            DEF_LOG("Prioritizing bb: "<<hex<<bb2->start());
           passed_.insert(bb2->start());
         }
         //validateIndTgtsFrmEntry(bb);
