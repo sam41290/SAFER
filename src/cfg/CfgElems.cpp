@@ -54,6 +54,29 @@ CfgElems::sameLocDiffBase(uint64_t loc, uint64_t base) {
   return false;
 }
 
+bool
+CfgElems::otherUseOfJmpTbl(JumpTable &j) {
+  auto loc_ptr = ptr(j.location());
+  if(loc_ptr != NULL) {
+    auto sym_candidates = loc_ptr->symCandidate();
+    for(auto & s : sym_candidates) {
+      if(s.type() == SymbolType::RLTV) {
+        auto loc = s.location();
+        auto loc_bb = withinBB(loc);
+        if(loc_bb != NULL) {
+          auto cf_bbs = j.cfBBs();
+          for(auto & bb : cf_bbs) {
+            if(checkPath(loc_bb,bb))
+              return false;
+          }
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 void
 CfgElems::chkJmpTblRewritability() {
   for(auto & j : jmpTables_) {
@@ -64,7 +87,8 @@ CfgElems::chkJmpTblRewritability() {
       (type_ == exe_type::NOPIE && 
       (loc_ptr->symbolizable(SymbolizeIf::IMMOPERAND) || base_ptr->symbolizable(SymbolizeIf::IMMOPERAND))) ||
       (loc_ptr->symbolizable(SymbolizeIf::RLTV) && loc_ptr->type() == PointerType::CP) ||
-      (base_ptr->symbolizable(SymbolizeIf::RLTV) && base_ptr->type() == PointerType::CP)) {
+      (base_ptr->symbolizable(SymbolizeIf::RLTV) && base_ptr->type() == PointerType::CP) ||
+      otherUseOfJmpTbl(j)) {
       j.rewritable(false);
       auto cf_bbs = j.cfBBs();
       for(auto & bb : cf_bbs) {

@@ -460,6 +460,7 @@ namespace SBI {
     uint64_t jumpTgt(uint8_t *bytes, int size, uint64_t ins_addrs);
     unordered_map <uint64_t, long double> fnSigInGap(uint64_t g_start, uint64_t g_end);
     long double defCodeCftScore(vector <BasicBlock *> &bb_lst);
+    bool otherUseOfJmpTbl(JumpTable &j);
   };
 
 }
