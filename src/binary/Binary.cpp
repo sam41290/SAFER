@@ -145,7 +145,7 @@ Binary::disassemble() {
   funcMap_ = codeCFG_->funcMap();
   //ofstream ofile("tramp.s");
   for(auto it = pointerMap_.begin(); it != pointerMap_.end(); it++) {
-    if(it->first == 0x6b869)
+    if(it->first == 0x8ddf0)
       DEF_LOG("ptr: "<<hex<<it->first<<" type: "<<(int)it->second->type());
     if(it->second->type() == PointerType::CP /*&& it->second->encodable() == true*/) {
       string sym = codeCFG_->getSymbol(it->first);

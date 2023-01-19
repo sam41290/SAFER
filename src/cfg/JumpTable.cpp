@@ -31,8 +31,14 @@ JumpTable::rewriteTgts() {
   else
     baseLbl = "." + to_string(base_);
   for (auto & bb :targetBBs_) {
-    if(type_ == 1)
-      jmp_tbl += size + " " + bb->label() + " - " + baseLbl + "\n";
+    if(type_ == 1) {
+      string lbl;
+      if(bb->isCode())
+        lbl = utils::getLabel(bb->start());
+      else
+        lbl = bb->label();
+      jmp_tbl += size + " " + lbl + " - " + baseLbl + "\n";
+    }
     else if(type_ == 2) {
       bb->addTramp(bb->start());
       auto tramp_bb = bb->tramp();
