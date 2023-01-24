@@ -465,6 +465,8 @@ Instruction::instrument() {
       instAsmPost_ += generate_hook(tgt.second,args,mnemonic_);
     else if(tgt.first == InstPoint::ADDRS_TRANS)
       asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::ADDRS_TRANS);
+    else if(tgt.first == InstPoint::RET_CHK)
+      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::RET_CHK);
     else if(tgt.first == InstPoint::SYSCALL_CHECK)
       instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SYSCALL_CHECK);
     else

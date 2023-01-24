@@ -1542,6 +1542,7 @@ Cfg::printFunc(uint64_t fstart, string file_name) {
   }
   Function *f = fn_map[fstart];
   vector <BasicBlock *> defbbs = f->getDefCode();
+  handleLoopIns(defbbs);
   vector <BasicBlock *> unknwnbbs = f->getUnknwnCode();
   vector <BasicBlock *> psbl_code;
   for(auto & bb : unknwnbbs)
