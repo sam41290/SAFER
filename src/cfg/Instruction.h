@@ -47,6 +47,7 @@ private:
   uint64_t ripRltvOfft_ = 0;
   uint64_t constOp_ = 0;
   uint64_t constPtr_ = 0;
+  uint64_t raOffset_ = 0;
   string label_;
   string asmIns_;
   string prefix_ = "";
@@ -62,9 +63,17 @@ private:
   bool decode_ = false;
   bool encode_ = false;
   bool atRequired_ = false;
+  bool canaryCheck_ = false;
+  bool canaryAdd_ = false;
   //bool addrTransMust_ = false;
 public:
   Instruction() {}
+  void raOffset(uint64_t offt) { raOffset_ = offt; }
+  uint64_t raOffset() { return raOffset_; }
+  void canaryCheck(bool chk) { canaryCheck_ = chk; }
+  bool canaryCheck() { return canaryCheck_; }
+  void canaryAdd(bool chk) { canaryAdd_ = chk; }
+  bool canaryAdd() { return canaryAdd_; }
   //void addrTransMust(bool val) { addrTransMust_ = val; }
   //bool addrTransMust() { return addrTransMust_; }
   Instruction(uint64_t address, char *mnemonic, char *op_str, uint8_t

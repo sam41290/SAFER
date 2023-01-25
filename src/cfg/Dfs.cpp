@@ -2,6 +2,53 @@
 
 using namespace SBI;
 
+int
+Dfs::stackDecrement(vector <Instruction *> &ins_list) {
+  int offt = 0;
+  for(auto & ins : ins_list) {
+    if(ins->asmIns().find("pop") != string::npos)
+      offt += 8;
+    else if(ins->asmIns().find("add") != string::npos && ins->asmIns().find("rsp") != string::npos &&
+            ins->constOp() != 0)
+      offt += 8;
+    else if(ins->asmIns().find("push") != string::npos)
+      offt -= 8;
+    else if(ins->asmIns().find("sub") != string::npos && ins->asmIns().find("rsp") != string::npos &&
+            ins->constOp() != 0)
+      offt -= 8;
+  }
+  return offt;
+}
+
+int
+Dfs::peepHoleStackDecrement(uint64_t addrs, BasicBlock *bb) {
+  traversal_ = SEQTYPE::INTRAFN;
+
+  auto bb_ins_list = bb->insList();
+  vector <Instruction *> ins_list;
+  for(auto & ins : bb_ins_list)
+    if(ins->location() >= addrs)
+      ins_list.push_back(ins);
+
+  auto offt = stackDecrement(ins_list);
+
+  if(bb->fallThroughBB() != NULL) {
+    auto fall_ins_list = bb->fallThroughBB()->insList(); 
+    auto fall_offt = stackDecrement(fall_ins_list);
+    if(fall_offt != 0)
+      return offt + fall_offt;
+  }
+  if(bb->targetBB() != NULL) {
+    auto tgt_ins_list = bb->targetBB()->insList();
+    auto tgt_offt = stackDecrement(tgt_ins_list);
+    if(tgt_offt != 0)
+      return offt + tgt_offt;
+  }
+
+  return offt;
+
+}
+
 void
 Dfs::directlyReachableBBs(BasicBlock *bb,
     unordered_set <uint64_t> &passed) {
