@@ -2113,6 +2113,67 @@ CfgElems::linkAllBBs() {
     linkBBs(unknwnBBs);
   }
 }
+/*
+int
+CfgElems::offsetFrmCanaryToRA(vector <BasicBlock *> &bb_list) {
+  int offt = -1;
+  for(auto & bb : bb_list) {
+    auto ins_list = bb->insList();
+    for(auto & ins : ins_list) {
+      if(ins->asmIns().find("%fs:0x28") != string::npos && ins->asmIns().find("xor") != string::npos) {
+        uint64_t ra_offset = peepHoleStackDecrement(ins->location(), bb);
+        ins->raOffset(ra_offset);
+        ins->canaryCheck(true);
+        if(offt == -1)
+          offt = ra_offset;
+        else if(offt != (int)ra_offset)
+          return -1;
+      }
+    }
+  }
+  return offt;
+}
+
+int 
+CfgElems::offsetFrmCanaryAddToRa(uint64_t add_loc, BasicBlock *bb) {
+  auto ins_list = bb->insList();
+  vector <Instruction *> ins_till_canary;
+  for(auto & ins : ins_list) {
+    if(ins->location() <= add_loc)
+      ins_till_canary.push_back(ins);
+  }
+  auto offt = stackDecrement(ins_till_canary);
+  return offt;
+}
+
+void
+CfgElems::instrumentCanary() {
+  for(auto fn : funcMap_) {
+
+    auto all_entries = fn.second->allEntries();
+    for(auto & e : all_entries) {
+      auto bb = getBB(e);
+      if(bb != NULL) {
+        auto entry_ins_list = bb->insList();
+
+        auto bb_list = bbSeq(bb);
+        for(auto & bb : bb_list) {
+          auto ins_list = bb->insList();
+          for(auto & ins : ins_list) {
+            if(ins->asmIns().find("%fs:0x28") != string::npos && ins->asmIns().find("mov") != string::npos) {
+              ins->canaryAdd(true);
+              auto canary_add_to_exit = bbSeq(bb);
+              auto ra_offset = offsetFrmCanaryToRA(canary_add_to_exit);
+              if(ra_offset != -1)
+                ins->raOffset(ra_offset);
+            }
+          }
+        }
+      }
+    }
+  }
+}
+*/
 void
 CfgElems::instrument() {
   vector<pair<uint64_t, string>> tgtAddrs = targetAddrs();

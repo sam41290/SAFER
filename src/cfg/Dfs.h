@@ -63,6 +63,8 @@ namespace SBI {
     bool checkPath(BasicBlock *from, BasicBlock *to);
     vector <BasicBlock *> subGraphParents(BasicBlock *bb);
     vector <BasicBlock *> externalCallers(BasicBlock *bb, BasicBlock *entry);
+    int peepHoleStackDecrement(uint64_t addrs, BasicBlock *bb);
+    int stackDecrement(vector <Instruction *> &ins_list);
   private:
     void psblExitDFS(BasicBlock *bb, stack <BasicBlock *> &calls,
                        unordered_set <uint64_t> &passed);
