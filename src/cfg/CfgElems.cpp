@@ -1855,8 +1855,6 @@ CfgElems::classifyPtrs() {
         ptr->type(PointerType::CP);
       }
       else if(isDataPtr(ptr)) {
-        if(ptr->address() == 0x6b869)
-          DEF_LOG("Marking as data pointer: "<<hex<<ptr->address());
         ptr->type(PointerType::DP);
       }
       else {

@@ -418,9 +418,10 @@ Instruction::setInstParams(HookType h) {
 void
 Instruction::instrument() {  
   vector<pair<InstPoint,string>> targetPos = targetPositions();
-  for(auto tgt:targetPos) {
+  for(auto & tgt:targetPos) {
     HookType h = HookType::GENERAL_INST;
-    if(tgt.first == InstPoint::ADDRS_TRANS)
+    if(tgt.first == InstPoint::ADDRS_TRANS_JMP ||
+       tgt.first == InstPoint::ADDRS_TRANS_CALL)
       h = HookType::ADDRS_TRANS;
     else if(tgt.first == InstPoint::RET_CHK)
       h = HookType::RET_CHK;
@@ -429,7 +430,8 @@ Instruction::instrument() {
     setInstParams(h);
     vector<InstArg> allArgs= instArgs()[tgt.second];
     string args = "";
-    if(tgt.first == InstPoint::ADDRS_TRANS) {
+    if(tgt.first == InstPoint::ADDRS_TRANS_JMP ||
+       tgt.first == InstPoint::ADDRS_TRANS_CALL) {
       args += "mov " + instParams_[(int)InstArg::INDIRECT_TARGET] + ",%rax\n";
     }
     else if(tgt.first == InstPoint::RET_CHK)
@@ -463,10 +465,13 @@ Instruction::instrument() {
     }
     if(tgt.first == InstPoint::LEA_INS_POST)
       instAsmPost_ += generate_hook(tgt.second,args,mnemonic_);
-    else if(tgt.first == InstPoint::ADDRS_TRANS)
+    else if(tgt.first == InstPoint::ADDRS_TRANS_JMP ||
+            tgt.first == InstPoint::ADDRS_TRANS_CALL)
       asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::ADDRS_TRANS);
-    else if(tgt.first == InstPoint::RET_CHK)
+    else if(tgt.first == InstPoint::RET_CHK) {
+      DEF_LOG("Instrumenting returns: "<<hex<<loc_);
       asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::RET_CHK);
+    }
     else if(tgt.first == InstPoint::SYSCALL_CHECK)
       instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SYSCALL_CHECK);
     else

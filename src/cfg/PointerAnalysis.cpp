@@ -43,7 +43,7 @@ PointerAnalysis::PointerAnalysis (uint64_t memstrt, uint64_t memend) :
   propList_ = PROPERTIES;
   //allConstRelocs_.insert(allConstRelocs_.end(), picConstReloc().begin(), picConstReloc().end());
   //allConstRelocs_.insert(allConstRelocs_.end(), xtraConstReloc().begin(),xtraConstReloc().end());
-  analysis::setup(TOOL_PATH"auto/itc.auto");
+  analysis::setup(TOOL_PATH"auto/output.auto");
   analysis::set_init(INIT_TYPE);
 }
 

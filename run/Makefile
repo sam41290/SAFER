@@ -72,7 +72,7 @@ all: directories $(TARGET)
 
 $(TARGET): $(OBJS)
 	$(HIDE)echo Linking $@
-	$(HIDE)$(CXX) $(INCLUDES) -L../src/rtl-analysis/ $(OBJS) -o $(TARGET) -lcapstone -lanalysis
+	$(HIDE)$(CXX) $(INCLUDES) -L../src/rtl-analysis/ -L../src/SBA/ $(OBJS) -o $(TARGET) -lcapstone -lanalysis -lsba
 
 $(OBJS): $(foreach targetdir, $(TARGETDIRS), $(eval $(call generateRules, $(targetdir))))
 

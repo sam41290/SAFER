@@ -1062,8 +1062,8 @@ Binary::genInstAsm() {
     prev_sec = sec_start;
     free(section_data);
   }
-  ofile<<".GTF_ret:\n";
-  ofile<<"jmp *.dispatcher_ret(%rip)\n";
+  ofile<<".GTF_call:\n";
+  ofile<<"jmp *.dispatcher_call(%rip)\n";
   ofile<<".GTF_reg:\n";
   ofile<<"jmp *.dispatcher_reg(%rip)\n";
   ofile<<".SYSCHK:\n";

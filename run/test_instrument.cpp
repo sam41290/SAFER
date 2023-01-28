@@ -26,14 +26,19 @@ main (int argc, char *args[]) {
   vector<InstArg> arglst2;
   arglst2.push_back(InstArg::INDIRECT_TARGET);
   arglst2.push_back(InstArg::RIP);
-  b.registerInstrumentation(InstPoint::ADDRS_TRANS,"GTF_reg",arglst2);
+  b.registerInstrumentation(InstPoint::ADDRS_TRANS_JMP,"GTF_reg",arglst2);
 
   vector<InstArg> arglst3;
-  arglst3.push_back(InstArg::REG_RAX);
-  b.registerInstrumentation(InstPoint::SYSCALL_CHECK,"SYSCHK",arglst3);
+  arglst3.push_back(InstArg::INDIRECT_TARGET);
+  arglst3.push_back(InstArg::RIP);
+  b.registerInstrumentation(InstPoint::ADDRS_TRANS_CALL,"GTF_call",arglst3);
+
+  vector<InstArg> arglst4;
+  arglst4.push_back(InstArg::REG_RAX);
+  b.registerInstrumentation(InstPoint::SYSCALL_CHECK,"SYSCHK",arglst4);
 
   //vector<InstArg> arglst4;
-  //b.registerInstrumentation(InstPoint::RET_CHK,"GTF_ret",arglst4);
+  //b.registerInstrumentation(InstPoint::RET_CHK,"GTF_stack",arglst4);
   //
   //vector<InstArg> arglst2;
   //arglst2.push_back(InstArg::EXENAME);

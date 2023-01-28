@@ -166,6 +166,7 @@ Instrument::generate_hook(string hook_target, string args,
     mne = "jmp";
     inst_code += "mov %rax,-" + to_string(rax_offt) + "(%rsp)\n"; 
     inst_code += args + mne + " ." + hook_target + "\n";
+    DEF_LOG("Return check code: "<<inst_code);
   }
   else {
     inst_code += save(h);
@@ -185,7 +186,8 @@ Instrument::generate_hook(string hook_target, string args,
   //  inst_code += "mov %rax,-8(%rsp)\n";
   //}
 
-  if(h != HookType::ADDRS_TRANS)
+  if(h != HookType::ADDRS_TRANS 
+     && h != HookType::RET_CHK)
     inst_code = inst_code + restore(h);
   //if(h == HookType::ADDRS_TRANS) {
   //  inst_code += mne + " *-40(%rsp)\n";

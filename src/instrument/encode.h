@@ -114,7 +114,7 @@ public:
           + ".8byte " + to_string(e.oldOrNew_) + "\n";
       ctr++;
     }
-    tbl += ".dispatcher_ret: .8byte 0\n.dispatcher_reg: .8byte 0\n.syscall_checker: .8byte 0\n";
+    tbl += ".dispatcher_call: .8byte 0\n.dispatcher_reg: .8byte 0\n.syscall_checker: .8byte 0\n";
     return tbl;
   };
 
