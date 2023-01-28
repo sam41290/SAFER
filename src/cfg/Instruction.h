@@ -34,6 +34,7 @@ private:
   bool isCall_ = false;
   bool isLea_ = false;
   bool isIndrctCf_ = false;
+  bool isPltJmp_ = false;
   int opCnt_;			//operand count
   string mnemonic_;
   string op1_;			//operands
@@ -70,6 +71,8 @@ public:
   Instruction(uint64_t address, char *mnemonic, char *op_str, uint8_t
 	       * bytes, int size);
   string prefix() { return prefix_; }
+  void isPltJmp(bool val) { isPltJmp_ = val; }
+  bool isPltJmp() { return isPltJmp_; }
   void atRequired(bool val) { atRequired_ = val; }
   bool atRequired() { return atRequired_; }
   void instAsmPre(string code) { instAsmPre_ += code; }

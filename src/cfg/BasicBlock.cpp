@@ -354,11 +354,21 @@ BasicBlock::instrument() {
         ins_it->registerInstrumentation(p.first,p.second,allargs[p.second]);
       }
     }
-    else if(p.first == InstPoint::ADDRS_TRANS) {
+    else if(p.first == InstPoint::ADDRS_TRANS_JMP) {
       for(auto & ins : insList_) {
         if(ins->isRltvAccess() && ins->isLea())
           ins->encode(true);
-        if((ins->isIndirectCf() && ins->atRequired())/* || ins->asmIns().find("ret") != string::npos*/)
+        if((ins->isIndirectCf() && ins->atRequired()) 
+            && ins->isPltJmp() == false && ins->isCall() == false)
+          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
+      }
+    }
+    else if(p.first == InstPoint::ADDRS_TRANS_CALL) {
+      for(auto & ins : insList_) {
+        if(ins->isRltvAccess() && ins->isLea())
+          ins->encode(true);
+        if((ins->isIndirectCf() && ins->atRequired()) && 
+           (ins->isPltJmp() || ins->isCall()))
           ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
       }
     }

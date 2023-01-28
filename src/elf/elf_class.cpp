@@ -1699,11 +1699,12 @@ ElfClass::hashTblAsm() {
     uint64_t prev_ind = 0;
     map<uint64_t, uint64_t> hash_map;
     for(uint64_t i = 0; i < entry_cnt; i++) {
+      DEF_LOG("hash ind: "<<hex<<tbl_start[i].hashInd_<<" ptr: "<<hex<<tbl_start[i].old_);
       hash_map[tbl_start[i].hashInd_] = i;
     }
     uint64_t total_skip = 0;
     for(auto & e : hash_map) {
-      DEF_LOG("hash ind: "<<hex<<e.first<<" ptr: "<<hex<<e.second);
+      DEF_LOG("hash ind: "<<hex<<e.first<<" att ind: "<<hex<<e.second);
       uint64_t skip_bytes = (e.first - prev_ind) * sizeof(void *);
       total_skip += skip_bytes;
       DEF_LOG("Total skip: "<<hex<<total_skip<<" entry skip: "<<hex<<skip_bytes);
