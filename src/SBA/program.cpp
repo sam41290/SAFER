@@ -164,7 +164,6 @@ void Program::update_graph(const vector<pair<IMM,RTL*>>& offset_rtl,
             }
          }
          else {
-            LOG1(i->offset());
             LOG1("error: missing successive target " << i->next_offset());
             corrupted_ = true;
             return;

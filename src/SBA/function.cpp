@@ -228,7 +228,7 @@ BaseDomain* Function::track_subexpr(int domainIndex, Expr* expr, const Loc& loc)
 vector<ExprLoc> Function::find_def(ARCH::REG reg, const Loc& loc) {
    vector<ExprLoc> res;
    auto pattern = new Reg(Expr::EXPR_MODE::DI, reg);
-   for (auto l: s_[0]->use_def(UnitId(reg), loc)) {
+   for (auto l: s_[0]->use_def(get_id(reg), loc)) {
       auto stmt = l.insn->stmt();
       auto vec = stmt->find(RTL_EQUAL::RELAXED, pattern);
       for (auto r: vec) {
@@ -252,7 +252,7 @@ vector<ExprLoc> Function::find_def(ARCH::REG reg, const Loc& loc) {
 vector<ExprLoc> Function::find_use(ARCH::REG reg, const Loc& loc) {
    vector<ExprLoc> res;
    auto pattern = new Reg(Expr::EXPR_MODE::DI, reg);
-   for (auto l: s_[0]->def_use(UnitId(reg), loc)) {
+   for (auto l: s_[0]->def_use(get_id(reg), loc)) {
       auto stmt = l.insn->stmt();
       auto vec = stmt->find(RTL_EQUAL::RELAXED, pattern);
       for (auto r: vec) {

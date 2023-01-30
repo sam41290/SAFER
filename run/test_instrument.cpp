@@ -26,12 +26,7 @@ main (int argc, char *args[]) {
   vector<InstArg> arglst2;
   arglst2.push_back(InstArg::INDIRECT_TARGET);
   arglst2.push_back(InstArg::RIP);
-  b.registerInstrumentation(InstPoint::ADDRS_TRANS_JMP,"GTF_reg",arglst2);
-
-  vector<InstArg> arglst3;
-  arglst3.push_back(InstArg::INDIRECT_TARGET);
-  arglst3.push_back(InstArg::RIP);
-  b.registerInstrumentation(InstPoint::ADDRS_TRANS_CALL,"GTF_call",arglst3);
+  b.registerInstrumentation(InstPoint::ADDRS_TRANS,"GTF_reg",arglst2);
 
   vector<InstArg> arglst4;
   arglst4.push_back(InstArg::REG_RAX);

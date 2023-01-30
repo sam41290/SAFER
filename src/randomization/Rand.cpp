@@ -26,7 +26,7 @@ Rand::printBasicBlocks(vector <BasicBlock *> &bbs, string fileName,
 
   for(auto bb : bbs) {
     uint64_t randBBStrt = bb->start();
-    LOG("Printing basic block: " << hex << randBBStrt);
+    DEF_LOG("Printing basic block: " << hex << randBBStrt);
     auto callSiteIt = all_call_sites.find(randBBStrt);
     if(callSiteIt != all_call_sites.end()) {
       //utils::bindLabel(randBBStrt, bb->label());
@@ -104,8 +104,8 @@ Rand::printUnwindRec(uint64_t frame, BasicBlock * bb) {
 
 void
 Rand::addJmpToFallThru(BasicBlock *bb) {
-  if(bb != NULL && bb->fallThrough() != 0) {
-    LOG("Adding fall through: "<<hex<<bb->start()<<"->"<<hex<<bb->fallThrough());
+  if(bb != NULL && bb->fallThroughBB() != NULL) {
+    DEF_LOG("Adding fall through: "<<hex<<bb->start()<<"->"<<hex<<bb->fallThrough());
     Instruction ins;
     string jmpLoc =
       "jmp " + bb->fallThroughBB()->label();//to_string(bb->fallThrough());
@@ -149,17 +149,24 @@ compareBB(BasicBlock *A, BasicBlock *B);
 
 vector <BasicBlock *>
 Rand::removeDuplication(vector <BasicBlock *> &bb_list) {
-  if(bb_list[0]->isCode() == false)
-    return bb_list;
-  unordered_set <uint64_t> bbs_to_remove;
+  DEF_LOG("Removing duplicates");
   int bb_cnt = bb_list.size();
+  DEF_LOG("BB cnt: "<<hex<<bb_cnt);
+  if(bb_cnt <= 0 || bb_list[0]->isCode() == false)
+    return bb_list;
+  DEF_LOG("BB cnt: "<<hex<<bb_cnt<<" first bb: "<<bb_list[0]->start());
+  unordered_set <uint64_t> bbs_to_remove;
   for(int i = 0; i < bb_cnt; i++) {
     bool overlapping = false;
+    DEF_LOG("Ctr: "<<i);
+    DEF_LOG("BB: "<<hex<<bb_list[i]->start());
     for(int j = i + 1; j < bb_cnt && bb_list[i]->boundary() >
         bb_list[j]->start(); j++) {
       overlapping = true;
+      DEF_LOG("Overlapping found: "<<hex<<bb_list[j]->start()<<" x "
+              <<hex<<bb_list[i]->start()<<"-"<<hex<<bb_list[i]->boundary());
       if(bb_list[i]->isValidIns(bb_list[j]->start())) {
-        LOG("Removing duplicated BB: "<<hex<<bb_list[j]->start());
+        DEF_LOG("Removing duplicated BB: "<<hex<<bb_list[j]->start());
         bbs_to_remove.insert(bb_list[j]->start());
       }
       else {
@@ -167,7 +174,7 @@ Rand::removeDuplication(vector <BasicBlock *> &bb_list) {
         for(auto & ins : ins_list) {
           auto ins2 = bb_list[i]->getIns(ins->location());
           if(ins2 != NULL) {
-            LOG("Adjusting overlapping BB "<<hex<<bb_list[j]->start()<<" at "
+            DEF_LOG("Adjusting overlapping BB "<<hex<<bb_list[j]->start()<<" at "
                  <<hex<<ins2->location()<<" bigger BB: "<<hex<<bb_list[i]->start());
             bb_list[j]->split(ins2->location());
             Instruction ins;
@@ -277,7 +284,7 @@ Rand::getFinalBasicBlks(vector <uint64_t> &brkPoints,
    * arranges smaller BBs accordingly.
    */
 
-  LOG("Creating final basic block list");
+  DEF_LOG("Creating final basic block list");
   set <uint64_t> bbSet(brkPoints.begin(), brkPoints.end());
   for(auto & bbStart:brkPoints) {
     LOG("big block: " << hex << bbStart);

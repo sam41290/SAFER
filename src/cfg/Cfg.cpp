@@ -79,6 +79,7 @@ Cfg::disassemble() {
       }
     }
   }
+  DEF_LOG("Guessing jump tables complete");
   //classifyPtrs();
   populateRltvTgts();
   randomizer();
@@ -1520,6 +1521,7 @@ Cfg::handleLoopIns(vector <BasicBlock *> &bb_list) {
   for(auto & bb : bb_list) {
     if(bb->lastIns()->isJump() && bb->lastIns()->asmIns().find("loop") != string::npos &&
        bb->targetBB() != NULL && bb->target() != bb->start()) {
+      DEF_LOG("Handling loop ins: "<<hex<<bb->start());
       bb->addTrampToTgt();
       //randomizer_->addTrampForBB(bb->targetBB());
       //auto tramp_bb = bb->targetBB()->tramp();
@@ -1535,9 +1537,10 @@ void
 Cfg::printFunc(uint64_t fstart, string file_name) {
   /* Prints ASM for a function
    */
+  DEF_LOG("Printing function: "<<hex<<fstart);
   auto fn_map = funcMap();
   if(if_exists(fstart, fn_map) == false) {
-    LOG("Function not present");
+    DEF_LOG("Function not present");
     return;
   }
   Function *f = fn_map[fstart];
@@ -1545,10 +1548,14 @@ Cfg::printFunc(uint64_t fstart, string file_name) {
   handleLoopIns(defbbs);
   vector <BasicBlock *> unknwnbbs = f->getUnknwnCode();
   vector <BasicBlock *> psbl_code;
-  for(auto & bb : unknwnbbs)
-    if(dataByProperty(bb) == false)
+  for(auto & bb : unknwnbbs) {
+    if(dataByProperty(bb) == false) {
+      DEF_LOG("Adding psbl bb: "<<hex<<bb->start());
       psbl_code.push_back(bb);
+    }
+  }
   handleLoopIns(psbl_code);
+  DEF_LOG("Handling loops done");
 #ifdef OPTIMIZED_EH_METADATA 
   if(defbbs.size() > 0) {
     //Intra unwinding block randomization for definite code.
@@ -1583,10 +1590,14 @@ Cfg::printFunc(uint64_t fstart, string file_name) {
     randomizer_->print(psbl_code, file_name, fstart);
   }
 #else
+  DEF_LOG("Printing def code bbs");
   if(defbbs.size() > 0)
     randomizer_->print(defbbs, file_name, fstart);
-  if (psbl_code.size() > 0)
+  DEF_LOG("Printing psbl code bbs");
+  if (psbl_code.size() > 0) {
+    DEF_LOG("First bb: "<<hex<<psbl_code[0]->start());
     randomizer_->print(psbl_code, file_name, fstart);
+  }
 #endif
   return;
 }
