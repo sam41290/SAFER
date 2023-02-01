@@ -98,7 +98,7 @@ JmpTblAnalysis::decodeJmpTblTgts(analysis::JTable j_lst) {
     jmp_tbls.push_back(j);
   }
   for(auto & j : jmp_tbls) {
-    if (jmpTblExists(j.location(),j.base()) == false) {
+    if (jmpTblExists(j) == false) {
       //auto h = (uint64_t)(j.location()+jtable.mem.addr.range.h);
       //j.end(std::min(h,dataSegmntEnd(j.location())));
       if(CFValidity::validAddrs(j.base()) == false)
@@ -113,9 +113,9 @@ JmpTblAnalysis::decodeJmpTblTgts(analysis::JTable j_lst) {
       //BasicBlock *cfbb = withinBB(jloc);
       //cfbb->isJmpTblBlk(true);
       auto cf_loc = j.cfLoc();
-      auto fn = is_within(cf_loc,funMap);
+      auto fn = is_within(cf_loc[0],funMap);
       j.function(fn->first);
-      readTargets(j,cf_loc);
+      readTargets(j,cf_loc[0]);
       if(j.base() != 0) {
         auto basebb = getBB(j.base());
         if(basebb != NULL)

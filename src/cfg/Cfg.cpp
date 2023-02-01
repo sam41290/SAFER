@@ -53,23 +53,23 @@ Cfg::disassemble() {
         utils::READ_FROM_FILE(exePath_, (void *) &offt64, file_offt,8);
         utils::READ_FROM_FILE(exePath_, (void *) &offt32, file_offt,4);
         DEF_LOG("8 byte val: "<<hex<<offt64<<" 4 byte val: "<<hex<<offt32);
-        if(getBB(offt64) != NULL) {
+        if(isValidIns(offt64)) {
           DEF_LOG("Potential target: "<<hex<<offt64);
           newPointer(offt64,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt64);
           i += 8;
         }
-        else if(getBB((uint32_t)(offt32 + p.first)) != NULL) {
+        else if(isValidIns((uint32_t)(offt32 + p.first))) {
           uint32_t val = (uint32_t)(offt32 + p.first);
           DEF_LOG("Potential target: "<<hex<<val);
           newPointer(val,PointerType::UNKNOWN,PointerSource::JUMPTABLE,val);
           i += 4;
         }
-        else if(getBB(offt64 + p.first) != NULL) {
+        else if(isValidIns(offt64 + p.first)) {
           DEF_LOG("Potential target: "<<hex<<offt64 + p.first);
           newPointer(offt64 + p.first,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt64 + p.first);
           i += 8;
         }
-        else if(getBB(offt32) != NULL) {
+        else if(isValidIns(offt32)) {
           DEF_LOG("Potential target: "<<hex<<offt32);
           newPointer(offt32,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt32);
           i += 4;
@@ -1184,6 +1184,16 @@ Cfg::disassembleGaps() {
           else
             newPointer(psbl_fn_start, PointerType::UNKNOWN,
               PointerSource::GAP_HINT,PointerSource::GAP_HINT,psbl_fn_start);
+          bb = getBB(psbl_fn_start);
+          if(bb != NULL) {
+            auto ins_list = bb->insList();
+            if(ins_list[0]->asmIns().find("nop") != string::npos ||
+               ins_list[0]->asmIns().find("xchg") != string::npos) {
+              auto next_addr = psbl_fn_start + ins_list[0]->insSize();
+              newPointer(next_addr, PointerType::UNKNOWN,
+                PointerSource::GAP_HINT,PointerSource::GAP_HINT,next_addr);
+            }
+          }
         }
         psbl_fn_start = 0;//ins->location() + ins->insSize();
       } 

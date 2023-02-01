@@ -876,6 +876,7 @@ Binary::rewrite_jmp_tbls(string file_name) {
        j.targets().size() > 0 &&
        codeCFG_->isMetadata(j.location()) == false &&
        j.rewritable()) {
+      DEF_LOG("Writing jump table: "<<hex<<j.location());
       string tbl = j.rewriteTgts();
       utils::printAsm(tbl,j.location(),"."
           + to_string(j.location()),SymBind::FORCEBIND,file_name); 

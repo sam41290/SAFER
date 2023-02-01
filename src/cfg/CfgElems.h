@@ -345,6 +345,7 @@ namespace SBI {
     bool conflictsDefCode(uint64_t addrs);
     BasicBlock *withinBB(uint64_t addrs);
     bool isValidAddress(uint64_t addrs);
+    bool isValidIns(uint64_t addrs);
     void printOriginalAsm();
     void printDeadCode();
     void dump(); 
@@ -403,7 +404,7 @@ namespace SBI {
     bool rewritableJmpTblLoc(uint64_t addrs);
     bool rewritableJmpTblBase(uint64_t addrs);
     bool sameLocDiffBase(uint64_t loc, uint64_t base);
-    bool jmpTblExists(uint64_t loc, uint64_t base);
+    bool jmpTblExists(JumpTable &j);
     bool isJmpTblLoc(uint64_t addrs);
     bool isJmpTblBase(uint64_t addrs);
     unsigned int jumpTableCnt() { return jmpTables_.size(); }
@@ -428,7 +429,7 @@ namespace SBI {
     void markAsDefData(uint64_t addrs);
     bool readableMemory(uint64_t addrs);
     void addIndrctTgt(uint64_t ins_loc, BasicBlock *tgt);
-    void linkCFToJumpTable(JumpTable *j, uint64_t ins_loc);
+    void linkCFToJumpTable(JumpTable *j, vector<uint64_t> &ins_loc);
     uint64_t nextCodeBlock(uint64_t addrs);
     vector<Gap> getGaps();
     BasicBlock *getDataBlock(uint64_t addrs);
