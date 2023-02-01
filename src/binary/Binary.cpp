@@ -876,6 +876,7 @@ Binary::rewrite_jmp_tbls(string file_name) {
        j.targets().size() > 0 &&
        codeCFG_->isMetadata(j.location()) == false &&
        j.rewritable()) {
+      DEF_LOG("Writing jump table: "<<hex<<j.location());
       string tbl = j.rewriteTgts();
       utils::printAsm(tbl,j.location(),"."
           + to_string(j.location()),SymBind::FORCEBIND,file_name); 
@@ -1028,6 +1029,7 @@ Binary::genInstAsm() {
   uint64_t sig_installer_address = inst_exe->symbolVal("install_signal");
   uint64_t sig_checker_address = inst_exe->symbolVal("check_handler");
   uint64_t fill_sigaction_address = inst_exe->symbolVal("fill_sigaction");
+  uint64_t segfault_handler_address = inst_exe->symbolVal("segfault_handler");
   vector <section> inst_code_section =
     inst_exe->sections(section_types::RorX);;
 
@@ -1055,6 +1057,8 @@ Binary::genInstAsm() {
         ofile <<".segfault_checker:\n";
       if(sec_start == fill_sigaction_address)
         ofile <<".fill_sigaction:\n";
+      if(sec_start == segfault_handler_address)
+        ofile<<".segfault_handler:\n";
       ofile <<".byte " <<(uint32_t) section_data[j] <<"\n";
       sec_start++;
     }

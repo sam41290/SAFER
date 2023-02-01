@@ -32,7 +32,7 @@ static pair<IMM,Expr::EXPR_MODE> extract_mode(const string& s) {
       mode_str = s.substr(p1, p2-p1);
    }
 
-   for (int i = 0; i < 38; ++i)
+   for (int i = 0; i < 42; ++i)
       if (mode_str.compare(Expr::MODE_STR[i]) == 0)
          return make_pair((IMM)(Expr::MODE_SZ[i]), (Expr::EXPR_MODE)i);
    return make_pair(0, Expr::EXPR_MODE::NONE);

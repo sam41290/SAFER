@@ -26,17 +26,24 @@ class JumpTable
   vector <uint64_t> targets_;
   BasicBlock *baseBB_ = NULL;
   vector <BasicBlock *> cfBBs_;
-  uint64_t cfLoc_ = 0;
+  vector <uint64_t> cfLoc_;
   bool rewritable_ = true;
 public:
   JumpTable(){}
   void rewritable(bool val) { rewritable_ = val; }
   bool rewritable() { return rewritable_; }
-  void cfLoc(uint64_t loc) { cfLoc_ = loc; }
-  uint64_t cfLoc() { return cfLoc_; }
-  void cfBB(BasicBlock *bb) { 
+  void cfLoc(uint64_t loc) { 
+    for(auto & c : cfLoc_)
+      if(c == loc)
+        return;
+    cfLoc_.push_back(loc); 
+  }
+  vector<uint64_t> &cfLoc() { return cfLoc_; }
+  void cfBB(BasicBlock *bb) {
+    //if(bb->end() != cfLoc_)
+    //  return;
     for(auto & b : cfBBs_)
-      if(b->end() == bb->end())
+      if(b->start() == bb->start())
         return;
     cfBBs_.push_back(bb); 
   }

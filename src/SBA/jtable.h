@@ -135,9 +135,9 @@ namespace SBA {
 
    struct JTAnalyser {
       vector<tuple<JTable*,IMM,bool>> items;
-      ~JTAnalyser() {for (auto [jtable,jloc,safe]: items) delete jtable;};
       void analyse(const ExprLoc& exprloc);
       void verify(Function* f);
+      void clean() {for (auto [jtable,jloc,safe]: items) delete jtable;};
    };
 
 }

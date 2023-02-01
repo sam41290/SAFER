@@ -11,6 +11,7 @@ using namespace SBI;
 //  return true;
 //}
 
+
 vector <string>
 CfgElems::allReturnSyms() {
   vector <string> ra_syms;
@@ -49,13 +50,16 @@ CfgElems::allReturnAddresses() {
 bool
 CfgElems::sameLocDiffBase(uint64_t loc, uint64_t base) {
   for(auto & j : jmpTables_)
-    if(j.location() == loc && j.base() != base)
+    if(j.location() == loc && j.base() != base) {
+      DEF_LOG("Same location different base: "<<hex<<j.location());
       return true;
+    }
   return false;
 }
 
 bool
 CfgElems::otherUseOfJmpTbl(JumpTable &j) {
+  DEF_LOG("Checking other use for: "<<hex<<j.location());
   auto loc_ptr = ptr(j.location());
   if(loc_ptr != NULL) {
     auto sym_candidates = loc_ptr->symCandidate();
@@ -66,9 +70,12 @@ CfgElems::otherUseOfJmpTbl(JumpTable &j) {
         if(loc_bb != NULL) {
           auto cf_bbs = j.cfBBs();
           for(auto & bb : cf_bbs) {
-            if(checkPath(loc_bb,bb))
+            if(checkPath(loc_bb,bb)) {
+              DEF_LOG("Path to cf bb found: "<<hex<<bb->start());
               return false;
+            }
           }
+          DEF_LOG("Other use for jump table: "<<hex<<j.location());
           return true;
         }
       }
@@ -88,10 +95,12 @@ CfgElems::chkJmpTblRewritability() {
       (loc_ptr->symbolizable(SymbolizeIf::IMMOPERAND) || base_ptr->symbolizable(SymbolizeIf::IMMOPERAND))) ||
       (loc_ptr->symbolizable(SymbolizeIf::RLTV) && loc_ptr->type() == PointerType::CP) ||
       (base_ptr->symbolizable(SymbolizeIf::RLTV) && base_ptr->type() == PointerType::CP) ||
-      otherUseOfJmpTbl(j)) {
+      otherUseOfJmpTbl(j) || isMetadata(j.location())) {
+      DEF_LOG("Marking jump table non transformable: "<<hex<<j.location());
       j.rewritable(false);
       auto cf_bbs = j.cfBBs();
       for(auto & bb : cf_bbs) {
+        DEF_LOG("Marking cf for addr trans: "<<hex<<bb->start());
         bb->addrTransMust(true);
       }
     }
@@ -110,9 +119,11 @@ CfgElems::chkJmpTblRewritability() {
           }
         }
         if(addr_trans_must) {
+          DEF_LOG("Marking jump table non transformable: "<<hex<<j.location());
           j.rewritable(false);
           for(auto & bb : cf_bbs) {
             if(bb->addrTransMust() == false) {
+              DEF_LOG("Marking cf for addr trans: "<<hex<<bb->start());
               bb->addrTransMust(true);
               repeat = true;
             }
@@ -1132,6 +1143,16 @@ CfgElems::withinBB(uint64_t addrs) {
   return bb;
 }
 
+bool
+CfgElems::isValidIns(uint64_t addrs) {
+  auto bb = withinBB(addrs);
+  if(bb != NULL) {
+    if(bb->isValidIns(addrs))
+      return true;
+  }
+  return false;
+}
+
 void
 CfgElems::addBBtoFn(BasicBlock *bb, PointerSource t) {
   uint64_t addrs = bb->start();
@@ -1783,12 +1804,6 @@ CfgElems::isMetadata(uint64_t addrs) {
         return false;
     }
   }
-  //for(section & sec : rwSections_) {
-  //  if(sec.vma <= addrs && (sec.vma + sec.size) > addrs 
-  //     && sec.is_metadata) {
-  //    return true;
-  //  }
-  //}
   return true;
 }
 
@@ -2261,12 +2276,19 @@ CfgElems::rewritableJmpTblLoc(uint64_t addrs) {
 
 
 bool
-CfgElems::jmpTblExists(uint64_t loc, uint64_t base) {
-  for(auto & j : jmpTables_)
-    if(j.location() == loc && j.base() == base)
+CfgElems::jmpTblExists(JumpTable &new_j) {
+  for(auto & j : jmpTables_) {
+    if(j.location() == new_j.location() && j.base() == new_j.base()) { 
+      //Add cf loc
+      auto new_cf_loc = new_j.cfLoc();
+      for(auto & new_cf : new_cf_loc)
+        j.cfLoc(new_cf);
       return true;
+    }
+  }
   return false;
 }
+
 
 bool
 CfgElems::isJmpTblLoc(uint64_t addrs) {
@@ -2292,8 +2314,6 @@ CfgElems::getSymbol(uint64_t addrs) {
   auto bb = withinBB(addrs);
   if(bb != NULL && bb->isValidIns(addrs))
     sym = "." + to_string(addrs) + bb->lblSuffix();
-  if(addrs == 0x6b869)
-    DEF_LOG("Address: "<<hex<<addrs<<" symbol: "<<sym);
   return sym;
 }
 
@@ -2305,10 +2325,12 @@ CfgElems::addIndrctTgt(uint64_t ins_loc, BasicBlock *tgt) {
 }
 
 void
-CfgElems::linkCFToJumpTable(JumpTable *j, uint64_t ins_loc) {
-  auto fn = is_within(ins_loc, funcMap_);
-  if(fn != funcMap_.end())
-    fn->second->linkCFToJumpTable(j, ins_loc);
+CfgElems::linkCFToJumpTable(JumpTable *j, vector <uint64_t> &ins_loc) {
+  for(auto & loc : ins_loc) {
+    auto fn = is_within(loc, funcMap_);
+    if(fn != funcMap_.end())
+      fn->second->linkCFToJumpTable(j, loc);
+  }
 }
 
 bool

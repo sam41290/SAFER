@@ -19,22 +19,24 @@ namespace SBA {
     public:
       enum class EXPR_TYPE: char {CONSTANT, VAR, ARITHMETIC, SUBREG,
                                   IFELSE, CONVERSION, NOTYPE};
-      enum class EXPR_MODE: char {QI, HI, SI, DI, TI,
-                                  SF, DF, XF, TF,
+      enum class EXPR_MODE: char {QI, HI, SI, DI, TI, SF, DF, XF, TF,
+                                  FSQI, FSHI, FSSI, FSDI,
                                   BLK, BLKQI, BLKHI, BLKSI, BLKDI,
                                   CC, CCZ, CCC, CCO, CCNO, CCGC, CCGOC, CCFP,
                                   V1DI, V1TI, V2DF, V2DI, V2SF, V2SI,
                                   V4DI, V4SF, V4SI, V8HI, V8QI, V8SF, V8SI,
                                   V16HI, V16QI, V32QI, NONE};
-      static inline const uint8_t MODE_SZ[39] = {
+      static inline const uint8_t MODE_SZ[43] = {
                                   1,  2,  4,  8, 16, 4,  8, 10, 16,
+                                  1,  2,  4,  8,
                                   8,  1,  2,  4,  8,
                                   8,  8,  8,  8,  8,  8, 8, 8,
                                   8, 16, 16, 16,  8,  8,
                                  32, 16, 16, 16,  8, 32, 32,
                                  32, 16, 32, 0};
-      static inline const string MODE_STR[39] = {
+      static inline const string MODE_STR[43] = {
             ":QI", ":HI", ":SI", ":DI", ":TI", ":SF", ":DF", ":XF", ":TF",
+            ":FSQI", ":FSHI", ":FSSI", ":FSDI",
             ":BLK", ":BLKQI", ":BLKHI", ":BLKSI", ":BLKDI",
             ":CC", ":CCZ", ":CCC", ":CCO", ":CCNO", ":CCGC", ":CCGOC", ":CCFP",
             ":V1DI" , ":V1TI" , ":V2DF", ":V2DI", ":V2SF", ":V2SI",

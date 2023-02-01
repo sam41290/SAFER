@@ -190,7 +190,7 @@ Dfs::allPathsTo(BasicBlock *bb, SEQTYPE s) {
 
 bool
 Dfs::checkPath(BasicBlock *from, BasicBlock *to) {
-  //DEF_LOG("Checking if path exists from: "<<hex<<from->start()<<"->"<<hex<<to->start());
+  DEF_LOG("Checking if path exists from: "<<hex<<from->start()<<"->"<<hex<<to->start());
   traversal_ = SEQTYPE::INTRAFN;
   vector <BasicBlock *> bb_list;
   unordered_set <uint64_t> passed;

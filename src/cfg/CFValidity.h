@@ -50,9 +50,13 @@ namespace SBI {
     static bool validPrfx(Instruction *ins) {
       string asm_ins = ins->asmIns();
       vector <string> words = utils::split_string(asm_ins,' ');
-      for(auto & w : words)
+      for(auto & w : words) {
         if(utils::invalid_prefixes.find(w) != utils::invalid_prefixes.end())
           return false;
+      }
+      if(ins->asmIns().find("lock lea") != string::npos)
+        return false;
+
       return true;
     }
     static bool validUsrModeIns(Instruction *ins) {
