@@ -13,6 +13,8 @@
 
 #define KNOWN_CODE_POINTER_ROOT
 
+#define TRANSFORMJTABLE false
+
 //#define DISASMONLY
 
 #define CFGCONSISTENCYCHECK

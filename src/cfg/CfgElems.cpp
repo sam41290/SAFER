@@ -87,6 +87,15 @@ CfgElems::otherUseOfJmpTbl(JumpTable &j) {
 void
 CfgElems::chkJmpTblRewritability() {
   for(auto & j : jmpTables_) {
+    if(TRANSFORMJTABLE == false) {
+      j.rewritable(false);
+      auto cf_bbs = j.cfBBs();
+      for(auto & bb : cf_bbs) {
+        DEF_LOG("Marking cf for addr trans: "<<hex<<bb->start());
+        bb->addrTransMust(true);
+      }
+      continue;
+    }
     auto loc_ptr = ptr(j.location());
     auto base_ptr = ptr(j.base());
     if(j.type() == 2 || j.type() == 3 || loc_ptr == NULL || 
