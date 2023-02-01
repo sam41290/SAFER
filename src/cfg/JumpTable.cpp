@@ -1,6 +1,7 @@
 #include "JumpTable.h"
 #include<bits/stdc++.h>
 #include "libutils.h"
+#include "PointerAnalysis.h"
 
 using namespace SBI;
 
@@ -26,11 +27,14 @@ JumpTable::rewriteTgts() {
   string baseLbl = "";
   if(rewritable_ == false)
     return jmp_tbl;
-  if(baseBB_ != NULL)
+  if(baseBB_ != NULL && base_ != location_ && 
+     PointerAnalysis::dataByProperty(baseBB_) == false)
     baseLbl = baseBB_->label();
   else
     baseLbl = "." + to_string(base_);
   for (auto & bb :targetBBs_) {
+    if(PointerAnalysis::dataByProperty(bb))
+      continue;
     if(type_ == 1) {
       string lbl;
       if(bb->isCode())
