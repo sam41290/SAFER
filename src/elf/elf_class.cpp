@@ -1712,6 +1712,9 @@ ElfClass::hashTblAsm() {
       hash_asm += ".8byte " + to_string(e.second) + "\n";
       prev_ind = e.first + 1;
     }
+    uint64_t tbl_sz = hashEntryCnt_ * sizeof(void *);
+    if(total_skip < tbl_sz)
+      hash_asm += ".skip " + to_string(tbl_sz - total_skip);
   }
   return hash_asm;
 }
