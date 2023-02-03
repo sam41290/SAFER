@@ -356,7 +356,8 @@ BasicBlock::instrument() {
     }
     else if(p.first == InstPoint::ADDRS_TRANS) {
       for(auto & ins : insList_) {
-        if(ins->isRltvAccess() && ins->isLea())
+        if(FULL_ADDR_TRANS == false && NO_ENCODE_LEAPTRS == false && 
+           ins->isRltvAccess() && ins->isLea())
           ins->encode(true);
         if((ins->isIndirectCf() && ins->atRequired()))
           ins->registerInstrumentation(p.first,p.second,allargs[p.second]);

@@ -152,7 +152,8 @@ Binary::disassemble() {
       manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
                             ".8byte " + sym + " - " + ".elf_header_start",
                             sym, 0);
-      manager_->ptrsToEncode(it->first);
+      if(FULL_ADDR_TRANS == false)
+        manager_->ptrsToEncode(it->first);
     }
     else if(it->second->type() != PointerType::DP){
       string sym = codeCFG_->getSymbol(it->first);

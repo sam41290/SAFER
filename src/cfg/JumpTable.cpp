@@ -27,10 +27,10 @@ JumpTable::rewriteTgts() {
   string baseLbl = "";
   if(rewritable_ == false)
     return jmp_tbl;
-  if(baseBB_ != NULL && base_ != location_ && 
-     PointerAnalysis::dataByProperty(baseBB_) == false)
-    baseLbl = baseBB_->label();
-  else
+  //if(baseBB_ != NULL && base_ != location_ && 
+  //   PointerAnalysis::dataByProperty(baseBB_) == false)
+  //  baseLbl = baseBB_->label();
+  //else
     baseLbl = "." + to_string(base_);
   for (auto & bb :targetBBs_) {
     if(PointerAnalysis::dataByProperty(bb))

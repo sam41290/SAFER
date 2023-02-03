@@ -1547,7 +1547,7 @@ void
 Cfg::printFunc(uint64_t fstart, string file_name) {
   /* Prints ASM for a function
    */
-  DEF_LOG("Printing function: "<<hex<<fstart);
+  //DEF_LOG("Printing function: "<<hex<<fstart);
   auto fn_map = funcMap();
   if(if_exists(fstart, fn_map) == false) {
     DEF_LOG("Function not present");
@@ -1560,12 +1560,12 @@ Cfg::printFunc(uint64_t fstart, string file_name) {
   vector <BasicBlock *> psbl_code;
   for(auto & bb : unknwnbbs) {
     if(dataByProperty(bb) == false) {
-      DEF_LOG("Adding psbl bb: "<<hex<<bb->start());
+      //DEF_LOG("Adding psbl bb: "<<hex<<bb->start());
       psbl_code.push_back(bb);
     }
   }
   handleLoopIns(psbl_code);
-  DEF_LOG("Handling loops done");
+  //DEF_LOG("Handling loops done");
 #ifdef OPTIMIZED_EH_METADATA 
   if(defbbs.size() > 0) {
     //Intra unwinding block randomization for definite code.
@@ -1600,12 +1600,12 @@ Cfg::printFunc(uint64_t fstart, string file_name) {
     randomizer_->print(psbl_code, file_name, fstart);
   }
 #else
-  DEF_LOG("Printing def code bbs");
+  //DEF_LOG("Printing def code bbs");
   if(defbbs.size() > 0)
     randomizer_->print(defbbs, file_name, fstart);
-  DEF_LOG("Printing psbl code bbs");
+  //DEF_LOG("Printing psbl code bbs");
   if (psbl_code.size() > 0) {
-    DEF_LOG("First bb: "<<hex<<psbl_code[0]->start());
+    //DEF_LOG("First bb: "<<hex<<psbl_code[0]->start());
     randomizer_->print(psbl_code, file_name, fstart);
   }
 #endif

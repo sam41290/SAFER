@@ -87,7 +87,7 @@ CfgElems::otherUseOfJmpTbl(JumpTable &j) {
 void
 CfgElems::chkJmpTblRewritability() {
   for(auto & j : jmpTables_) {
-    if(TRANSFORMJTABLE == false) {
+    if(FULL_ADDR_TRANS || SAFE_JTABLE == false) {
       j.rewritable(false);
       auto cf_bbs = j.cfBBs();
       for(auto & bb : cf_bbs) {

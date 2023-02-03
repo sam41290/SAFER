@@ -4,6 +4,7 @@
 #define REJECT_THRESHOLD 0 //powl(2,10)
 #define CODE_SCORE 6
 
+#define KNOWN_CODE_POINTER_ROOT
 //#define GROUND_TRUTH
 
 //#define SYM_TABLE_DISASM_ROOT //uses symbol table.
@@ -11,9 +12,11 @@
 //#define EH_FRAME_DISASM_ROOT //only consider valid code pointer as disasm root.
         //Any relocated pointers within EH frame body considered as valid code pointer.
 
-#define KNOWN_CODE_POINTER_ROOT
-
-#define TRANSFORMJTABLE false
+#define FULL_ADDR_TRANS true
+#define FULL_ENCODE false
+#define NO_RET_INST false
+#define SAFE_JTABLE false
+#define NO_ENCODE_LEAPTRS false
 
 //#define DISASMONLY
 
@@ -49,9 +52,12 @@
 //#define SYMBOLIZE(ptr)
 
 #define SYMBOLIZE(ptr) { \
-  SYMBOLIZERELOCATEDCONST(ptr); \
-  SYMBOLIZERELOCATEDIMM(ptr); \
-  SYMBOLIZERLTV(ptr); \
+  if(FULL_ADDR_TRANS == false) {\
+    SYMBOLIZERELOCATEDCONST(ptr); \
+    SYMBOLIZERELOCATEDIMM(ptr); \
+    if(NO_ENCODE_LEAPTRS == false)\
+      SYMBOLIZERLTV(ptr); \
+  }\
 }
 
 /*
@@ -95,7 +101,7 @@
 #endif
 
 
-#define TOOL_PATH "/home/disasmdev/SBI/"
+#define TOOL_PATH "/home/soumyakant/SBI/"
 
 #define INST_CODE_PATH TOOL_PATH"run/instrumentation_code_here/"
 #define INST_BINARY "tutorial"
