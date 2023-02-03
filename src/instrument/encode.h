@@ -199,6 +199,8 @@ public:
     tbl_start->old_ = randKey_;
     tbl_start->new_ = hashTblBit_;
     tbl_start->tramp_ = hashTblSize_;
+    //cout<<"Hash tbl bit size: "<<hex<<hashTblBit_<<endl;
+    //cout<<"Hash tbl entry cnt: "<<hex<<hashTblSize_<<endl;
   }
   virtual uint64_t encodePtr(uint64_t addrs) = 0;
   virtual string encodeLea(string mne, string op, uint64_t ins_loc, uint64_t ptr) = 0;
