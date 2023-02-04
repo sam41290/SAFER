@@ -2019,7 +2019,8 @@ ElfClass::updRelaSections (string bname) {
 
       if (rl[j].r_info == R_X86_64_IRELATIVE || rl[j].r_info == R_X86_64_RELATIVE) {
         uint64_t orig_ptr = rl[j].r_addend;
-        rl[j].r_addend = encode(newSymVal(rl[j].r_addend),orig_ptr);
+        if(FULL_ADDR_TRANS == false)
+          rl[j].r_addend = encode(newSymVal(rl[j].r_addend),orig_ptr);
         if(encoded(orig_ptr) && enctype() == EncType::ENC_GTT_ATT) {
           if(rl[j].r_info == R_X86_64_IRELATIVE)
             rl[j].r_info = R_X86_64_ISBIENC0;

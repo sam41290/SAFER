@@ -258,13 +258,13 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
    * Done by replacing fixed constants with labels.
    */
 
-  LOG("Adjusting RIP relative access");
+  //DEF_LOG("Adjusting RIP relative access");
   if(insList_.size() <= 0)
     LOG("No instructions in the bb!!");
   for(auto & it : insList_) {
     if(it->isRltvAccess() == 1 && it->rltvOfftAdjusted() == false) {
       uint64_t rip_rltv_offset = it->ripRltvOfft();
-      LOG("Relative Pointer: " <<hex <<rip_rltv_offset);
+      //DEF_LOG("Relative Pointer: " <<hex <<rip_rltv_offset);
       if(rip_rltv_offset >= data_segment_start) {
 
         string op = utils::symbolizeRltvAccess(it->op1(),
@@ -276,8 +276,10 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
       }
       else {
         auto p = ptr_map.find(rip_rltv_offset);
-        if(p != ptr_map.end() && p->second->type() == PointerType::CP && 
-           p->second->symbolized(SymbolizeIf::RLTV)) {
+        if(FULL_ADDR_TRANS == false && NO_ENCODE_LEAPTRS == false && 
+           it->asmIns().find("lea") != string::npos && p != ptr_map.end() && 
+           p->second->type() == PointerType::CP && p->second->symbolized(SymbolizeIf::RLTV)) {
+          //DEF_LOG("Symbolizing lea code access: "<<hex<<it->asmIns());
           if(it->encode()) {
             string op = it->op1();
             size_t pos = op.find (",");
@@ -298,7 +300,7 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
         }
         else {
           string op = utils::symbolizeRltvAccess(it->op1(),
-                   "." + to_string(rip_rltv_offset),rip_rltv_offset,SymBind::FORCEBIND);
+                   "." + to_string(rip_rltv_offset),rip_rltv_offset,SymBind::NOBIND);
           it->asmIns(it->prefix() + it->mnemonic() + " " + op);
           it->op1(op);
         }

@@ -542,6 +542,7 @@ public:
 
   static string symbolizeRltvAccess(string op,string label, 
                                     uint64_t addr, SymBind b) {
+    //DEF_LOG("Symbolizing rltv access: "<<op<<" label: "<<label);
     if(b == SymBind::FORCEBIND)
       sym_bindings[addr] = label;
     else if(b == SymBind::BIND) { 
@@ -556,6 +557,7 @@ public:
     op = op.replace(offset_pos, pos
              - offset_pos, "("
              + label + ")");
+    //DEF_LOG("Symbolizing rltv access: "<<op<<" label: "<<label);
     return op;
   }
 

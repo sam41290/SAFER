@@ -236,6 +236,7 @@ PointerAnalysis::jmpTblTgt(Pointer *ptr) {
 
 void
 PointerAnalysis::symbolizeRltvPtr(Pointer *ptr) {
+  DEF_LOG("Symbolizing rltv access: "<<hex<<ptr->address());
   return ptr->symbolize(SymbolizeIf::RLTV);
 }
 
