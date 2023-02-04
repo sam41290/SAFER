@@ -12,8 +12,11 @@
         //Any relocated pointers within EH frame body considered as valid code pointer.
 
 #define KNOWN_CODE_POINTER_ROOT
-
-#define TRANSFORMJTABLE true
+#define FULL_ADDR_TRANS true
+#define FULL_ENCODE false
+#define NO_RET_INST false
+#define SAFE_JTABLE false
+#define NO_ENCODE_LEAPTRS false
 
 //#define DISASMONLY
 
@@ -47,11 +50,13 @@
 #define SYMBOLIZENONSTRING(ptr) symbolizeNonString(ptr)
 
 //#define SYMBOLIZE(ptr)
-
 #define SYMBOLIZE(ptr) { \
-  SYMBOLIZERELOCATEDCONST(ptr); \
-  SYMBOLIZERELOCATEDIMM(ptr); \
-  SYMBOLIZERLTV(ptr); \
+  if(FULL_ADDR_TRANS == false) {\
+    SYMBOLIZERELOCATEDCONST(ptr); \
+    SYMBOLIZERELOCATEDIMM(ptr); \
+    if(NO_ENCODE_LEAPTRS == false)\
+      SYMBOLIZERLTV(ptr); \
+  }\
 }
 
 /*

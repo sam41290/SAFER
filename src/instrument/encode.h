@@ -117,7 +117,7 @@ public:
     string seg_fault = ".8byte .segfault_handler - .elf_header_start\n.8byte\
       .segfault_handler - .elf_header_start\n.8byte 0\n.8byte 0\n";
     tbl += seg_fault;
-    tbl += ".dispatcher_call: .8byte 0\n.dispatcher_reg: .8byte 0\n.syscall_checker: .8byte 0\n";
+    tbl += ".dispatcher_stack: .8byte 0\n.dispatcher_reg: .8byte 0\n.syscall_checker: .8byte 0\n";
     return tbl;
   };
 

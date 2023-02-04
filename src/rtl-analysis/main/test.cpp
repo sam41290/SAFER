@@ -91,12 +91,12 @@ int main(int argc, char **argv) {
          for (int func_index = 0; ; ++func_index) {
             bool valid_func = analyze(func_index);
             if (valid_func) {
-               valid_func &= (uninit() == 0);
-               valid_func &= preserved(vector<string>{"sp","bx","bp","r12","r13","r14","r15"});
-               first_used_redef();
+               //valid_func &= (uninit() == 0);
+               //valid_func &= preserved(vector<string>{"sp","bx","bp","r12","r13","r14","r15"});
+               //first_used_redef();
                auto jumpTable = jump_table_analysis();
-               if (valid_func)
-                  validEntry.push_back(entryList.at(func_index));
+               //if (valid_func)
+               //   validEntry.push_back(entryList.at(func_index));
             }
             else
                break;
@@ -106,8 +106,8 @@ int main(int argc, char **argv) {
 
    f.close();
 
-   for (auto x: validEntry)
-      std::cout << "valid entry: " << x << "\n";
+   //for (auto x: validEntry)
+   //   std::cout << "valid entry: " << x << "\n";
 
    print_stats();
 

@@ -32,8 +32,10 @@ main (int argc, char *args[]) {
   arglst4.push_back(InstArg::REG_RAX);
   b.registerInstrumentation(InstPoint::SYSCALL_CHECK,"SYSCHK",arglst4);
 
-  //vector<InstArg> arglst4;
-  //b.registerInstrumentation(InstPoint::RET_CHK,"GTF_stack",arglst4);
+  if(NO_RET_INST == false) {
+    vector<InstArg> arglst4;
+    b.registerInstrumentation(InstPoint::RET_CHK,"GTF_stack",arglst4);
+  }
   //
   //vector<InstArg> arglst2;
   //arglst2.push_back(InstArg::EXENAME);
