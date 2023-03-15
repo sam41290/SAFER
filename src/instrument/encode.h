@@ -118,17 +118,27 @@ class Encode {
     }
 
     // Now we check if another value if present at the given position
+    // If so, displace it otherwise store the value there
     if (hash_maps[table].find(pos[table]) != hash_maps[table].end()) {
       uint64_t dis = hash_maps[table][pos[table]];
       hash_maps[table][pos[table]] = att_tbl.old_;
-      att_tbl.hashInd_ = pos[table];
+      if (table == 0) {
+        att_tbl.hashInd_ = pos[table];
+      } else if (table == 1) {
+        att_tbl.hashInd_ = pos[table] + powl(2, hashTblBit_ - 1);
+      }
       cuckooPlace(hash_maps, att_tbl, (table + 1) % 2, cnt + 1, entry_cnt);
     } else {
        hash_maps[table][pos[table]] = att_tbl.old_;
-       att_tbl.hashInd_ = pos[table];     
+       if (table == 0) {
+         att_tbl.hashInd_ = pos[table];     
+       } else if (table == 1) {
+         att_tbl.hashInd_ = pos[table] + powl(2, hashTblBit_ - 1);
+       }
     }
     return 0;
   }
+
   bool genCuckooHash(AttRec *att_tbl, uint64_t entry_cnt) {
     // We generate 2 hash maps.
     vector<unordered_map<uint64_t,uint64_t>> hash_maps(2);
@@ -141,6 +151,7 @@ class Encode {
     }
     return true;
   }
+
 public:
   void addAttEntry(uint64_t addrs, string lookup, string tgt, string new_sym, int tt) {
     AttEntry a;
