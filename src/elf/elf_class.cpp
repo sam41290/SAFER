@@ -1686,6 +1686,7 @@ ElfClass::generateHashTbl(string &bin_asm, section &att_sec) {
     }
   }
   createHash(attTbl_,attSize_);
+  //createCuckooHash(attTbl_, attSize_);
   hashEntryCnt_ = ((AttRec *)attTbl_)->tramp_;
   return hashEntryCnt_;
 }

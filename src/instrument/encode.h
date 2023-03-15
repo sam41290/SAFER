@@ -48,7 +48,14 @@ class Encode {
   uint64_t randKey_;
   int ctr = 0;
   bool done = false;
-
+  
+  uint64_t pos[2];
+  uint64_t chash_rand1 = rand();
+  if (chash_rand1 & 1 == 0)
+    chash_rand1++;
+  uint64_t chast_rand2 = rand();
+  if (chash_rand2 & 1 == 0)
+    chash_rand2++;
   uint64_t getHash(uint64_t ptr) {
     ptr = ptr * randKey_;
     ptr = ptr >> (64 - hashTblBit_);
@@ -75,7 +82,59 @@ class Encode {
     }
     return true;
   }
+ 
+  uint64_t cuckooHash(int hash_fn, uint64_t ptr) {
+    uint64_t key;
+    
+    if (hash_fn == 1) {
+      key = chash_rand1 * ptr;
+      key = key >> (64 - (hashTblBit - 1));
+    } else {
+      key = chash_rand2 * ptr;
+      key = key >> (64 - (hashTblBit - 1));
+    }
+    return key;
+  }
+  
+  int cuckooPlace(vector<unordered_map<uint64_t, uint64_t>> hash_maps,
+    AttRec *att_tbl, int table, uint64_t cnt, int entry_cnt) {    
+    // If we end up in a cycle
+    if (cnt == entry_cnt) {
+      return -1;
+      printf("Cycle in cuckoo hash\n");
+    }
 
+    // Check if the value is already at any of the the two positions
+    for (int i = 0; i < 2; i++) {
+      pos[i] = cuckooHash(i + 1, att_tbl.old_);
+      if (hash_maps[i][pos[i]]] == att_tbl.old_)
+        return 0;
+    }
+
+    // Now we check if another value if present at the given position
+    if (hash_maps[table].find(pos[table]) != hash_maps[table].end()) {
+      uint64_t dis = hash_maps[table][pos[table]];
+      hash_maps[table][pos[table]] = att_tbl.old_;
+      att_tbl.hashInd_ = pos[table];
+      cuckooPlace(hash_maps, (table + 1) % 2, cnt + 1, entry_cnt);
+    } else {
+       hash_maps[table][pos[table]] = att_tbl.old_;
+       att_tbl.hashInd_ = pos[table];     
+    }
+    return 0;
+  }
+  bool genCuckooHash(AttRec *att_tbl, uint64_t entry_cnt) {
+    // We generate 2 hash maps.
+    vector<unordered_map<uint64_t,uint64_t>> hash_maps(2);
+    int ret = 0;
+    for (uint64_t i = 0, cnt = 0; i < entry_cnt; i++, cnt = 0) {
+      ret = cuckooPlace(hash_maps, att_tbl[i], 0, cnt, entry_cnt);
+      if (ret == -1) {
+        return false;
+      }
+    }
+    return true;
+  }
 public:
   void addAttEntry(uint64_t addrs, string lookup, string tgt, string new_sym, int tt) {
     AttEntry a;
@@ -201,6 +260,25 @@ public:
     tbl_start->tramp_ = hashTblSize_;
     //cout<<"Hash tbl bit size: "<<hex<<hashTblBit_<<endl;
     //cout<<"Hash tbl entry cnt: "<<hex<<hashTblSize_<<endl;
+  }
+  void createCuckooHash(char *att_tbl, uint64_t size) {
+     AttRec *tbl_start = (AttRec *)att_tbl;
+    //Ignore first record and last record;
+    att_tbl += (3 * 8);
+    size -= (6 * 8);   
+
+    // Calculate the bits required based on the number of att
+    // table entries.
+    double l = log2(attTable_.size());
+    l += 1;
+    // Since we want to have a 50% load factor. This will give the
+    // total number of bits that would be divided between 2 hash tables.
+    l += 1;
+    hashTblBit_ = l;
+    
+    // Now we can generate the cuckoo hash
+    genCuckooHash((AttRec *)att_tbl, size/sizeof(AttRec));
+
   }
   virtual uint64_t encodePtr(uint64_t addrs) = 0;
   virtual string encodeLea(string mne, string op, uint64_t ins_loc, uint64_t ptr) = 0;
