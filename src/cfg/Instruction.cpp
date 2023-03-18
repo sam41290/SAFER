@@ -426,6 +426,8 @@ Instruction::instrument() {
       h = HookType::RET_CHK;
     else if(tgt.first == InstPoint::SYSCALL_CHECK)
       h = HookType::SYSCALL_CHECK;
+    //else if(tgt.first == InstPoint::CANARY_EPILOGUE)
+    //  h = HookType::CANARY_EPILOGUE;
     setInstParams(h);
     vector<InstArg> allArgs= instArgs()[tgt.second];
     string args = "";
@@ -434,6 +436,11 @@ Instruction::instrument() {
     }
     else if(tgt.first == InstPoint::RET_CHK)
       args += "pop %rax\n";
+    else if(tgt.first == InstPoint::CANARY_EPILOGUE) {
+      DEF_LOG("operaand 2 is : " <<op1());
+      args += op1().substr(op1().find(",") + 1);  
+      DEF_LOG("args is : " <<args);
+    }
     else {
       switch(allArgs.size()) {
         case 0:
@@ -471,6 +478,11 @@ Instruction::instrument() {
     }
     else if(tgt.first == InstPoint::SYSCALL_CHECK)
       instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SYSCALL_CHECK);
+    else if(tgt.first == InstPoint::CANARY_EPILOGUE) {
+      DEF_LOG("Instrumenting canary checks: "<<args);
+      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::CANARY_EPILOGUE);
+      DEF_LOG("canary inst: "<<instAsmPre_);
+    }
     else
       instAsmPre_ += generate_hook(tgt.second,args,mnemonic_);
   }

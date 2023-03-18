@@ -391,7 +391,6 @@ BasicBlock::instrument() {
         if (ins->asmIns().find("%fs:0x28") != string::npos &&
             ins->asmIns().find("xor") != string::npos) {
           ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
-          DEF_LOG("The canary asm inst is:" << ins->asmIns());
         }   
       }
     }
