@@ -43,6 +43,7 @@ enum class HookType
   RET_CHK,
   SYSCALL_CHECK,
   GENERAL_INST,
+  CANARY_PROLOGUE,
   CANARY_EPILOGUE,
 };
 

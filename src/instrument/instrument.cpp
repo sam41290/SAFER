@@ -172,6 +172,9 @@ Instrument::generate_hook(string hook_target, string args,
     inst_code += "xor $0xdead," + args + "\n";
     //inst_code += "nop\n";
   }
+  else if(h == HookType::CANARY_PROLOGUE) {
+    inst_code += "xor $0xdea," + args + "\n";
+  }
   else {
     inst_code += save(h);
     inst_code += args + "call ." + hook_target + "\n";
@@ -191,7 +194,8 @@ Instrument::generate_hook(string hook_target, string args,
   //}
   if(h != HookType::ADDRS_TRANS 
      && h != HookType::RET_CHK
-     && h != HookType::CANARY_EPILOGUE)
+     && h != HookType::CANARY_EPILOGUE
+     && h != HookType::CANARY_PROLOGUE)
     inst_code = inst_code + restore(h);
   //if(h == HookType::ADDRS_TRANS) {
   //  inst_code += mne + " *-40(%rsp)\n";

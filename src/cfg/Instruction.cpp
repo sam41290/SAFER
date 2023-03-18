@@ -441,6 +441,9 @@ Instruction::instrument() {
       args += op1().substr(op1().find(",") + 1);  
       DEF_LOG("args is : " <<args);
     }
+    else if(tgt.first == InstPoint::CANARY_PROLOGUE) {
+      args += op1().substr(op1().find(",") + 1);
+    }
     else {
       switch(allArgs.size()) {
         case 0:
@@ -482,6 +485,11 @@ Instruction::instrument() {
       DEF_LOG("Instrumenting canary checks: "<<args);
       instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::CANARY_EPILOGUE);
       DEF_LOG("canary inst: "<<instAsmPre_);
+    }
+    else if(tgt.first == InstPoint::CANARY_PROLOGUE) {
+      DEF_LOG("Instrumenting canary checks: "<<args);
+      instAsmPost_ = generate_hook(tgt.second,args,mnemonic_,HookType::CANARY_PROLOGUE);
+      DEF_LOG("canary inst: "<<instAsmPost_);
     }
     else
       instAsmPre_ += generate_hook(tgt.second,args,mnemonic_);

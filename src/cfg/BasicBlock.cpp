@@ -395,6 +395,15 @@ BasicBlock::instrument() {
         }   
       }
     }
+    else if(p.first == InstPoint::CANARY_PROLOGUE) {
+      for(auto &ins : insList_) {
+        if (ins->asmIns().find("%fs:0x28") != string::npos &&
+            ins->asmIns().find("mov") != string::npos) {
+          ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
+          DEF_LOG("The canary asm inst is:" << ins->asmIns());
+        }   
+      }
+    }
   }
 }
 
