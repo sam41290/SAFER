@@ -50,8 +50,8 @@ class Encode {
   bool done = false;
   
   uint64_t pos[2];
-  unsigned int chash_rand1;
-  unsigned int chash_rand2;
+  uint64_t rand1;
+  uint64_t rand2;
   
   uint64_t getHash(uint64_t ptr) {
     ptr = ptr * randKey_;
@@ -73,37 +73,61 @@ class Encode {
         att_tbl[i].hashInd_ = ptr;
       }
       else {
-        //cout<<"collision: "<<hex<<att_tbl[i].old_<<"->"<<hex<<hash_map[ptr]<<endl;
+        cout<<"collision: "<<hex<<att_tbl[i].old_<<"->"<<hex<<hash_map[ptr]<<endl;
         return false;
       }
     }
     return true;
   }
   void cuckooHashInit() {
-    chash_rand1 = rand();
-    chash_rand2 = rand();
-    
-    if ((chash_rand1 & 1) == 0)
-      chash_rand1++;
-    if ((chash_rand2 & 1) == 0)
-      chash_rand2++;
+    srand((unsigned) time(0));
+    rand1  = rand() & 0xff;
+    rand1 |= (uint64_t)(rand() & 0xff) << 8;
+    rand1 |= (uint64_t)(rand() & 0xff) << 16;
+    rand1 |= (uint64_t)(rand() & 0xff) << 24;
+    rand1 |= (uint64_t)(rand() & 0xff) << 32;
+    rand1 |= (uint64_t)(rand() & 0xff) << 40;
+    rand1 |= (uint64_t)(rand() & 0xff) << 48;
+    rand1 |= (uint64_t)(rand() & 0xff) << 56;
+    //y |= (uint64_t)(rand() & 0xff) << 64;
+    if(rand1 % 2 == 0)
+      rand1++;
+ 
+    //srand((unsigned) time(0));
+    //chash_rand2 = 23478289 * rand();
+    srand((unsigned) time(0));
+    rand2  = rand() & 0xff;
+    rand2 |= (uint64_t)(rand() & 0xff) << 8;
+    rand2 |= (uint64_t)(rand() & 0xff) << 16;
+    rand2 |= (uint64_t)(rand() & 0xff) << 24;
+    rand2 |= (uint64_t)(rand() & 0xff) << 32;
+    rand2 |= (uint64_t)(rand() & 0xff) << 40;
+    rand2 |= (uint64_t)(rand() & 0xff) << 48;
+    rand2 |= (uint64_t)(rand() & 0xff) << 56;
+    //y |= (uint64_t)(rand() & 0xff) << 64;
+    if(rand2 % 2 == 0)
+      rand2++;
   } 
 
   uint64_t cuckooHash(int hash_fn, uint64_t ptr) {
-    uint64_t key;
     
     if (hash_fn == 1) {
-      key = chash_rand1 * ptr;
-      uint64_t lim = pow(2, hashTblBit_);
-      key = key & (lim - 1);
+      ptr = ptr * rand1;
+    //  uint64_t lim = pow(2, hashTblBit_);
+    //  key = key & (lim - 1);
+      ptr = ptr >> (64 - hashTblBit_ + 1);
+      ptr = ptr & (hashTblSize_ - 1);
+ 
     } else {
-      key = chash_rand2 * ptr;
-      uint64_t lim = pow(2, hashTblBit_);
-      key = key & (lim - 1);
+      ptr = ptr * rand2;
+     // uint64_t lim = pow(2, hashTblBit_);
+     // ptr = ptr & (lim - 1);
+      ptr = ptr >> (64 - hashTblBit_ + 1);
+      ptr = ptr & (hashTblSize_ - 1);
 
     }
-    printf("Returned key: %ld\n", key);
-    return key;
+    printf("Returned key: %ld\n", ptr);
+    return ptr;
   }
   
   int cuckooPlace(vector<unordered_map<uint64_t, uint64_t>> &hash_maps,
@@ -122,10 +146,9 @@ class Encode {
           hash_maps[i][pos[i]] == old_val)
         return 0;
     }
-    
 
     // Now we check if another value if present at the given position
-    // If so, displace it otherwise just store the value at the spot
+    // If so, evict it otherwise just store the value at the spot
     if (hash_maps[table].find(pos[table]) != hash_maps[table].end()) {
       uint64_t displaced = hash_maps[table][pos[table]];
       hash_maps[table][pos[table]] = old_val;
@@ -141,7 +164,7 @@ class Encode {
   int cuckooPlaceAtt(vector<unordered_map<uint64_t, uint64_t>> &hash_maps,
       AttRec *att_tbl, uint64_t entry_cnt) {
     // We traverse the maps for every entry
-    printf("here\n");
+    printf("Inside cuckooPlaceAtt\n");
     for (uint64_t i = 0; i < entry_cnt; i++) {
       AttRec *ptr = &att_tbl[i];
       for (auto &it : hash_maps[0]) {
@@ -151,11 +174,11 @@ class Encode {
       }
       // second hash table, we add the size of 1 table to the hashInd
       // to flatten the two hash tables into a single table so that
-      // the printed assembly is similar to what it was earlier.
+      // the printed assembly is similar to what it was earlier
       for (auto &it : hash_maps[1]) {
         AttRec *ptr = &att_tbl[i];
         if (it.second == att_tbl[i].old_) {
-          ptr->hashInd_ = it.first + powl(2, hashTblBit_ - 1);
+          ptr->hashInd_ = it.first + (hashTblSize_ / 2);
         }
       }
     }
@@ -163,6 +186,7 @@ class Encode {
   }
   bool genCuckooHash(AttRec *att_tbl, uint64_t entry_cnt) {
     // We generate 2 hash maps
+    // TODO: we can simplify this later
     vector<unordered_map<uint64_t,uint64_t>> hash_maps(2);
     int ret = 0;
     printf("Entry cnt: %ld\n", entry_cnt);
@@ -186,6 +210,7 @@ class Encode {
     if (ret == 0) {
       ret = cuckooPlaceAtt(hash_maps, att_tbl, entry_cnt);
     }
+    printf("Final hash tbl size %lu", hashTblSize_);
     return true;
   }
 
@@ -309,6 +334,7 @@ public:
           break;
       }
     }
+    printf("Final hash table size is: %d\n", hashTblSize_); 
     tbl_start->old_ = randKey_;
     tbl_start->new_ = hashTblBit_;
     tbl_start->tramp_ = hashTblSize_;
@@ -318,7 +344,7 @@ public:
   void createCuckooHash(char *att_tbl, uint64_t size) {
     AttRec *tbl_start = (AttRec *)att_tbl;
     bool done = 0;
-    int tries = 50;
+    int tries = 150;
     
     // Ignore first record and last record
     att_tbl += (3 * 8);
@@ -338,22 +364,25 @@ public:
       tries--;  
       // Init the random values used in hash functions
       cuckooHashInit();
-      // Now we can generate the cuckoo hash
+      // Now we can generate the cuckoo hash table
       done = genCuckooHash((AttRec *)att_tbl, size/sizeof(AttRec));
     }
     printf("Exhausted tries: done = %d\n", done);
-    if (!done) {
-      while (true) {
-        hashTblBit_++;
-        hashTblSize_ = powl(2,hashTblBit_);
+    // Now we will start increasing size of the table 
+    while (!done) {
+      hashTblBit_++;
+      hashTblSize_ = powl(2,hashTblBit_);
+      tries = 10;
+      while (tries--) {
         cuckooHashInit();
         done = genCuckooHash((AttRec *)att_tbl, size/sizeof(AttRec));
         if (done)
-          break;
+         break;
       }
     }
-    tbl_start->old_ = chash_rand1;
-    tbl_start->new_ = chash_rand2;
+   
+    tbl_start->old_ = rand1;
+    tbl_start->new_ = rand2;
     tbl_start->tramp_ = hashTblBit_;
     tbl_start->hashInd_ = hashTblSize_;
   }

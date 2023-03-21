@@ -173,7 +173,7 @@ Instrument::generate_hook(string hook_target, string args,
     //inst_code += "nop\n";
   }
   else if(h == HookType::CANARY_PROLOGUE) {
-    inst_code += "xor $0xdea," + args + "\n";
+    inst_code += "xor $0xdead," + args + "\n";
   }
   else {
     inst_code += save(h);
