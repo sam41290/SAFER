@@ -14,7 +14,8 @@ using namespace analysis;
 
 int main(int argc, char **argv) {
    /* load automaton */
-   setup(TOOL_PATH"auto/output.auto");
+   setup(TOOL_PATH"/auto/output.auto");
+   lifter_cache("/home/soumyakant/exports/analysis_sample_2/gcc_base.amd64-m64-ccr-O2/tmp/gcc_base.amd64-m64-ccr-O2");
 
    string s;
    vector<int64_t> validEntry;
@@ -26,14 +27,14 @@ int main(int argc, char **argv) {
       cout << "processing " << s << endl;
 
       /* get entry */
-      auto entryStr = s.substr(s.find_last_of("/")+1, 7);
+      auto entryStr = s.substr(s.find_last_of("/")+1);
       auto entry = stoll(entryStr, nullptr, 10);
 
       /* get insn size */
       unordered_map<int64_t,int64_t> insnSize;
       {
          string s2;
-         fstream g(s + "_0.sz");
+         fstream g(s + ".sz");
          while (getline(g, s2)) {
             stringstream ss;
             int64_t offset;
@@ -85,18 +86,18 @@ int main(int argc, char **argv) {
       /* load program */
       set_init(4);
       entryList.push_back(entry);
-      bool valid_prog = load(s + "_0.s", insnSize, table, entryList);
+      bool valid_prog = load(s + ".s", insnSize, table, entryList);
       if (valid_prog) {
          /* analyze one function at a time */
          for (int func_index = 0; ; ++func_index) {
             bool valid_func = analyze(func_index);
             if (valid_func) {
-               //valid_func &= (uninit() == 0);
-               //valid_func &= preserved(vector<string>{"sp","bx","bp","r12","r13","r14","r15"});
-               //first_used_redef();
+               valid_func &= (uninit() == 0);
+               valid_func &= preserved(vector<string>{"sp","bx","bp","r12","r13","r14","r15"});
+               first_used_redef();
                auto jumpTable = jump_table_analysis();
-               //if (valid_func)
-               //   validEntry.push_back(entryList.at(func_index));
+               if (valid_func)
+                  validEntry.push_back(entryList.at(func_index));
             }
             else
                break;
@@ -106,7 +107,7 @@ int main(int argc, char **argv) {
 
    f.close();
 
-   //for (auto x: validEntry)
+   // for (auto x: validEntry)
    //   std::cout << "valid entry: " << x << "\n";
 
    print_stats();

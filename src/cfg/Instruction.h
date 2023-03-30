@@ -23,7 +23,7 @@
 
 using namespace std;
 namespace SBI {
-class Instruction : public Instrument, public ENCCLASS
+class Instruction : public Instrument//, public virtual ENCCLASS
 {
 private:
   uint64_t loc_;

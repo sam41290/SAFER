@@ -318,7 +318,22 @@ public:
     return byte_array;
   }
 
+  static std::vector<std::string> split_string(std::string& s, char delimiter)
+  {
+     std::vector<std::string> tokens;
+     std::string token;
+     std::istringstream tokenStream(s);
+     while (std::getline(tokenStream, token, delimiter))
+     {
+        tokens.push_back(token);
+     }
+     return tokens;
+  }
+
   static vector <string> split_string(const char *data) {
+    string str(data);
+    return split_string(str,' ');
+    /*
     vector <string> results;
     string word = "";
 
@@ -334,19 +349,9 @@ public:
 	  results.push_back(word);
     }
     return results;
+    */
   }
 
-  static std::vector<std::string> split_string(std::string& s, char delimiter)
-  {
-     std::vector<std::string> tokens;
-     std::string token;
-     std::istringstream tokenStream(s);
-     while (std::getline(tokenStream, token, delimiter))
-     {
-        tokens.push_back(token);
-     }
-     return tokens;
-  }
 
   static bool is_string(uint64_t sec_start, uint64_t sec_end, uint64_t addrs, string file) {
 
@@ -514,6 +519,15 @@ public:
       else if(mov_found && (is_debug_reg(s) ||
               is_ctrl_reg(s)))
         return true;
+/*
+    for(auto & p : priviledge_ins)
+      if(mne == p)
+        return true;
+    if(mne.find("mov") != string::npos &&
+      (op.find("%dr") != string::npos || op.find("%cr") != string::npos)) {
+      return true;
+    }
+    */
     return false;
   }
 

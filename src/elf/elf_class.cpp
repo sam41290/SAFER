@@ -643,7 +643,8 @@ vector < section > ElfClass::sections (section_types p_type) {
       s.sec_type = p_type;
       break;
     }
-    if(metaSections_.find(sec.name) != metaSections_.end())
+    if(metaSections_.find(sec.name) != metaSections_.end() ||
+       sec.sh->sh_addr == 0)
       s.is_metadata = true;
     section_vec.push_back (s);
   }
@@ -1677,8 +1678,8 @@ ElfClass::generateHashTbl(string &bin_asm, section &att_sec) {
   //DEF_LOG("Att table offset: "<<hex<<offset);
   attTbl_ = (char *) malloc (attSize_);
   utils::READ_FROM_FILE (dump, (void *)attTbl_, start_addr, attSize_);
-  AttRec *tbl_start = (AttRec *)(attTbl_ + 3 * sizeof(void *));
-  uint64_t entry_cnt = (attSize_ - 6 * sizeof(void *))/sizeof(AttRec);
+  AttRec *tbl_start = (AttRec *)(attTbl_ + 4 * sizeof(void *));
+  uint64_t entry_cnt = (attSize_ - 10 * sizeof(void *))/sizeof(AttRec);
   for(uint64_t i = 0; i < entry_cnt; i++) {
     if(tbl_start[i].hashInd_ == 1) {
       cout<<"Updating offset to address: "<<hex<<tbl_start[i].old_<<endl;
@@ -1686,7 +1687,7 @@ ElfClass::generateHashTbl(string &bin_asm, section &att_sec) {
     }
   }
   createHash(attTbl_,attSize_);
-  hashEntryCnt_ = ((AttRec *)attTbl_)->tramp_;
+  hashEntryCnt_ = ((AttRec *)attTbl_)->hashInd_;
   return hashEntryCnt_;
 }
 
@@ -1694,13 +1695,16 @@ string
 ElfClass::hashTblAsm() {
   string hash_asm = "";
   if(attTbl_ != NULL) {
-    AttRec *tbl_start = (AttRec *)(attTbl_ + 3 * sizeof(void *));
-    uint64_t entry_cnt = (attSize_ - 6 * sizeof(void *))/sizeof(AttRec);//(attSize_/(3 * sizeof(void *))) - 2;
+    AttRec *tbl_start = (AttRec *)(attTbl_ + 4 * sizeof(void *));
+    uint64_t entry_cnt = (attSize_ - 10 * sizeof(void *))/sizeof(AttRec);//(attSize_/(3 * sizeof(void *))) - 2;
+    DEF_LOG("Size of Att rec: "<<dec<<sizeof(AttRec)<<" entry cnt: "<<dec<<entry_cnt);
     uint64_t prev_ind = 0;
     map<uint64_t, uint64_t> hash_map;
     for(uint64_t i = 0; i < entry_cnt; i++) {
       DEF_LOG("hash ind: "<<hex<<tbl_start[i].hashInd_<<" ptr: "<<hex<<tbl_start[i].old_);
       hash_map[tbl_start[i].hashInd_] = i;
+      tbl_start[i].hashInd_ = i;//attIndex(tbl_start[i].old_);
+      DEF_LOG("Att index: "<<hex<<tbl_start[i].hashInd_<<"-"<<hex<<i);
     }
     uint64_t total_skip = 0;
     for(auto & e : hash_map) {
@@ -1721,6 +1725,9 @@ ElfClass::hashTblAsm() {
 
 void
 ElfClass::insertHashTbl (string bname) {
+  auto hash_loc = newSymAddrs_[".hash_tbl_start"];
+  void * hash_tbl_loc = ((void *)attTbl_ + 3 * sizeof(void *));
+  *((uint64_t *)hash_tbl_loc) = hash_loc;
   utils::WRITE_TO_FILE (bname, (void *)attTbl_, attOffset_,attSize_);
 }
 
@@ -2019,9 +2026,11 @@ ElfClass::updRelaSections (string bname) {
 
       if (rl[j].r_info == R_X86_64_IRELATIVE || rl[j].r_info == R_X86_64_RELATIVE) {
         uint64_t orig_ptr = rl[j].r_addend;
-        if(FULL_ADDR_TRANS == false)
-          rl[j].r_addend = encode(newSymVal(rl[j].r_addend),orig_ptr);
-        if(encoded(orig_ptr) && enctype() == EncType::ENC_GTT_ATT) {
+        if(FULL_ADDR_TRANS == false) {
+          uint64_t tramp_ptr = newSymAddrs_["." + to_string(orig_ptr) + "_tramp_ptr"];
+          rl[j].r_addend = encode(newSymVal(rl[j].r_addend),orig_ptr,tramp_ptr);
+        }
+        if(encoded(orig_ptr) /*&& enctype() == EncType::ENC_GTT_ATT*/) {
           if(rl[j].r_info == R_X86_64_IRELATIVE)
             rl[j].r_info = R_X86_64_ISBIENC0;
           else

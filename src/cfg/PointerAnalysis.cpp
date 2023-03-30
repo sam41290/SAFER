@@ -37,13 +37,15 @@ long double propScore(vector <Property> &p_list) {
   return score;
 }
 
-PointerAnalysis::PointerAnalysis (uint64_t memstrt, uint64_t memend) :
+PointerAnalysis::PointerAnalysis (uint64_t memstrt, uint64_t memend,string exepath) :
                  CFValidity(memstrt,memend,INSVALIDITY),
                  JmpTblAnalysis(memstrt,memend) {
   propList_ = PROPERTIES;
   //allConstRelocs_.insert(allConstRelocs_.end(), picConstReloc().begin(), picConstReloc().end());
   //allConstRelocs_.insert(allConstRelocs_.end(), xtraConstReloc().begin(),xtraConstReloc().end());
   analysis::setup(TOOL_PATH"auto/output.auto");
+  DEF_LOG("Exe path: "<<exepath);
+  analysis::lifter_cache(exepath);
   analysis::set_init(INIT_TYPE);
 }
 
@@ -532,11 +534,11 @@ PointerAnalysis::validInitAndRegPreserve(vector <BasicBlock *> &entry_lst,
          bool valid_func = analysis::analyze(func_index);
          if (valid_func) {
            DEF_LOG("Analyzing entry: "<<hex<<all_entries[func_index]);
-           if(analysis::uninit() == 0) {
-             valid[all_entries[func_index]] += 4;
-           }
            if(analysis::preserved(reg_list)) {
              valid[all_entries[func_index]] += 2;
+             if(analysis::uninit() == 0) {
+               valid[all_entries[func_index]] += 4;
+             }
            }
            setProperty(bb_lst, valid[all_entries[func_index]], bb->start());
          }
@@ -667,85 +669,131 @@ PointerAnalysis::resolveNoRetCall(BasicBlock *entry) {
     else if(call_bb->callType() == BBType::MAY_BE_RETURNING &&
        resolving_done.find(call_bb->start()) == resolving_done.end()) {
       DEF_LOG("Resolving possible exit call: "<<hex<<call_bb->start());
-      if(entry->isCode()) {
-        vector <BasicBlock *> entry_lst{entry};
-        entry_lst.push_back(call_bb->fallThroughBB());
-        entry->clearProps();
-        analyzeEntries(entry_lst, true);
-        if(codeByProperty(entry)/* && indTgtConsistency(entry)*/) {
-          call_bb->callType(BBType::RETURNING);
-          resolving_done.insert(call_bb->start());
-          LOG("Code entry passed..Marking returning: "<<hex<<call_bb->start());
-          resolved = true;
-        }
-        else if(call_bb->fallThroughBB()->isCode()) {
-          DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
-          possiblePtrs_.insert(call_bb->fallThrough());
-          call_bb->callType(BBType::NON_RETURNING);
-          call_bb->fallThrough(0);
-          call_bb->fallThroughBB(NULL);
-        }
-        else {
-          LOG("Checking if fall through is a valid function: "<<hex<<call_bb->fallThroughBB()->start());
-          //analyzeEntry(call_bb->fallThroughBB(), true);
-          if(dataByProperty(call_bb->fallThroughBB()) || 
-             /*contextPreservesABI(call_bb->fallThroughBB()) ||*/
-             contextPassed(call_bb->fallThroughBB(), call_bb->fallThroughBB())) {
-            DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
-            possiblePtrs_.insert(call_bb->fallThrough());
-            call_bb->callType(BBType::NON_RETURNING);
-            call_bb->fallThrough(0);
-            call_bb->fallThroughBB(NULL);
-          }
-          else {
-            LOG("Marking returning: "<<hex<<call_bb->start());
-            call_bb->callType(BBType::RETURNING);
-            resolving_done.insert(call_bb->start());
-          }
-        }
-        resolving_done.insert(call_bb->start());
+      analyzeEntry(call_bb->fallThroughBB(), true);
+      if(call_bb->fallThroughBB()->isCode() || 
+         dataByProperty(call_bb->fallThroughBB()) || 
+         contextPassed(call_bb->fallThroughBB(), call_bb->fallThroughBB())) {
+        DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
+        possiblePtrs_.insert(call_bb->fallThrough());
+        call_bb->callType(BBType::NON_RETURNING);
+        call_bb->fallThrough(0);
+        call_bb->fallThroughBB(NULL);
       }
       else {
-        bool check_pass = true;
-        auto all_entries = call_bb->entries();
-        for(auto & e : all_entries) {
-          if((ptr(e->start()) == NULL ||
-             (ptr(e->start()) != NULL && 
-              ptr(e->start())->source() != PointerSource::JUMPTABLE)) && 
-             codeByProperty(e) == false) {
-            analyzeEntry(e, true);
-            if(codeByProperty(e) == false) {
-              check_pass = false;
-              break;
-            }
-          }
-        }
-        if(check_pass == false) {
-          analyzeEntry(call_bb->fallThroughBB(), true);
-          if(dataByProperty(call_bb->fallThroughBB()) ||
-             /*contextPreservesABI(call_bb->fallThroughBB()) ||*/
-             contextPassed(call_bb->fallThroughBB(), call_bb->fallThroughBB())) {
-            DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
-            possiblePtrs_.insert(call_bb->fallThrough());
-            call_bb->callType(BBType::NON_RETURNING);
-            call_bb->fallThrough(0);
-            call_bb->fallThroughBB(NULL);
-          }
-          else {
-            LOG("Marking returning: "<<hex<<call_bb->start());
-            call_bb->callType(BBType::RETURNING);
-          }
-        }
-        else {
-          LOG("All entries passed..Marking returning: "<<hex<<call_bb->start());
-          call_bb->callType(BBType::RETURNING);
-          resolved = true;
-        }
+        LOG("Marking returning: "<<hex<<call_bb->start());
+        call_bb->callType(BBType::RETURNING);
         resolving_done.insert(call_bb->start());
+        if(entry->isCode()) {
+          entry->clearProps();
+          analyzeEntry(entry, true);
+          if(codeByProperty(entry)/* && indTgtConsistency(entry)*/) {
+            resolved = true;
+          }
+        }
       }
     }
   }
 }
+
+//void
+//PointerAnalysis::resolveNoRetCall_old(BasicBlock *entry) {
+//  DEF_LOG("Resolving psbly exit calls for entry: "<<hex<<entry->start());
+//  auto bb_lst = bbSeq(entry);
+//  if(hasPossibleCode(bb_lst) == false) {
+//    //DEF_LOG("Entry doesn't have possible code...avoiding resolution");
+//    return;
+//  }
+//  auto exitCalls = psblExitCalls(entry);
+//  bool resolved = false;
+//  while(exitCalls.empty() == false) {
+//    BasicBlock *call_bb = exitCalls.top();
+//    exitCalls.pop();
+//    if(resolved) {
+//      call_bb->callType(BBType::RETURNING);
+//      LOG("Marking returning as child resolved: "<<hex<<call_bb->start());
+//    }
+//    else if(call_bb->callType() == BBType::MAY_BE_RETURNING &&
+//       resolving_done.find(call_bb->start()) == resolving_done.end()) {
+//      DEF_LOG("Resolving possible exit call: "<<hex<<call_bb->start());
+//      if(entry->isCode()) {
+//        vector <BasicBlock *> entry_lst{entry};
+//        entry_lst.push_back(call_bb->fallThroughBB());
+//        entry->clearProps();
+//        analyzeEntries(entry_lst, true);
+//        if(codeByProperty(entry)/* && indTgtConsistency(entry)*/) {
+//          call_bb->callType(BBType::RETURNING);
+//          resolving_done.insert(call_bb->start());
+//          LOG("Code entry passed..Marking returning: "<<hex<<call_bb->start());
+//          resolved = true;
+//        }
+//        else if(call_bb->fallThroughBB()->isCode()) {
+//          DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
+//          possiblePtrs_.insert(call_bb->fallThrough());
+//          call_bb->callType(BBType::NON_RETURNING);
+//          call_bb->fallThrough(0);
+//          call_bb->fallThroughBB(NULL);
+//        }
+//        else {
+//          LOG("Checking if fall through is a valid function: "<<hex<<call_bb->fallThroughBB()->start());
+//          //analyzeEntry(call_bb->fallThroughBB(), true);
+//          if(dataByProperty(call_bb->fallThroughBB()) || 
+//             /*contextPreservesABI(call_bb->fallThroughBB()) ||*/
+//             contextPassed(call_bb->fallThroughBB(), call_bb->fallThroughBB())) {
+//            DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
+//            possiblePtrs_.insert(call_bb->fallThrough());
+//            call_bb->callType(BBType::NON_RETURNING);
+//            call_bb->fallThrough(0);
+//            call_bb->fallThroughBB(NULL);
+//          }
+//          else {
+//            LOG("Marking returning: "<<hex<<call_bb->start());
+//            call_bb->callType(BBType::RETURNING);
+//            resolving_done.insert(call_bb->start());
+//          }
+//        }
+//        resolving_done.insert(call_bb->start());
+//      }
+//      else {
+//        bool check_pass = true;
+//        auto all_entries = call_bb->entries();
+//        for(auto & e : all_entries) {
+//          if((ptr(e->start()) == NULL ||
+//             (ptr(e->start()) != NULL && 
+//              ptr(e->start())->source() != PointerSource::JUMPTABLE)) && 
+//             codeByProperty(e) == false) {
+//            analyzeEntry(e, true);
+//            if(codeByProperty(e) == false) {
+//              check_pass = false;
+//              break;
+//            }
+//          }
+//        }
+//        if(check_pass == false) {
+//          analyzeEntry(call_bb->fallThroughBB(), true);
+//          if(dataByProperty(call_bb->fallThroughBB()) ||
+//             /*contextPreservesABI(call_bb->fallThroughBB()) ||*/
+//             contextPassed(call_bb->fallThroughBB(), call_bb->fallThroughBB())) {
+//            DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
+//            possiblePtrs_.insert(call_bb->fallThrough());
+//            call_bb->callType(BBType::NON_RETURNING);
+//            call_bb->fallThrough(0);
+//            call_bb->fallThroughBB(NULL);
+//          }
+//          else {
+//            LOG("Marking returning: "<<hex<<call_bb->start());
+//            call_bb->callType(BBType::RETURNING);
+//          }
+//        }
+//        else {
+//          LOG("All entries passed..Marking returning: "<<hex<<call_bb->start());
+//          call_bb->callType(BBType::RETURNING);
+//          resolved = true;
+//        }
+//        resolving_done.insert(call_bb->start());
+//      }
+//    }
+//  }
+//}
 /*
 
 void

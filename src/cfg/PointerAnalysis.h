@@ -81,7 +81,7 @@ class PointerAnalysis : public virtual SaInput, public virtual CFValidity,
   unordered_set <uint64_t> FNCorrectionDone_;
   priority_queue<AnalysisCandidate, vector<AnalysisCandidate>, CompareCandidate> analysisQ_;
 public:
-  PointerAnalysis (uint64_t memstrt, uint64_t memend);
+  PointerAnalysis (uint64_t memstrt, uint64_t memend, string exepath);
   void cfgConsistencyAnalysis();
   void symbolize();
   void allConstRelocs(vector <Reloc> & r) { allConstRelocs_ = r; }

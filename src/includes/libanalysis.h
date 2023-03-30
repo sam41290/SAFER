@@ -23,6 +23,7 @@ namespace analysis {
 
    /* Settings */
    void setup(const std::string& autoFile);
+   void lifter_cache(const std::string& binFile);
    bool load(const std::string& asmFile,
              const std::unordered_map<int64_t,int64_t>& insnSize,
              const std::unordered_map<int64_t, std::vector<int64_t>>& jumpTable,

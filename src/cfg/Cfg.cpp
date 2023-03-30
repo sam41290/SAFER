@@ -12,9 +12,9 @@ extern map <uint64_t, call_site_info> all_call_sites;
 extern exception_handler eh_frame;
 extern map <uint64_t, cfi_table> unwinding_info;
 
-Cfg::Cfg(uint64_t memstrt, uint64_t memend):
+Cfg::Cfg(uint64_t memstrt, uint64_t memend,string exepath):
      CFValidity(memstrt,memend,INSVALIDITY),
-     PointerAnalysis(memstrt,memend) {}
+     PointerAnalysis(memstrt,memend,exepath) {}
 
 void
 Cfg::disassemble() {
@@ -910,7 +910,7 @@ Cfg::cnsrvtvDisasm() {
   disassembleGaps();
   possibleCodeDisasm();
   //phase1NonReturningCallResolution();
-  //addHintBasedEntries();
+  addHintBasedEntries();
   linkAllBBs();
 
 

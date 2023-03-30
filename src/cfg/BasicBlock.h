@@ -46,7 +46,7 @@ enum class Update {
   TRANSITIVE
 };
 
-class BasicBlock:public Instrument
+class BasicBlock: public Instrument//, public virtual ENCCLASS
 {
 private:
   uint64_t start_ = 0;
@@ -86,8 +86,17 @@ private:
   uint64_t frame_ = 0;
   vector <BasicBlock *> mergedBBs_;
   bool lockJump_ = false;
+  bool retTypeInferred_ = false;
   string fallSym_ = "";
+  vector<uint64_t> belongsToJumpTable_;
 public:
+  void belongsToJumpTable(uint64_t j) { 
+    for(auto & added_j : belongsToJumpTable_)
+      if(added_j == j)
+        return;
+    belongsToJumpTable_.push_back(j); 
+  }
+  vector<uint64_t> belongsToJumpTable() { return belongsToJumpTable_; }
   string fallSym() { return fallSym_; }
   void addrTransMust(bool val) { lastIns()->atRequired(val); }
   bool addrTransMust() { return lastIns()->atRequired(); }
@@ -192,6 +201,10 @@ public:
     ofile<<"type "<<dec<<(int)type_<<endl;
     ofile<<"calltype "<<dec<<(int)callType_<<endl;
     ofile<<"codetype "<<dec<<(int)codeType_<<endl;
+    ofile<<"JTable";
+    for(auto & j : belongsToJumpTable_)
+      ofile<<" "<<j;
+    ofile<<endl;
     ofile<<"target "<<dec<<target_<<endl;
     ofile<<"fall "<<dec<<fallThrough_<<endl;
     for (auto & bb : indirectTgts_)
@@ -238,7 +251,7 @@ public:
     }
     return ins_sz;
   }
-  void fallThroughIns(Instruction ins) { fallThroughIns_ = ins;}
+  void fallThroughIns(Instruction & ins) { fallThroughIns_ = ins;}
   bool isLea() { return isLea_; }
   void isLea(bool isIt) { isLea_ = isIt; }
   vector <BasicBlock *> &indirectTgts() { return indirectTgts_;}

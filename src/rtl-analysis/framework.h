@@ -23,9 +23,11 @@ class Framework {
    static double time_jump_table;
    static int64_t total_file;
    static int64_t total_insn;
+   static unordered_map<int64_t,string>* i_cache;
 
    /* Methods related to setting up framework */
    static void setup(const string& autoFile);
+   static void lifter_cache(const string& binFile);
    static void reset_stats();
 
    /* Methods related to creating program */

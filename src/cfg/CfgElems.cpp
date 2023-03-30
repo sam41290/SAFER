@@ -1130,11 +1130,16 @@ CfgElems::getBBType(uint64_t bbAddrs) {
 BasicBlock *
 CfgElems::getBB(uint64_t addrs) {
   //LOG("Getting BB: "<<hex<<addrs);
+  if(bbCache_.find(addrs) != bbCache_.end())
+    return bbCache_[addrs];
   auto fn = is_within(addrs,funcMap_);
   if(fn == funcMap_.end())
     return NULL;
   //LOG("Within function: "<<hex<<fn->first);
-  return fn->second->getBB(addrs);
+  auto bb = fn->second->getBB(addrs);
+  if(bb != NULL)
+    bbCache_[addrs] = bb;
+  return bb;
 }
 
 BasicBlock *
@@ -1294,7 +1299,7 @@ CfgElems::createFn(bool is_call, uint64_t target_address,uint64_t ins_addrs,
 {
   if(INVALID_CODE_PTR(target_address))
     return;
-  LOG("Creating function for address: " <<hex<<target_address);
+  DEF_LOG("Creating function for address: " <<hex<<target_address);
   if(target_address != 0) {
     if(is_call) {
       auto f_it = is_within(target_address, funcMap_);
@@ -1375,6 +1380,7 @@ CfgElems::readBB(ifstream & ifile) {
   code_type ctype = code_type::UNKNOWN;
   vector <Instruction *> ins_list;
   vector <uint64_t> ind_tgts;
+  vector<uint64_t> jtable ;
   while(getline(ifile,str)) {
     vector<string> words = utils::split_string(str,' ');
     if(words[0] == "start") {
@@ -1390,6 +1396,12 @@ CfgElems::readBB(ifstream & ifile) {
     }
     else if(words[0] == "codetype") {
       ctype = (code_type)(stoi(words[1]));
+    }
+    else if(words[0] == "JTable") {
+      for(int i = 1; i < words.size(); i++) {
+        auto j = stoi(words[1]);
+        jtable.push_back(j);
+      }
     }
     else if(words[0] == "target")
       target = stoll(words[1]);
@@ -1480,6 +1492,8 @@ CfgElems::readBB(ifstream & ifile) {
   bb->type(t);
   bb->callType(call_type);
   bb->codeType(ctype);
+  for(auto & j : jtable)
+    bb->belongsToJumpTable(j);
   return bb;
 }
 
@@ -1711,14 +1725,14 @@ CfgElems::printDeadCode() {
       if(deadcode == false) {
         auto ind_bbs = bb->indirectTgts();
         for(auto & ind_bb : ind_bbs) {
-          vector <BasicBlock *> lst = bbSeq(ind_bb);
-          for(auto & bb2 : lst) {
-            vector <string> all_orig_ins = bb2->allAsm();
+          //vector <BasicBlock *> lst = bbSeq(ind_bb);
+          //for(auto & bb2 : lst) {
+            vector <string> all_orig_ins = ind_bb->allAsm();
 
             for(string & asm_ins:all_orig_ins) {
               ofile2 <<asm_ins <<endl;
             }
-          }
+         // }
           ofile2<<"----------------------------------------------\n";
         }
       }
@@ -2036,6 +2050,9 @@ CfgElems::populateRltvTgts() {
 void
 CfgElems::propagateEntries(set <uint64_t> &entries) {
   for(auto & e : entries) {
+    if(entryPropagated_.find(e) != entryPropagated_.end())
+      continue;
+    entryPropagated_.insert(e);
     auto bb = getBB(e);
     if(bb != NULL) {
       auto bb_list = bbSeq(bb,SEQTYPE::INTRAFN);
@@ -2108,21 +2125,25 @@ CfgElems::updateBBTypes() {
     vector<BasicBlock *> defBBs = fn.second->getDefCode();
     for(auto & bb : defBBs) {
       //LOG("Updating bb type: "<<hex<<bb->start());
-      auto fall = bb->fallThrough();
       bb->updateType();
-      if(bb->isCall() && bb->callType() == BBType::NON_RETURNING)
+      if(bb->isCall() && bb->callType() == BBType::NON_RETURNING) {
+        auto fall = bb->boundary();
         newPointer(fall, PointerType::UNKNOWN,
             PointerSource::POSSIBLE_RA,PointerSource::POSSIBLE_RA,bb->end());
+        createFn(true,fall,fall,code_type::UNKNOWN);
+      }
 
     }
     vector<BasicBlock *> unknwnBBs = fn.second->getUnknwnCode();
     for(auto & bb : unknwnBBs) {
       //LOG("Updating bb type: "<<hex<<bb->start());
-      auto fall = bb->fallThrough();
       bb->updateType();
-      if(bb->isCall() && bb->callType() == BBType::NON_RETURNING)
+      if(bb->isCall() && bb->callType() == BBType::NON_RETURNING) {
+        auto fall = bb->boundary();
         newPointer(fall, PointerType::UNKNOWN,
             PointerSource::POSSIBLE_RA,PointerSource::POSSIBLE_RA,bb->end());
+        createFn(true,fall,fall,code_type::UNKNOWN);
+      }
     }
   }
 }
@@ -2222,12 +2243,12 @@ CfgElems::instrument() {
     }
     else if(x.first == InstPoint::ALL_FUNCTIONS) {
       for(auto fn:funcMap_) {
-        set <uint64_t> entryPoint = fn.second->entryPoints();
+        auto entryPoint = fn.second->entryPoints();
 
         //Add instrumentation code at each entry of a function.
         //A function can have multiple entries.
 
-        for(auto entry:entryPoint) {
+        for(auto & entry:entryPoint) {
           auto bb = fn.second->getBB(entry);
           bb->registerInstrumentation(entry,x.second,instArgs()[x.second]);
         }
@@ -2331,6 +2352,14 @@ CfgElems::addIndrctTgt(uint64_t ins_loc, BasicBlock *tgt) {
   auto fn = is_within(ins_loc, funcMap_);
   if(fn != funcMap_.end())
     fn->second->addIndrctTgt(ins_loc, tgt);
+}
+vector <BasicBlock *>
+CfgElems::allIndrctTgt(uint64_t ins_loc) {
+  vector <BasicBlock *> inds;
+  auto fn = is_within(ins_loc, funcMap_);
+  if(fn != funcMap_.end())
+    return fn->second->allIndrctTgt(ins_loc);
+  return inds;
 }
 
 void

@@ -6,6 +6,8 @@ uint64_t CFValidity::memSpaceStart_;
 uint64_t CFValidity::memSpaceEnd_;
 bool (*CFValidity::InsValidators_[4])(Instruction *);
 vector <InsValidityRules>  CFValidity::insRule_;
+unordered_set <uint64_t> CFValidity::invalidIns_;
+unordered_set <uint64_t> CFValidity::validIns_;
 
 extern bool compareBB(BasicBlock *A, BasicBlock *B);
 
@@ -56,6 +58,10 @@ bool
 CFValidity::validIns(vector <BasicBlock *> &bb_list) {
   for(auto & bb : bb_list) {
     //LOG("Checking ins validity for bb: "<<hex<<bb->start());
+    if(validIns_.find(bb->start()) != validIns_.end())
+      continue;
+    if(invalidIns_.find(bb->start()) != invalidIns_.end())
+      return false;
     vector<Instruction *> insList = bb->insList();
     for(auto & ins : insList) {
       for(auto & rule : insRule_) {
@@ -70,12 +76,14 @@ CFValidity::validIns(vector <BasicBlock *> &bb_list) {
             }
           }
           if(hlt_nd_call == false) {
-            //DEF_LOG("Invalid ins at: "<<hex<<ins->location()<<" type "<<(int)rule);
+            DEF_LOG("Invalid ins at: "<<hex<<ins->location()<<":"<<ins->asmIns()<<" type "<<(int)rule);
+            invalidIns_.insert(bb->start());
             return false;
           }
         }
       }
     }
+    validIns_.insert(bb->start());
   }
   return true;
 }

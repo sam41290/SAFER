@@ -4,6 +4,7 @@
 
 using namespace SBI;
 
+
 string
 Instruction::prefixChk(char *mne) {
   string asm_opcode(mne);
@@ -466,7 +467,7 @@ Instruction::instrument() {
     else if(tgt.first == InstPoint::ADDRS_TRANS)
       asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::ADDRS_TRANS);
     else if(tgt.first == InstPoint::RET_CHK) {
-      DEF_LOG("Instrumenting returns: "<<hex<<loc_);
+      //DEF_LOG("Instrumenting returns: "<<hex<<loc_);
       asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::RET_CHK);
     }
     else if(tgt.first == InstPoint::SYSCALL_CHECK)

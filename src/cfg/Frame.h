@@ -96,6 +96,7 @@ public:
   uint64_t firstCodeAddress();
   unordered_set <uint64_t> allReturnAddresses(); 
   vector <string> allReturnSyms();
+  vector <BasicBlock *> allIndrctTgt(uint64_t ins_loc);
   virtual vector <uint64_t> allValidEntries() = 0;
 private:
 };

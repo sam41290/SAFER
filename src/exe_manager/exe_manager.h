@@ -66,7 +66,7 @@ public:
       return true;
     return false;
   }
-  uint64_t encode (uint64_t ptr, uint64_t orig_ptr);
+  uint64_t encode (uint64_t ptr, uint64_t orig_ptr,uint64_t tramp_ptr);
   string origBname() { return origBname_; }
   void bname(string nm) { bname_ = nm; }
   void instBname(string nm) { instBname_ = nm; }

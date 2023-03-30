@@ -58,7 +58,7 @@ Binary::Binary(string Binary_path) {
   disassembler_ = new DisasmEngn(exePath_,sec_ends);
   picConstReloc_ = manager_->relocatedPtrs(rel::CONSTPTR_PIC);
   auto range = manager_->progMemRange();
-  codeCFG_ = new Cfg(range.first, range.second);
+  codeCFG_ = new Cfg(range.first, range.second,exePath_);
 #ifdef KNOWN_CODE_POINTER_ROOT
 #ifdef DISASMONLY
   if(utils::file_exists("tmp/cfg.present") == false) {
@@ -1068,9 +1068,17 @@ Binary::genInstAsm() {
     free(section_data);
   }
   ofile<<".GTF_stack:\n";
-  ofile<<"jmp *.dispatcher_stack(%rip)\n";
+  //ofile<<"jmp *.dispatcher_stack(%rip)\n";
   ofile<<".GTF_reg:\n";
-  ofile<<"jmp *.dispatcher_reg(%rip)\n";
+  string atf_file(TOOL_PATH"src/instrument/atf.s");
+  ifstream ifile;
+  ifile.open(atf_file);
+  string atf_line;
+  while(getline(ifile,atf_line)) {
+    ofile<<atf_line<<endl;
+  }
+  ifile.close();
+  //ofile<<"jmp *.gtt(%rip)\n";
   ofile<<".SYSCHK:\n";
   ofile<<"jmp *.syscall_checker(%rip)\n";
 
@@ -1322,39 +1330,39 @@ string Binary::print_assembly() {
                             s, 1);
       ctr++;
     }
-    //ADD ATT TRAMPS
-
-    string tramp_asm = manager_->trampAsm();
-    section tramp_sec("tramp_table",0,0,0,8);
-    tramp_sec.start_sym=".tramp_tbl_start";
-    tramp_sec.end_sym=".tramp_tbl_end";
-    tramp_sec.sec_type = section_types::RX;
-    tramp_sec.additional = true;
-    manager_->newSection(tramp_sec);
-    utils::printLbl(tramp_sec.start_sym,"tramp.s");
-    utils::printAsm(tramp_asm,0,tramp_sec.start_sym,SymBind::NOBIND,"tramp.s"); 
-    utils::printLbl(tramp_sec.end_sym,"tramp.s");
-    utils::append_files("tramp.s", "new_code.s");
-  stitchSections(section_types::RONLY,"new_code.s", true);
-
-  rewrite_jmp_tbls("jmp_tbl.s");
   //{
 
     //ADD ATT
     section att_sec("att_table",0,0,0,8);
     att_sec.start_sym=".att_tbl_start";
     att_sec.end_sym=".att_tbl_end";
-    att_sec.sec_type = section_types::RONLY;
+    att_sec.sec_type = section_types::RX;
     att_sec.additional = true;
     att_sec.is_att = true;
     manager_->newSection(att_sec);
     string att_asm = manager_->attTableAsm();
     utils::printAsm(att_asm,0,att_sec.start_sym,SymBind::NOBIND,"att.s"); 
     utils::printLbl(att_sec.end_sym,"att.s");
-  //}
-  utils::append_files("jmp_tbl.s", "new_code.s");
+    utils::printAlgn(8, "new_code.s");
   utils::append_files("att.s", "new_code.s");
+  //}
+    //ADD ATT TRAMPS
 
+    //string tramp_asm = manager_->trampAsm();
+    //section tramp_sec("tramp_table",0,0,0,8);
+    //tramp_sec.start_sym=".tramp_tbl_start";
+    //tramp_sec.end_sym=".tramp_tbl_end";
+    //tramp_sec.sec_type = section_types::RX;
+    //tramp_sec.additional = true;
+    //manager_->newSection(tramp_sec);
+    //utils::printLbl(tramp_sec.start_sym,"tramp.s");
+    //utils::printAsm(tramp_asm,0,tramp_sec.start_sym,SymBind::NOBIND,"tramp.s"); 
+    //utils::printLbl(tramp_sec.end_sym,"tramp.s");
+    //utils::append_files("tramp.s", "new_code.s");
+  stitchSections(section_types::RONLY,"new_code.s", true);
+
+  rewrite_jmp_tbls("jmp_tbl.s");
+  utils::append_files("jmp_tbl.s", "new_code.s");
   //{
     //New section for hash table
     section hash_tbl_sec("hash_tbl",0,0,0,8);
@@ -1364,6 +1372,7 @@ string Binary::print_assembly() {
     hash_tbl_sec.additional = true;
     manager_->newSection(hash_tbl_sec);
   //}
+
 
   manager_->printNonLoadSecs("nonloadsecs.s");
 

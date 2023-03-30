@@ -190,7 +190,7 @@ Dfs::allPathsTo(BasicBlock *bb, SEQTYPE s) {
 
 bool
 Dfs::checkPath(BasicBlock *from, BasicBlock *to) {
-  DEF_LOG("Checking if path exists from: "<<hex<<from->start()<<"->"<<hex<<to->start());
+  //DEF_LOG("Checking if path exists from: "<<hex<<from->start()<<"->"<<hex<<to->start());
   traversal_ = SEQTYPE::INTRAFN;
   vector <BasicBlock *> bb_list;
   unordered_set <uint64_t> passed;
@@ -205,16 +205,16 @@ Dfs::pathsFromTo(BasicBlock *from, BasicBlock *to) {
   return bb_list;
 }
 
-vector <BasicBlock *>
+void
 Dfs::indTgtsDfs(BasicBlock *entry, unordered_set <uint64_t> &passed) {
   //LOG("Entry: "<<hex<<entry->start());
-  vector <BasicBlock *> ind_tgts;
+  //vector <BasicBlock *> ind_tgts;
   auto bb_list = bbSeq(entry);
   passed.insert(entry->start());
   for(auto & bb : bb_list) {
     auto inds = bb->indirectTgts();
     if(inds.size() > 0) {
-      ind_tgts.insert(ind_tgts.end(),inds.begin(),inds.end());
+      indbbList_.insert(indbbList_.end(),inds.begin(),inds.end());
       //for(auto & ind_bb : inds) {
       //  if(passed.find(ind_bb->start()) == passed.end()) {
       //    //LOG("ind tgt: "<<hex<<ind_bb->start());
@@ -224,17 +224,18 @@ Dfs::indTgtsDfs(BasicBlock *entry, unordered_set <uint64_t> &passed) {
       //}
     }
   }
-  return ind_tgts;
+  //return ind_tgts;
 }
 
 vector <BasicBlock *> 
 Dfs::allIndTgts(vector <BasicBlock *> &entry) {
   unordered_set <uint64_t> passed;
-  vector <BasicBlock *> all_inds;
+ // vector <BasicBlock *> all_inds;
+  indbbList_.clear();
   for(auto & e : entry) {
-    auto lst = indTgtsDfs(e,passed);
+    indTgtsDfs(e,passed);
     //DEF_LOG("Entry: "<<hex<<e->start()<<" ind tgt count: "<<lst.size());
-    all_inds.insert(all_inds.end(),lst.begin(), lst.end());
+    //all_inds.insert(all_inds.end(),lst.begin(), lst.end());
     /*
     if(e->start() == 0x413a60) {
     for(auto & ind_bb : all_inds)
@@ -243,8 +244,8 @@ Dfs::allIndTgts(vector <BasicBlock *> &entry) {
     */
     
   }
-  LOG("Total inds: "<<all_inds.size());
-  return all_inds;
+  LOG("Total inds: "<<bbList_.size());
+  return indbbList_;
 }
 
 bool 

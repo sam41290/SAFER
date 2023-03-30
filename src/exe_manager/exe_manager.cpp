@@ -32,11 +32,11 @@ ExeManager::is_ELF64 ()
 }
 
 uint64_t
-ExeManager::encode (uint64_t ptr, uint64_t orig_ptr)
+ExeManager::encode (uint64_t ptr, uint64_t orig_ptr, uint64_t tramp_ptr)
 {
   if (ENCODE == 1) {
     if(encode_.find (orig_ptr) != encode_.end ()) {
-      ptr = encodePtr(orig_ptr);
+      ptr = encodePtr(orig_ptr,ptr,tramp_ptr);
     }
   }
   return ptr;

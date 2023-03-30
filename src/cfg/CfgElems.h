@@ -212,7 +212,8 @@ namespace SBI {
     unordered_set <uint64_t> conflictingRoots_;
     unordered_map <uint64_t, long double> cftTgtsInGaps_;
     unordered_map <uint64_t, JumpType> cftsInGaps_;
-
+    unordered_set <uint64_t> entryPropagated_;
+    unordered_map <uint64_t, BasicBlock *> bbCache_;
   public:
     DisasmEngn *disassembler_;
     exe_type type_;
@@ -419,7 +420,9 @@ namespace SBI {
             exit(0);
           }
           j.addTargetBB(bb);
-          //addIndrctTgt(j.cfLoc(), bb);
+          auto cf_loc = j.cfLoc();
+          for(auto & c : cf_loc)
+            addIndrctTgt(c, bb);
         }
       }
     }
@@ -450,6 +453,7 @@ namespace SBI {
     uint64_t dataSegmntEnd (uint64_t addrs);
     unordered_set <uint64_t> allReturnAddresses();
     vector <string> allReturnSyms();
+    vector <BasicBlock *> allIndrctTgt(uint64_t ins_loc);
   private:
     void readIndrctTgts(BasicBlock *bb,uint64_t fn_addrs);
     BasicBlock *readBB(ifstream & file);

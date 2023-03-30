@@ -41,6 +41,7 @@ namespace SBI {
     
     SEQTYPE traversal_ = SEQTYPE::INTRAFN;
     vector <BasicBlock *> bbList_;
+    vector <BasicBlock *> indbbList_;
     queue <BasicBlock *> BfsQ_;
     BasicBlock *curEntry_ = NULL;
 
@@ -78,7 +79,7 @@ namespace SBI {
                      unordered_set <uint64_t> &passed,
                      unordered_set <BasicBlock *> &path,
                      unordered_set <uint64_t> &valid_ind_path);
-    vector <BasicBlock *> indTgtsDfs(BasicBlock *entry, 
+    void indTgtsDfs(BasicBlock *entry, 
                                      unordered_set <uint64_t> &passed);
   };
 }

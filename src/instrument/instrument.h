@@ -70,7 +70,7 @@ enum class InstArg {
 
 
 
-class Instrument
+class Instrument: public ENCCLASS
 {
   vector<pair<InstPoint,string>> targetPos_;
   map<string,vector<InstArg>>instArgs_;

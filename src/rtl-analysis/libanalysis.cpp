@@ -155,6 +155,11 @@ void analysis::setup(const string& autoFile) {
 }
 
 
+void analysis::lifter_cache(const string& binFile) {
+   Framework::lifter_cache(binFile);
+}
+
+
 bool analysis::load(const string& asmFile, const unordered_map<int64_t,int64_t>&
 insnSize, const unordered_map<int64_t,vector<int64_t>>& jumpTable,
 const vector<int64_t>& entry) {
@@ -197,6 +202,7 @@ void analysis::print_stats() {
    LOG(2, "--> analysis:   " << Framework::time_analysis << " seconds");
    LOG(2, "--> track:      " << Framework::time_track << " seconds");
    LOG(2, "--> jump table: " << Framework::time_jump_table << " seconds");
+   delete Framework::i_cache;
 }
 
 

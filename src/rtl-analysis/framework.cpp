@@ -12,6 +12,7 @@
 #include <caml/mlvalues.h>
 #include <caml/callback.h>
 /* -------------------------------------------------------------------------- */
+static int n_uncached = 0;
 static string asmFile = "";
 static string objFile = "";
 static string errFile = "";
@@ -19,6 +20,8 @@ static string errFile2 = "";
 static string tmp_1 = "";
 static string tmp_2 = "";
 static string tmp_3 = "";
+static string tmp_4 = "";
+static string tmp_5 = "";
 /* -------------------------------------------------------------------------- */
 int Framework::sessionId;
 double Framework::time_format;
@@ -30,6 +33,7 @@ double Framework::time_track;
 double Framework::time_jump_table;
 int64_t Framework::total_file;
 int64_t Framework::total_insn;
+unordered_map<int64_t,string>* Framework::i_cache = nullptr;
 /* -------------------------------------------------------------------------- */
 static void refine_itc(string& itc) {
    size_t p;
@@ -72,6 +76,8 @@ const unordered_map<int64_t,int64_t>& insnSize) {
    std::filesystem::remove(errFile);
    std::filesystem::remove(errFile2);
 
+   n_uncached = 0;
+
    string s;
    vector<string> label;
    static unordered_set<string> branch = {
@@ -80,8 +86,8 @@ const unordered_map<int64_t,int64_t>& insnSize) {
          "jge", "jnge", "jg", "jng", "jle", "jnle", "jp", "jnp", "jpe", "jpo",
          "jcxz", "jecxz", "jrcxz", "jmp", "jmpq", "call", "callq"
    };
-   static array<string,6> rm_prefix = {"bnd", "lock", "notrack", "data16",
-                                       "rex.W", "rex.X"};
+   static array<string,9> rm_prefix = {"bnd", "lock", "notrack", "data16",
+                                       "rex.W", "rex.X", "rep", "repz", "repnz"};
    static array<string,6> to_nop = {"data16 addb", "addr32",
                                     "loopq", "loop", "loope", "loopne"};
    static array<string,3> to_hlt = {"int1", "int3", "icebp"};
@@ -106,23 +112,52 @@ const unordered_map<int64_t,int64_t>& insnSize) {
          }
          /* remove prefixes */
          for (auto const& x: rm_prefix) {
-            auto it = s.find(x);
-            if (it != string::npos)
-               s.erase(it, x.length()+1);
+            while (true) {
+               auto it = s.find(x);
+               if (it != string::npos)
+                  s.erase(it, x.length()+1);
+               else
+                  break;
+            }
          }
-         auto p1 = s.find(":");
-         auto p2 = p1 + 2;
-         auto p3 = s.find_first_of("*%.(", p2);
-         auto offset = s.substr(1, p1-1);
-         auto opcode = s.substr(p2, p3-p2-1);
+
+         auto p1 = s.find(":");                                                                                     
+         auto p2 = p1 + 2;                                                                                          
+         auto p3 = s.find_first_of("*%.($0123456789", p2);                                                          
+         if (p3 != string::npos && s[p3-1] != ' ')
+            p3 = s.find_last_of(" ", p3);
+         else if (p3 == string::npos)
+            p3 = s.find(" ", p2) - 1;
+         auto offset = s.substr(1, p1-1);                                                                           
+         auto opcode = s.substr(p2, p3-p2-1);                                                                       
+         if (opcode[opcode.length() - 1] == ' ') {                                                                  
+            int i;                                                                                                  
+            for (i = opcode.length() - 1; i > 0; --i)                                                               
+               if (opcode[i] != ' ') break;                                                                         
+            opcode.erase(i+1, string::npos);                                                                        
+         }   
+
+         if (Framework::i_cache->contains((int64_t)(stoull(offset,nullptr,10))))
+            continue;
+
          /* .1234: callq .3485 --> .L1234 call 3485 */
          if (branch.contains(opcode) && s[p3] == '.') {
+            auto p4 = s.find(" + 1");                                                                               
+            if (p4 != string::npos)                                                                                 
+               s.erase(p4, string::npos);
             fasm << s << "\n";
             s.erase(p3, 1);
             if (opcode.compare("callq") == 0)
                s.replace(p2, 5, string("call"));
+            else if (opcode.compare("jmpq") == 0)
+               s.replace(p2, 4, string("jmp"));
             s.erase(p1, 1);
             label.push_back(string(".L").append(s.substr(1,string::npos)));
+         }
+         /* malformed direct targets: jmpq ffffffffab1234cd */
+         else if (branch.contains(opcode) && s.find_first_of("*%.($,", p3) == string::npos) {
+            fasm << "." << offset << ": nop\n";
+            label.push_back(string(".L").append(offset));
          }
          /* .1234: addb %al, (%rax) --> .L1234 add BYTE PTR [rax],al */
          else if (opcode.compare("addb") == 0) {
@@ -144,7 +179,7 @@ const unordered_map<int64_t,int64_t>& insnSize) {
                label.push_back(string(".L").append(offset));
             }
          }
-         /* .10: leaq .40(%rip), %r8 --> .L10 lea r8, DWORD PTR[rip+25] */
+         /* .10: leaq .40(%rip), %r8 --> .L10 lea r8, QWORD PTR[rip+25] */
          /* .10: jmpq *.40(%rip)     --> .L10 jmp QWORD PTR [rip+25]    */
          /* .10: callq *.40(%rip)    --> .L10 call QWORD PTR [rip+25]   */
          else if (s.find("(%rip") != string::npos) {
@@ -152,16 +187,20 @@ const unordered_map<int64_t,int64_t>& insnSize) {
             auto pc = ioffset + insnSize.at(ioffset);
             auto p5 = s.find("(%rip", p3);
             auto p4 = s.rfind('.',p5);
-            auto target = s.substr(p4+1, p5-p4-1);
-            if (target.length() < 15) {
-               auto itarget = Util::to_int(target);
-               auto repl = std::to_string(itarget - pc);
-               s.replace(p4, p5-p4, repl);
-               fasm << s << "\n";
-            }
-            else
-               fasm << "." << offset << ": nop\n";
-            label.push_back(string(".L").append(offset));
+            if (p4 != 0) {                                                                                          
+               auto target = s.substr(p4+1, p5-p4-1);                                                               
+               if (target.length() < 15) {                                                                          
+                  auto itarget = Util::to_int(target);                                                              
+                  auto repl = std::to_string(itarget - pc);                                                         
+                  s.replace(p4, p5-p4, repl);                                                                       
+                  fasm << s << "\n";                                                                                
+               }                                                                                                    
+               else                                                                                                 
+                  fasm << "." << offset << ": nop\n";                                                               
+            }                                                                                                       
+            else                                                                                                    
+               fasm << s << "\n";                                                                                   
+            label.push_back(string(".L").append(offset));  
          }
          /* .1234: movq %eax, %ebx --> .L1234 */
          else {
@@ -172,6 +211,9 @@ const unordered_map<int64_t,int64_t>& insnSize) {
       fatt.close();
       fasm.close();
    }
+
+   if (label.empty())
+      return;
 
    /* convert AT&T syntax to Intel syntax */
    {
@@ -243,6 +285,8 @@ const unordered_map<int64_t,int64_t>& insnSize) {
       fasm.close();
       fitc.close();
    }
+
+   n_uncached = label.size();
 }
 
 
@@ -262,12 +306,14 @@ const unordered_map<int64_t,int64_t>& insnSize) {
    time_start(start1);
    format_asm(attFile, tmp_2, insnSize);
    time_stop(Framework::time_format,start1);
-   time_start(start2);
-   if (closure_f == nullptr)
-      closure_f = caml_named_value("Lift callback");
-   caml_callback3(*closure_f, Val_int(Framework::sessionId),
-                  Val_int(2), Val_int(3));
-   time_stop(Framework::time_lift,start2);
+   if (n_uncached != 0) {
+      time_start(start2);
+      if (closure_f == nullptr)
+         closure_f = caml_named_value("Lift callback");
+      caml_callback3(*closure_f, Val_int(Framework::sessionId),
+                     Val_int(2), Val_int(3));
+      time_stop(Framework::time_lift,start2);
+   }
 }
 
 
@@ -282,8 +328,17 @@ const unordered_map<int64_t,int64_t>& insnSize, bool& corrupted) {
    time_start(start1);
    fstream fatt(attFile, fstream::in);
    fstream frtl(tmp_3, fstream::in);
-   while (getline(fatt, att) && getline(frtl, rtl)) {
+   while (getline(fatt, att)) {
       int offset = Util::to_int(att.substr(1, att.find(':')-1));
+
+      auto it = Framework::i_cache->find(offset);
+      if (it != Framework::i_cache->end())
+         rtl = (att.find("hlt") == string::npos)? it->second: string("halt");
+      else {
+         getline(frtl,rtl);
+         (*Framework::i_cache)[offset] = rtl;
+      }
+
       RTL* object = Parser::process(rtl);
       pairList.push_back(make_pair(offset,object));
 
@@ -325,10 +380,14 @@ void Framework::setup(const string& autoFile) {
    tmp_1 = path + string("tmp_1");
    tmp_2 = path + string("tmp_2");;
    tmp_3 = path + string("tmp_3");;
+   tmp_4 = path + string("tmp_4");;
+   tmp_5 = path + string("tmp_5");;
    asmFile = path + string("proc.s");
    objFile = path + string("proc.o");
    errFile = path + string("err.log");
    errFile2 = path + string("err.log.tmp");
+   fstream f_out(tmp_3, fstream::out);
+   f_out.close();
 
    /* setup stats */
    Framework::reset_stats();
@@ -382,4 +441,64 @@ const vector<int64_t>& entry) {
          return nullptr;
       }
    }
+}
+
+void Framework::lifter_cache(const string& binFile) {
+   if (Framework::i_cache != nullptr)
+      delete Framework::i_cache;
+   Framework::i_cache = new unordered_map<int64_t,string>();
+
+   /* linear disassembly */                                                                                         
+   auto cmd = string("objdump --prefix-addresses -M suffix -d ") + binFile                                        
+            + string("| cut -d' ' -f1,3- | cut -d'<' -f1 | cut -d'#' -f1 ")                                         
+            + string("| grep \"^000000\" | grep -v \" gs \" | grep -v \" fs \"")
+            + string("| grep -v \" cs \" | grep -v \" ds \" | grep -v \" es \" ")
+            + string("| grep -v \",pt\" | grep -v \"rex\" | grep -v \"bad\" ")
+            + string("| grep -v \"lcalll\" | grep -v \"ljmpl\" | grep -v \"\%es\"")
+            + string("| grep -v \"\%ss\" | grep -v \"\%cs\" | grep -v \"\%ds\" > ")
+            + tmp_4;                                                              
+   (void)!system(cmd.c_str());                                                                                      
+                                                                                                                    
+   /* lift to rtl */                                                                                                
+   vector<int64_t> offset_vec;                                                                                          
+   {                                                                                                                
+      string s;                                                                                                     
+      fstream f_in(tmp_4, fstream::in);                                                                             
+      fstream f_out(tmp_5, fstream::out);                                                                           
+      unordered_map<int64_t,int64_t> insn_size;                                                                         
+      int64_t prev_offset = -1;                                                                                         
+      while (getline(f_in, s)) {                                                                                    
+            auto pos = s.find(" ");                                                                                    
+            auto offset = stoull("0x" + s.substr(0, pos), nullptr, 16);                                                
+            auto assembly = s.substr(pos + 1, string::npos);                                                           
+            f_out << "." << offset << ": ";                                                                            
+            offset_vec.push_back(offset);                                                                              
+            /* prefix hex with 0x */                                                                                   
+            pos = assembly.find(" 000000");                                                                            
+            if (pos != string::npos) {                                                                                 
+               auto target = stoull("0x" + assembly.substr(pos+1, string::npos), nullptr, 16);                                                                      
+               f_out << assembly.substr(0,pos) << " ." << target << "\n";                                              
+            }                                                                                                          
+            else                                                                                                       
+               f_out << assembly << "\n";                                                                              
+            if (prev_offset != -1)                                                                                     
+               insn_size[prev_offset] = (int64_t)offset - prev_offset;                                          
+         prev_offset = (int64_t)offset;                                                                                 
+      }                                                                                                             
+      insn_size[prev_offset] = 4;                                                                                   
+      f_in.close();                                                                                                 
+      f_out.close();                                                                                                                                                                                                                 
+      ocaml_lift(tmp_5, insn_size);
+   }             
+
+   /* cache lifted results */                                                                                       
+   {                                                                                                                
+      string s;                                                                                                     
+      fstream f_in(tmp_3, fstream::in);                                                                             
+      for (auto offset: offset_vec) {                                                                               
+         getline(f_in, s);                                                                                          
+         (*Framework::i_cache)[offset] = s;                                                                            
+      }                                                                                                             
+      f_in.close();
+   }  
 }

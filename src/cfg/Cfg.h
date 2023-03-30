@@ -52,7 +52,7 @@ using namespace std;
   }
 namespace SBI {
 
-class Cfg:public PointerAnalysis, public virtual CfgElems 
+class Cfg:public PointerAnalysis 
 {
   //map <uint64_t, BasicBlock *> basicBlkMap_;
   priority_queue <int, vector <int>, greater <int>> disasmRoots_;
@@ -61,7 +61,7 @@ class Cfg:public PointerAnalysis, public virtual CfgElems
   PointerSource rootSrc_ = PointerSource::NONE;
   uint64_t currentRoot_;
 public:
-    Cfg(uint64_t memstrt, uint64_t memend);
+    Cfg(uint64_t memstrt, uint64_t memend,string exepath);
    ~Cfg() {};
   void rootSrc(PointerSource src) { rootSrc_ = src; } 
   bool addToCfg(uint64_t addrs, PointerSource t);

@@ -28,6 +28,8 @@ namespace SBI {
     static uint64_t memSpaceEnd_;
     static bool (*InsValidators_[4])(Instruction *);
     static vector <InsValidityRules> insRule_;
+    static unordered_set <uint64_t> invalidIns_;
+    static unordered_set <uint64_t> validIns_;
   public:
     CFValidity(uint64_t strt, uint64_t end, 
                const vector <InsValidityRules> &ins_rules) {
@@ -54,9 +56,13 @@ namespace SBI {
         if(utils::invalid_prefixes.find(w) != utils::invalid_prefixes.end())
           return false;
       }
+      /*
+      for(auto & p : utils::invalid_prefixes)
+        if(ins->mnemonic().find(p) != string::npos || ins->prefix().find(p) != string::npos)
+          return true;
       if(ins->asmIns().find("lock lea") != string::npos)
         return false;
-
+      */
       return true;
     }
     static bool validUsrModeIns(Instruction *ins) {

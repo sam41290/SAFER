@@ -451,6 +451,7 @@ Frame::linkCFToJumpTable(JumpTable *j, uint64_t ins_loc) {
   for(auto & bb2 : defCodeBBs_) {
     if(bb2->end() == ins_loc) {
       j->cfBB(bb2);
+      DEF_LOG("Removing AT instrumentation for: "<<hex<<bb2->start()<<"->"<<hex<<ins_loc<<" Jump table: "<<hex<<j->location());
       bb2->addrTransMust(false);
     }
       //bb2->jTable(j);
@@ -458,21 +459,42 @@ Frame::linkCFToJumpTable(JumpTable *j, uint64_t ins_loc) {
   for(auto & bb2 : unknwnCodeBBs_) {
     if(bb2->end() == ins_loc) {
       j->cfBB(bb2);
+      DEF_LOG("Removing AT instrumentation for: "<<hex<<bb2->start()<<"->"<<hex<<ins_loc<<" Jump table: "<<j->location());
+      //DEF_LOG("Removing AT instrumentation for: "<<hex<<bb2->start()<<"->"<<hex<<ins_loc);
       bb2->addrTransMust(false);
     }
       //bb2->jTable(j);
   }
 }
+vector <BasicBlock *>
+Frame::allIndrctTgt(uint64_t ins_loc) {
+  vector <BasicBlock *> all_inds;
+  for(auto & bb2 : defCodeBBs_) {
+    if(bb2->end() == ins_loc) {
+      auto inds = bb2->indirectTgts();
+      all_inds.insert(all_inds.end(), inds.begin(), inds.end());
+    }
+  }
+  for(auto & bb2 : unknwnCodeBBs_) {
+    if(bb2->end() == ins_loc) {
+      auto inds = bb2->indirectTgts();
+      all_inds.insert(all_inds.end(), inds.begin(), inds.end());
+    }
+  }
+  return all_inds;
+}
 
 void
 Frame::addIndrctTgt(uint64_t ins_loc, BasicBlock *tgt) {
   for(auto & bb2 : defCodeBBs_) {
-    if(bb2->end() == ins_loc)
+    if(bb2->end() == ins_loc) {
       bb2->addIndrctTgt(tgt);
+    }
   }
   for(auto & bb2 : unknwnCodeBBs_) {
-    if(bb2->end() == ins_loc)
+    if(bb2->end() == ins_loc) {
       bb2->addIndrctTgt(tgt);
+    }
   }
 }
 

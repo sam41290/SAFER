@@ -19,14 +19,15 @@ using namespace std;
 
 enum class EncType {
   ENC_GTT_ATT,
+  ENC_MULT_INV,
   ENC_IND_ATF
 };
 
-struct AttRec {
+struct __attribute__((packed)) AttRec {
   uint64_t old_;
   uint64_t new_;
-  uint64_t tramp_;
   uint64_t hashInd_;
+  char tramp_[16];
 };
 
 struct AttEntry {
@@ -88,11 +89,13 @@ public:
     attTable_.push_back(a);
   };
 
+
   string attTableAsm() {
     //createHash();
     string tbl = ".att_key: .8byte " + to_string(randKey_) + "\n";
     tbl += ".att_tbl_bit: .8byte " + to_string(hashTblBit_) + "\n";
     tbl += ".att_tbl_sz: .8byte " + to_string(hashTblSize_) + "\n";
+    tbl += ".hash_tbl_loc: .8byte .hash_tbl_start - .elf_header_start\n";
     int ctr = 0;
     for (auto & e : attTable_) {
       e.lookupEntrySym_ = ".attentry_lookup_" + to_string(e.val_);
@@ -108,16 +111,25 @@ public:
       tbl += e.lookupEntrySym_ + ":\n"
           + e.oldPtr_ + "\n" + e.tgtEntrySym_ + ":\n"
           + e.newPtr_ + "\n"
-          + tramp_sym + ":\n"
-          + ".8byte " + e.tramp_ + " - .elf_header_start\n"
           + enc_ptr_sym + ":\n" 
-          + ".8byte " + to_string(e.oldOrNew_) + "\n";
+          + ".8byte " + to_string(e.oldOrNew_) + "\n"
+          + tramp_sym + ":\n"
+          + ".byte 0x64\n" 
+          + ".byte 0x48\n" 
+          + ".byte 0x8b\n" 
+          + ".byte 0x04\n" 
+          + ".byte 0x25\n" 
+          + ".byte 0x88\n" 
+          + ".byte 0x00\n"
+          + ".byte 0x00\n" 
+          + ".byte 0x00\n"
+          + ".byte 0xe9\n" + ".4byte " + e.newPtrSym_ + " - " + tramp_sym + " - 14\n"
+          + ".byte 0x90\n" + ".byte 0x90\n";
+          //+ ".8byte " + e.tramp_ + " - .elf_header_start\n"
       ctr++;
     }
-    string seg_fault = ".8byte .segfault_handler - .elf_header_start\n.8byte\
-      .segfault_handler - .elf_header_start\n.8byte 0\n.8byte 0\n";
-    tbl += seg_fault;
-    tbl += ".dispatcher_stack: .8byte 0\n.dispatcher_reg: .8byte 0\n.syscall_checker: .8byte 0\n";
+    tbl += ".rt_resolver: .8byte 0\n.gtt_node: .8byte 0\n.gtt_ind: .8byte 0\n";
+    tbl += ".att_arr: .8byte 0\n.gtt: .8byte 0\n.syscall_checker: .8byte 0\n";
     return tbl;
   };
 
@@ -126,7 +138,8 @@ public:
     for (auto & e : attTable_) {
       if(e.newPtrSym_.length() > 0) {
         tramp_asm += e.tramp_ + ":\n"
-                   + "mov 24(%rsp),%rax\n"
+                   + "mov %fs:0x88,%rax\n" 
+                   //+ "mov 24(%rsp),%rax\n"
                    + "add $40,%rsp\n"
                    + "jmp " + e.newPtrSym_ + "\n";
       }
@@ -155,7 +168,7 @@ public:
   void createHash(char *att_tbl, uint64_t size) {
     AttRec *tbl_start = (AttRec *)att_tbl;
     //Ignore first record and last record;
-    att_tbl += (3 * 8);
+    att_tbl += (4 * 8);
     size -= (6 * 8);
     double l = log2(attTable_.size());
     l += 1;
@@ -198,49 +211,137 @@ public:
     }
     tbl_start->old_ = randKey_;
     tbl_start->new_ = hashTblBit_;
-    tbl_start->tramp_ = hashTblSize_;
+    tbl_start->hashInd_ = hashTblSize_;
     //cout<<"Hash tbl bit size: "<<hex<<hashTblBit_<<endl;
     //cout<<"Hash tbl entry cnt: "<<hex<<hashTblSize_<<endl;
   }
-  virtual uint64_t encodePtr(uint64_t addrs) = 0;
-  virtual string encodeLea(string mne, string op, uint64_t ins_loc, uint64_t ptr) = 0;
-  virtual string decodeIcf(string mnemonic, string op1, uint64_t loc) = 0;
+  virtual uint64_t encodePtr(uint64_t addrs,uint64_t new_ptr,uint64_t tramp_ptr) = 0;
+  virtual string encodeLea(string op, uint64_t ptr) = 0;
+  virtual string decodeIcf(string hook_target, string args, string mne) = 0;
   virtual EncType enctype() = 0;
 };
 
 
 class GttAtt : public Encode {
+  static int decode_counter;
   public:
-    uint64_t encodePtr(uint64_t addrs) {
+    uint64_t encodePtr(uint64_t addrs,uint64_t new_ptr,uint64_t tramp_ptr) {
       int att_ind = attIndex(addrs);
       if(att_ind != -1)
         return att_ind;
       return addrs;
     };
-    string encodeLea(string mne, string op, uint64_t ins_loc, uint64_t ptr) {
-      string asm_ins = "";
-      int att_ind = attIndex(ptr);
-      if(att_ind != -1) {
+    string encodeLea(string op, uint64_t ptr) {
         size_t pos = op.find (",");
         string reg = op.substr (pos + 2);
-        //uint64_t enc_ptr = 0x440000000000 + att_ind;
-        //asm_ins += "pushf\nmov $" 
-        //        + to_string(enc_ptr) + "," + reg + "\n"
-        //        + "add .gtt_ind(%rip)," + reg + "\n"
-        //        + "popf\n";
-
-        asm_ins = "mov ." + to_string(ptr) + "_enc_ptr(%rip)," + reg + "\n";
-      }
-      return asm_ins; 
+        //string inst = "pushf\n";
+        //inst += "movabs $0x00000000f0000000," + reg + "\n"
+        //      + "add .gtt_ind(%rip)," + reg + "\n"
+        //      + "shl $28," + reg + "\n"
+        //      + "add ." + to_string(ptr) + "_enc_ptr(%rip)," + reg +"\n"
+        //      + "shl $4," + reg + "\n"
+        //      + "popf\n";
+        string inst = "mov ." + to_string(ptr) + "_enc_ptr(%rip)," + reg + "\n";
+        return inst;
     }
-    string decodeIcf(string mne, string op, uint64_t loc) {
-      string asm_ins = "";
-      asm_ins += "push %rdi\nmov "
-              + op + ", %rdi\n"
-              + mne + " .dispatcher(%rip)\n";
-      return asm_ins; 
+
+    string decodeIcf(string hook_target, string args, string mne) {
+      string inst_code = "";
+      inst_code += "mov %rax,%fs:0x88\n";
+      inst_code += args;
+      inst_code += ".decode_" + to_string(decode_counter) + ":\n"
+                 + "cmp $0,%rax\n" + "jg .at_" + to_string(decode_counter) + "\n"
+                 + "sub $40,%rsp\n"
+                 + "mov %rcx,0(%rsp)\n"
+                 + "mov %rdx,8(%rsp)\n"
+                 + "mov .att_arr(%rip),%rdx\n"
+                 + "mov %rax,%rcx\n"
+                 + "shr $4,%eax\n"
+                 + "and $0xfffff,%rax\n"
+                 + "shr $32,%rcx\n"
+                 + "and $0xff,%rcx\n"
+                 + "mov 0x0(%rdx,%rcx,8),%rdx\n"
+                 + "lea 0x0(%rax,%rax,4),%rax\n"
+                 + "lea 24(%rdx,%rax,8),%rax\n"
+                 + "mov 0(%rsp),%rcx\n"
+                 + "mov 8(%rsp),%rdx\n"
+                 + "add $40,%rsp\n"
+                 + mne + " *%rax\n"
+                 + "jmp .fall_" + to_string(decode_counter) + "\n";
+      inst_code += ".at_" + to_string(decode_counter) + ":\n"
+                 + mne + " ." + hook_target + "\n" + ".fall_" + to_string(decode_counter) +":\n";
+
+      decode_counter++;
+      return inst_code;
     }
     EncType enctype() { return EncType::ENC_GTT_ATT; }
+};
+
+class MultInv : public Encode {
+  static int decode_counter;
+  uint64_t ODD_A = 3;
+  uint64_t ODD_X = 768614336404564651; 
+  public:
+    uint64_t encodePtr(uint64_t addrs,uint64_t new_ptr,uint64_t tramp_ptr) {
+      /*
+      int att_ind = attIndex(addrs);
+      if(att_ind != -1)
+        return att_ind;
+      return addrs;
+      */
+      return tramp_ptr;
+    }
+    string encodeLea(string op, uint64_t ptr) {
+        size_t pos = op.find (",");
+        string reg = op.substr (pos + 2);
+        /*
+        string inst = "pushf\n";
+        if(reg.find("rdx") != string::npos) {
+          string xtra_reg = "%rax";
+          inst += "push " + xtra_reg + "\n"
+                + "lea ." + to_string(ptr) + "_tramp_ptr(%rip)," + xtra_reg +"\n";
+          inst += "movabs $" + to_string(ODD_X) + ",%rdx\n"
+                + "mulx " + xtra_reg + "," + xtra_reg + ",%rdx\n"
+                + "movabs $0x8000000000000000,%rdx\n"
+                + "or %rdx," + xtra_reg + "\n"
+                + "mov " + xtra_reg + ",%rdx\n"
+                + "pop " + xtra_reg + "\npopf\n";
+        }
+        else {
+          inst += "push %rdx\n";
+          inst += "lea ." + to_string(ptr) + "_tramp_ptr(%rip)," + reg +"\n";
+          inst += "movabs $" + to_string(ODD_X) + ",%rdx\n"
+                + "mulx " + reg + "," + reg + ",%rdx\n"
+                + "movabs $0x8000000000000000,%rdx\n"
+                + "or %rdx," + reg + "\n"
+                + "pop %rdx\npopf\n";
+        }
+        */
+        string inst = "mov ." + to_string(ptr) + "_enc_ptr(%rip)," + reg + "\n";
+        return inst;
+    }
+
+    string decodeIcf(string hook_target, string args, string mne) {
+      string inst_code = "";
+      inst_code += "mov %rax,%fs:0x88\n";
+      inst_code += args;
+      inst_code += ".decode_" + to_string(decode_counter) + ":\n"
+                 + "cmp $0,%rax\n" + "jg .at_" + to_string(decode_counter) + "\n"
+                 + "push %rdx\n"
+                 + "movabs $" + to_string(ODD_A) + ",%rdx\n"
+                 + "mulx %rax,%rax,%rdx\n"
+                 + "movabs $0x7fffffffffffffff,%rdx\n"
+                 + "and %rdx,%rax\n"
+                 + "pop %rdx\n"
+                 + mne + " *%rax\n"
+                 + "jmp .fall_" + to_string(decode_counter) + "\n";
+      inst_code += ".at_" + to_string(decode_counter) + ":\n"
+                 + mne + " ." + hook_target + "\n" + ".fall_" + to_string(decode_counter) +":\n";
+
+      decode_counter++;
+      return inst_code;
+    }
+    EncType enctype() { return EncType::ENC_MULT_INV; }
 };
 
 class IndAtf : public Encode {

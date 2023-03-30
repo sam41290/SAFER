@@ -146,9 +146,13 @@ BasicBlock::split(uint64_t address) {
     new_bb->callType(callType_);
     new_bb->isJmpTblBlk(isJmpTblBlk());
     new_bb->indirectTgts(indirectTgts_);
+    if(start() == 0xc576) {
+      DEF_LOG("Splitting bb : "<<hex<<start()<<" at "<<new_bb->start()<<" new bb indrct tgt cnt: "<<new_bb->indirectTgts().size());
+    }
     //LOG("is code set");
     insList_ = newInsList1;
     end_ = lastIns()->location();
+    indirectTgts_.clear();
 
     //LOG("End updated");
     LOG("In basic block split: " <<start_ <<"-" <<end_ <<
@@ -281,10 +285,11 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
            p->second->type() == PointerType::CP && p->second->symbolized(SymbolizeIf::RLTV)) {
           //DEF_LOG("Symbolizing lea code access: "<<hex<<it->asmIns());
           if(it->encode()) {
-            string op = it->op1();
-            size_t pos = op.find (",");
-            string reg = op.substr (pos + 1);
-            it->asmIns("mov ." + to_string(rip_rltv_offset) + "_enc_ptr(%rip)," + reg);
+            it->asmIns(encodeLea(it->op1(),rip_rltv_offset));
+            //string op = it->op1();
+            //size_t pos = op.find (",");
+            //string reg = op.substr (pos + 1);
+            //it->asmIns("mov ." + to_string(rip_rltv_offset) + "_enc_ptr(%rip)," + reg);
           }
           else {
             for (auto & bb : rltvTgts_) {
@@ -441,6 +446,8 @@ BasicBlock::roots() {
 
 void
 BasicBlock::inferType(unordered_set <uint64_t> &passed) {
+  if(retTypeInferred_)
+    return;
   if(type_ == BBType::NA || type_ == BBType::MAY_BE_RETURNING || 
      callType() == BBType::MAY_BE_RETURNING ||
      callType() == BBType::NA) {
@@ -506,6 +513,7 @@ void
 BasicBlock::updateType() {
   unordered_set <uint64_t> passed;
   inferType(passed);
+  retTypeInferred_ = true;
 }
 
 void

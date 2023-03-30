@@ -101,7 +101,11 @@ JmpTblAnalysis::decodeJmpTblTgts(analysis::JTable j_lst) {
     if (jmpTblExists(j) == false) {
       //auto h = (uint64_t)(j.location()+jtable.mem.addr.range.h);
       //j.end(std::min(h,dataSegmntEnd(j.location())));
-      if(CFValidity::validAddrs(j.base()) == false)
+      if(CFValidity::validAddrs(j.base()) == false ||
+         isMetadata(j.base()))
+        continue;
+      if(CFValidity::validAddrs(j.location()) == false ||
+         isMetadata(j.location()))
         continue;
       j.end(dataSegmntEnd(j.location()));
       if (j.end() == 0) {
@@ -121,7 +125,10 @@ JmpTblAnalysis::decodeJmpTblTgts(analysis::JTable j_lst) {
         if(basebb != NULL)
           j.baseBB(basebb);
       }
-      jumpTable(j);
+      if(j.targets().size() > 0) {
+        DEF_LOG("Adding jump table: "<<hex<<j.location());
+        jumpTable(j);
+      }
     }
   }
 }

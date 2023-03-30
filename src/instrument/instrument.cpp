@@ -5,6 +5,8 @@ const vector <string> savedReg_{"%rax","%rdi","%rsi","%rdx","%rcx","%r8","%r9","
 const vector <string> atfSavedReg_{};//{"%rax","%rdi","%rsi"};
 const vector <string> syscallCheckSavedReg_{"%rax","%rdi", "%rsi", "%rdx"};
 
+int ENCCLASS::decode_counter = 0;
+
 /*
 string
 Instrument::leaInstrumentation (string mnemonic,string op1,uint64_t loc)
@@ -100,6 +102,7 @@ Instrument::icfInstrumentation (string mnemonic, string op1,uint64_t loc)
 }
 */
 
+
 string 
 Instrument::moveZeros(string op1, uint64_t loc, string file_name) {
   op1.replace (0, 1, "");
@@ -158,13 +161,16 @@ Instrument::generate_hook(string hook_target, string args,
       rax_offt += 8;
     if(mne == "jmpq")
       mne = "jmp";
-    inst_code += "mov %rax,-" + to_string(rax_offt) + "(%rsp)\n"; 
-    inst_code += args + mne + " ." + hook_target + "\n";
+    //inst_code += "mov %rax,-" + to_string(rax_offt) + "(%rsp)\n"; 
+    //inst_code += "mov %rax,%fs:0x88\n";
+    //inst_code += args + mne + " ." + hook_target + "\n";
+    inst_code += decodeIcf(hook_target,args,mne);
   }
   else if(h == HookType::RET_CHK) {
     uint64_t rax_offt = 8;
     mne = "jmp";
-    inst_code += "mov %rax,-" + to_string(rax_offt) + "(%rsp)\n"; 
+    inst_code += "mov %rax,%fs:0x88\n";
+    //inst_code += "mov %rax,-" + to_string(rax_offt) + "(%rsp)\n"; 
     inst_code += args + mne + " ." + hook_target + "\n";
     DEF_LOG("Return check code: "<<inst_code);
   }
