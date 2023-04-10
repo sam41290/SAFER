@@ -95,7 +95,7 @@ class Encode {
  
     //srand((unsigned) time(0));
     //chash_rand2 = 23478289 * rand();
-    srand((unsigned) time(0));
+//    srand((unsigned) time(0));
     rand2  = rand() & 0xff;
     rand2 |= (uint64_t)(rand() & 0xff) << 8;
     rand2 |= (uint64_t)(rand() & 0xff) << 16;
