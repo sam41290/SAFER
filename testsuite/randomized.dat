@@ -115,12 +115,9 @@ mknod:NoRand
 cut:NoRand
 mktemp:NoRand
 mv:NoRand
-libdl-2.31.so:NoRand
 libpthread-2.31.so:NoRand
 libselinux.so.1:NoRand
-ls:NoRand
 libpcre2-8.so.0.9.0:NoRand
-libc-2.31.so:NoRand
 lbm_base.gcc41-64bit:NoRand
 astar_base.gcc41-64bit:NoRand
 leslie3d_base.gcc41-64bit:NoRand
