@@ -36,6 +36,13 @@ main (int argc, char *args[]) {
     vector<InstArg> arglst4;
     b.registerInstrumentation(InstPoint::RET_CHK,"GTF_stack",arglst4);
   }
+/*
+  vector<InstArg> arglst5;
+  arglst5.push_back(InstArg::REG_RAX);
+  b.registerInstrumentation(InstPoint::CANARY_EPILOGUE,"XOR",arglst5);
+
+  b.registerInstrumentation(InstPoint::CANARY_PROLOGUE,"XOR",arglst5);
+*/  
   //
   //vector<InstArg> arglst2;
   //arglst2.push_back(InstArg::EXENAME);
