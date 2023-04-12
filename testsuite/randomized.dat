@@ -151,3 +151,6 @@ Xalan_base.gcc41-64bit:NoRand
 zeusmp_base.gcc41-64bit:NoRand
 libgfortran.so.5.0.0:NoRand
 libm-2.31.so:NoRand
+test_ss:NoRand
+libc-2.31.so:NoRand
+libdl-2.31.so:NoRand
