@@ -49,9 +49,6 @@ main (int argc, char *args[]) {
   //arglst2.push_back(InstArg::RIP);
   //arglst2.push_back(InstArg::LEA_VAL);
   //b.registerInstrumentation(InstPoint::LEA_INS_POST,"LOG2",arglst2);
-
-
-
   b.rewrite();
   return 0;
 }

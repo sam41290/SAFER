@@ -17,7 +17,6 @@
 #define NO_RET_INST false
 #define SAFE_JTABLE false
 #define NO_ENCODE_LEAPTRS false
-#define CUCKOO_HASH false
 
 //#define DISASMONLY
 

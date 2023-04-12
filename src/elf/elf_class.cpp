@@ -1685,7 +1685,7 @@ ElfClass::generateHashTbl(string &bin_asm, section &att_sec) {
       tbl_start[i].old_ += loadStart_;
     }
   }
-  if (CUCKOO_HASH == true) {
+  if (0) {
     createCuckooHash(attTbl_, attSize_);
   } else {
     createHash(attTbl_,attSize_);
