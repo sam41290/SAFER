@@ -1,71 +1,62 @@
-.atf_function:
-.LFB6:
-	pushq	%rax
-	pushq	%rdx
-	pushq	%rbp
-	movq	%rsp, %rbp
-	subq	$48, %rsp
-	movq	%rdi, -40(%rbp)
-	movl	%esi, -44(%rbp)
-	movq	%fs:40, %rax
-	movq	%rax, -8(%rbp)
-	xorl	%eax, %eax
-	movl	$0, -20(%rbp)
-	movq	$0, -16(%rbp)
-.L5:
-	movl	-20(%rbp), %eax
-	movslq	%eax, %rdx
-	movq	%rdx, %rax
-	addq	%rax, %rax
-	addq	%rdx, %rax
-	salq	$3, %rax
-	movq	%rax, %rdx
-	movq	-40(%rbp), %rax
-	addq	%rdx, %rax
-	movq	(%rax), %rax
-	testq	%rax, %rax
-	jne	.L2
-	movl	$0, %edi
-    int3
-.L2:
-	movl	-20(%rbp), %eax
-	movslq	%eax, %rdx
-	movq	%rdx, %rax
-	addq	%rax, %rax
-	addq	%rdx, %rax
-	salq	$3, %rax
-	movq	%rax, %rdx
-	movq	-40(%rbp), %rax
-	addq	%rdx, %rax
-	movq	(%rax), %rdx
-	movl	-44(%rbp), %eax
-	cltq
-	cmpq	%rax, %rdx
-	jne	.L5
-	movl	-20(%rbp), %eax
-	movslq	%eax, %rdx
-	movq	%rdx, %rax
-	addq	%rax, %rax
-	addq	%rdx, %rax
-	salq	$3, %rax
-	movq	%rax, %rdx
-	movq	-40(%rbp), %rax
-	addq	%rdx, %rax
-	movq	8(%rax), %rax
-	movq	%rax, -16(%rbp)
-	nop
-	leave;
-	popq    %rdx
-	popq	%rax
-    push %rax
-    mov %rax,-16(%rsp);
-    pop %rax;
-    jmp *-24(%rsp);
-	nop
-	movq	-8(%rbp), %rax
-	xorq	%fs:40, %rax
-	je	.L6
-    int3
-.L6:
-	leave
-	ret
+
+  sub $40,%rsp
+  mov %rcx,0(%rsp)
+  mov %rdx,8(%rsp)
+  mov .gtt_node(%rip),%rcx
+  cmp %rax,16(%rcx)
+  jg .reg_full_att
+  cmp %rax,24(%rcx)
+  jg .reg_att_lookup
+.reg_full_att:
+  mov .gtt(%rip),%rcx
+.reg_gtt_lookup:
+  cmp $0,%rcx
+  je .reg_copy_and_ret
+  cmp %rax,16(%rcx)
+  jg .reg_rep
+  cmp %rax,24(%rcx)
+  jle .reg_rep
+.reg_att_lookup:
+  mov 48(%rcx),%rdx
+  cmp $0,%rdx
+  je .reg_copy_and_ret
+  mov %rdi,16(%rsp)
+  mov 8(%rcx),%rdi
+  sub %rdi,%rax
+  mov 32(%rcx),%rdi
+  mov %rdi,-24(%rsp)
+  mov 72(%rcx),%rdi
+  imul %rdi,%rax
+  mov 64(%rcx),%rdi
+  mov 56(%rcx),%rcx
+  mov %rcx,-8(%rsp)
+  mov $64,%rcx
+  sub -8(%rsp),%rcx
+  shr %cl,%rax
+  sub $1,%rdi
+  and %rdi,%rax
+  lea (%rdx,%rax,8),%rcx
+  mov (%rcx),%rax
+  cmp $0,%rax
+  je .die_reg
+  mov -24(%rsp),%rcx
+  lea 0x0(%rax,%rax,4),%rax
+  lea 24(%rcx,%rax,8),%rax
+.reg_return:
+  mov 0(%rsp),%rcx
+  mov 8(%rsp),%rdx
+  mov 16(%rsp),%rdi
+  add $40,%rsp
+  jmp *%rax
+.die_reg:
+  hlt
+.reg_rep:
+  mov 80(%rcx),%rcx
+  jmp .reg_gtt_lookup
+.reg_copy_and_ret:
+  mov %rax,%r11
+  mov 0(%rsp),%rcx
+  mov 8(%rsp),%rdx
+  add $40,%rsp
+  mov %fs:0x88,%rax
+  jmp *%r11
