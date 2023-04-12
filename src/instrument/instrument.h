@@ -32,6 +32,8 @@ enum class InstPoint
   ADDRS_TRANS,
   RET_CHK,
   SYSCALL_CHECK,
+  CANARY_PROLOGUE,
+  CANARY_EPILOGUE,
 };
 
 enum class HookType
@@ -40,7 +42,9 @@ enum class HookType
   ADDRS_TRANS,
   RET_CHK,
   SYSCALL_CHECK,
-  GENERAL_INST
+  GENERAL_INST,
+  CANARY_PROLOGUE,
+  CANARY_EPILOGUE,
 };
 
 
