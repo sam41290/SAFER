@@ -119,7 +119,7 @@
 //#define ZJR_BASIC_BLOCK_RANDOMIZATION
 
 #define ENCODE 1
-#define ENCCLASS MultInv
-//#define ENCCLASS GttAtt
+//#define ENCCLASS MultInv
+#define ENCCLASS GttAtt
 //#define OPTIMIZED_EH_METADATA
 

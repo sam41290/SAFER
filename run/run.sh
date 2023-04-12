@@ -3,6 +3,7 @@
 cfgdir=$2
 disasm=$3
 
+jtabledir=$4
 #make
 
 rm -rf jmp_table log tmp *.o *.s text
@@ -26,6 +27,10 @@ if [ -d "${cfgdir}" ]
 then
   cp -r ${cfgdir} tmp/
   echo "cfg present" > tmp/cfg.present
+fi
+if [ -d "${jtabledir}" ]
+then
+  cp -r ${jtabledir}/* jmp_table/
 fi
 
 exe=`basename $1`
