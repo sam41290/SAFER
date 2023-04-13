@@ -34,6 +34,7 @@ enum class InstPoint
   SYSCALL_CHECK,
   CANARY_PROLOGUE,
   CANARY_EPILOGUE,
+  FUNCTION_CALL,
 };
 
 enum class HookType
@@ -45,6 +46,7 @@ enum class HookType
   GENERAL_INST,
   CANARY_PROLOGUE,
   CANARY_EPILOGUE,
+  FUNCTION_CALL,
 };
 
 
