@@ -1079,6 +1079,13 @@ Binary::genInstAsm() {
   }
   ifile.close();
   //ofile<<"jmp *.gtt(%rip)\n";
+  string shstk_init_file(TOOL_PATH"src/instrument/shstk_init.s");
+  ifile.open(shstk_init_file);
+  string shstk_line;
+  while (getline(ifile, shstk_line)) {
+    ofile << shstk_line << endl;
+  }
+  ifile.close();
   ofile<<".SYSCHK:\n";
   ofile<<"jmp *.syscall_checker(%rip)\n";
 
