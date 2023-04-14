@@ -174,6 +174,18 @@ Instrument::generate_hook(string hook_target, string args,
     inst_code += args + mne + " ." + hook_target + "\n";
     DEF_LOG("Return check code: "<<inst_code);
   }
+  else if (h == HookType::FUNCTION_CALL) {
+    /*
+    inst_code = inst_code + "push %rdi\n" +
+                 "push %rax\n" +
+                 "cmp $0,shstk_start@tpoff(%rip)\n" +
+                 "je init_shstk\n" +
+                 "mov shstk_start@tpoff(%rip),%rdi\n" +
+                 "mov %rdi,%rax\n" +
+                 "pop %rax\n" +
+                 "pop %rdi\n";
+                 */
+  }
   else if(h == HookType::CANARY_EPILOGUE) {
     inst_code += "xor $0xdead," + args + "\n";
   }
@@ -201,8 +213,8 @@ Instrument::generate_hook(string hook_target, string args,
   if(h != HookType::ADDRS_TRANS 
      && h != HookType::RET_CHK
      && h != HookType::CANARY_EPILOGUE
-     && h != HookType::CANARY_PROLOGUE)
-
+     && h != HookType::CANARY_PROLOGUE
+     && h != HookType::FUNCTION_CALL)
     inst_code = inst_code + restore(h);
   //if(h == HookType::ADDRS_TRANS) {
   //  inst_code += mne + " *-40(%rsp)\n";

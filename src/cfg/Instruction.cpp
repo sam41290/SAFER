@@ -435,6 +435,11 @@ Instruction::instrument() {
     }
     else if(tgt.first == InstPoint::RET_CHK)
       args += "pop %rax\n";
+    else if (tgt.first == InstPoint::FUNCTION_CALL) {
+      args += label();
+      DEF_LOG("call arg is: " << args);
+      DEF_LOG("call arg size: " << insSize());
+    }
     else if(tgt.first == InstPoint::CANARY_EPILOGUE) {
       DEF_LOG("operand 2 is : " << op1());
       args += op1().substr(op1().find(",") + 1);
@@ -480,6 +485,9 @@ Instruction::instrument() {
     }
     else if(tgt.first == InstPoint::SYSCALL_CHECK)
       instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SYSCALL_CHECK);
+    else if (tgt.first == InstPoint::FUNCTION_CALL) {
+      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::FUNCTION_CALL);
+    }
     else if(tgt.first == InstPoint::CANARY_EPILOGUE) {
       DEF_LOG("Instrumenting canary checks: "<<args);
       instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::CANARY_EPILOGUE);
