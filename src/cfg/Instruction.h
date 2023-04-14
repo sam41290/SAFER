@@ -52,6 +52,7 @@ private:
   string label_;
   string asmIns_;
   string prefix_ = "";
+  string fallSym_ = "";
   vector <string> data16_;
   vector <string> origIns_;
   bool isBnd_ = false;
@@ -69,6 +70,8 @@ private:
   //bool addrTransMust_ = false;
 public:
   Instruction() {}
+  string fallSym() { return fallSym_; }
+  void fallSym(string sym) { fallSym_ = sym; }
   void raOffset(uint64_t offt) { raOffset_ = offt; }
   uint64_t raOffset() { return raOffset_; }
   void canaryCheck(bool chk) { canaryCheck_ = chk; }

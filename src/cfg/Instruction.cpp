@@ -436,9 +436,11 @@ Instruction::instrument() {
     else if(tgt.first == InstPoint::RET_CHK)
       args += "pop %rax\n";
     else if (tgt.first == InstPoint::FUNCTION_CALL) {
-      args += label();
+      args += fallSym();
       DEF_LOG("call arg is: " << args);
-      DEF_LOG("call arg size: " << insSize());
+    }
+    else if (tgt.first == InstPoint::FUNCTION_RET) {
+      //TODO:   
     }
     else if(tgt.first == InstPoint::CANARY_EPILOGUE) {
       DEF_LOG("operand 2 is : " << op1());
@@ -488,15 +490,18 @@ Instruction::instrument() {
     else if (tgt.first == InstPoint::FUNCTION_CALL) {
       instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::FUNCTION_CALL);
     }
+    else if (tgt.first == InstPoint::FUNCTION_RET) {
+      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::FUNCTION_RET);
+    }
     else if(tgt.first == InstPoint::CANARY_EPILOGUE) {
       DEF_LOG("Instrumenting canary checks: "<<args);
-      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::CANARY_EPILOGUE);
-      DEF_LOG("canary inst: "<<instAsmPre_);
+      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::CANARY_EPILOGUE);
+      DEF_LOG("canary inst: "<<asmIns_);
     }
     else if(tgt.first == InstPoint::CANARY_PROLOGUE) {
       DEF_LOG("Instrumenting canary checks: "<<args);
-      instAsmPost_ = generate_hook(tgt.second,args,mnemonic_,HookType::CANARY_PROLOGUE);
-      DEF_LOG("canary inst: "<<instAsmPost_);
+      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::CANARY_PROLOGUE);
+      DEF_LOG("canary inst: "<< asmIns_);
     }
     else
       instAsmPre_ += generate_hook(tgt.second,args,mnemonic_);

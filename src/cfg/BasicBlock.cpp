@@ -395,16 +395,16 @@ BasicBlock::instrument() {
       for (auto &ins : insList_) {
         if (ins->asmIns().find("call") != string::npos) {
           ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
+          ins->fallSym(ins->label() + lblSuffix() + "_fall");
           DEF_LOG("The call asm inst is: " << ins->asmIns());
         }
       }
     }
-    else if(p.first == InstPoint::CANARY_EPILOGUE) {
-      for(auto &ins : insList_) {
-        if (ins->asmIns().find("%fs:0x28") != string::npos &&
-            ins->asmIns().find("xor") != string::npos) {
+    else if(p.first == InstPoint::FUNCTION_RET) {
+      for (auto &ins : insList_) {
+        if (ins->asmIns().find("ret") != string::npos) {
           ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
-          DEF_LOG("The canary asm inst is:" << ins->asmIns());
+          DEF_LOG("The ret asm inst is: " << ins->asmIns());
         }
       }
     }
@@ -412,6 +412,15 @@ BasicBlock::instrument() {
       for(auto &ins : insList_) {
         if (ins->asmIns().find("%fs:0x28") != string::npos &&
             ins->asmIns().find("mov") != string::npos) {
+          ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
+          DEF_LOG("The canary asm inst is: " << ins->asmIns());
+        }
+      }
+    }
+    else if(p.first == InstPoint::CANARY_EPILOGUE) {
+      for(auto &ins : insList_) {
+        if (ins->asmIns().find("%fs:0x28") != string::npos &&
+            ins->asmIns().find("xor") != string::npos) {
           ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
           DEF_LOG("The canary asm inst is:" << ins->asmIns());
         }
