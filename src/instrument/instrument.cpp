@@ -175,7 +175,6 @@ Instrument::generate_hook(string hook_target, string args,
     DEF_LOG("Return check code: "<<inst_code);
   }
   else if (h == HookType::FUNCTION_CALL) {
-    /*
     inst_code = inst_code + "push %rdi\n" +
                  "push %rax\n" +
                  "cmp $0,%fs:0x78\n" +
@@ -184,13 +183,12 @@ Instrument::generate_hook(string hook_target, string args,
                  "mov %rdi,%rax\n" +
                  "pop %rax\n" +
                  "pop %rdi\n";
-                 */
   }
   else if(h == HookType::CANARY_EPILOGUE) {
     inst_code += "xor $0xdead," + args + "\n";
   }
   else if(h == HookType::CANARY_PROLOGUE) {
-    inst_code += "mov shstk_start@tpoff(%rip)," + args + "\n";
+    inst_code += "mov %fs:0x78," + args + "\n";
   }
   else {
     inst_code += save(h);
