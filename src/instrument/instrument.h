@@ -35,6 +35,7 @@ enum class InstPoint
   CANARY_PROLOGUE,
   CANARY_EPILOGUE,
   FUNCTION_CALL,
+  FUNCTION_RET,
 };
 
 enum class HookType
@@ -47,6 +48,7 @@ enum class HookType
   CANARY_PROLOGUE,
   CANARY_EPILOGUE,
   FUNCTION_CALL,
+  FUNCTION_RET,
 };
 
 
