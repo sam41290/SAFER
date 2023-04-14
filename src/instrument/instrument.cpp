@@ -178,9 +178,9 @@ Instrument::generate_hook(string hook_target, string args,
     /*
     inst_code = inst_code + "push %rdi\n" +
                  "push %rax\n" +
-                 "cmp $0,shstk_start@tpoff(%rip)\n" +
+                 "cmp $0,%fs:0x78\n" +
                  "je init_shstk\n" +
-                 "mov shstk_start@tpoff(%rip),%rdi\n" +
+                 "mov %fs:0x78,%rdi\n" +
                  "mov %rdi,%rax\n" +
                  "pop %rax\n" +
                  "pop %rdi\n";
@@ -190,7 +190,7 @@ Instrument::generate_hook(string hook_target, string args,
     inst_code += "xor $0xdead," + args + "\n";
   }
   else if(h == HookType::CANARY_PROLOGUE) {
-    inst_code += "xor $0xdead," + args + "\n";
+    inst_code += "mov shstk_start@tpoff(%rip)," + args + "\n";
   }
   else {
     inst_code += save(h);
