@@ -188,7 +188,7 @@ Instrument::generate_hook(string hook_target, string args,
                  "movq %rdi,(%rax)\n" +
                  "pop %rax\n" +
                  "pop %rdi\n";
-    counter++;
+    //counter++;
   }
   else if (h == HookType::FUNCTION_RET) {
     inst_code = inst_code + 
@@ -198,9 +198,22 @@ Instrument::generate_hook(string hook_target, string args,
                 "jne .abort_shstk\n";
   }
   else if(h == HookType::CANARY_PROLOGUE) {
-    inst_code = inst_code +
-                 "movq %fs:0x78,%rsi\n" +
-                 "addq $8, %fs:0x78\n";
+    string args1;
+    string args2;
+    args1 = args.substr(0, args.find(","));
+    args2 = args.substr(args.find(",") + 1);
+    inst_code = inst_code + 
+                "cmpq $0,%fs:0x78\n" +
+                "jne .shstk_ok_" + to_string(counter) + "\n" +
+                "callq .init_shstk\n"
+                ".shstk_ok_" + to_string(counter) +  ":\n" +
+                "movq %fs:0x78," + args1 + "\n" +
+                "pushq %rax\n" +
+                "movq " + args2 + "(%rsp),%rax\n" +
+                "movq %rax,(" + args1 + ")\n" +
+                "addq $8, %fs:0x78\n"
+                "popq %rax\n";
+    counter++;
   }
   else if(h == HookType::CANARY_EPILOGUE) {
     inst_code = inst_code + 
