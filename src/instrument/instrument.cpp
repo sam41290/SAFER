@@ -179,9 +179,7 @@ Instrument::generate_hook(string hook_target, string args,
                  "pushq %rdi\n" +
                  "pushq %rax\n" +
                  "cmpq $0,%fs:0x78\n" +
-                 "jne .shstk_skip\n" +
-                 "callq .init_shstk\n" +
-                 ".shstk_skip:\n" +
+                 "je .init_shstk\n" +
                  "movq %fs:0x78,%rax\n" +
                  "lea " + args + "(%rip),%rdi\n" +
                  "movq %rdi,(%rax)\n" +
