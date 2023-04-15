@@ -42,10 +42,12 @@ main (int argc, char *args[]) {
   
   //b.registerInstrumentation(InstPoint::CANARY_EPILOGUE,"XOR",arglst5);
 
-  //b.registerInstrumentation(InstPoint::CANARY_PROLOGUE,"XOR",arglst5);
+  b.registerInstrumentation(InstPoint::CANARY_PROLOGUE,"XOR",arglst5);
   //
   b.registerInstrumentation(InstPoint::FUNCTION_CALL,"XOR",arglst5);
 
+  b.registerInstrumentation(InstPoint::FUNCTION_RET,"XOR",arglst5);
+  b.registerInstrumentation(InstPoint::CANARY_EPILOGUE,"XOR",arglst5);
   
   //
   //vector<InstArg> arglst2;
