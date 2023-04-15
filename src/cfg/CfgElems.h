@@ -454,6 +454,7 @@ namespace SBI {
     unordered_set <uint64_t> allReturnAddresses();
     vector <string> allReturnSyms();
     vector <BasicBlock *> allIndrctTgt(uint64_t ins_loc);
+    int offsetFrmCanaryAddToRa(uint64_t add_loc, BasicBlock *bb);
   private:
     void readIndrctTgts(BasicBlock *bb,uint64_t fn_addrs);
     BasicBlock *readBB(ifstream & file);

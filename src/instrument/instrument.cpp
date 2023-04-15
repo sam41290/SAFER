@@ -154,6 +154,7 @@ Instrument::generate_hook(string hook_target, string args,
    *  The stub saves caller saved registers and flags.
    *  Then makes a call to the instrumentation code.
    */
+  static int counter;
   string inst_code = "";
   if(h == HookType::ADDRS_TRANS) {
     uint64_t rax_offt = 16;
@@ -179,12 +180,15 @@ Instrument::generate_hook(string hook_target, string args,
                  "pushq %rdi\n" +
                  "pushq %rax\n" +
                  "cmpq $0,%fs:0x78\n" +
-                 "je .init_shstk\n" +
+                 "jne .shstk_ok_" + to_string(counter) + "\n" +
+                 "callq .init_shstk\n"
+                 ".shstk_ok_" + to_string(counter) +  ":\n" +
                  "movq %fs:0x78,%rax\n" +
                  "lea " + args + "(%rip),%rdi\n" +
                  "movq %rdi,(%rax)\n" +
                  "pop %rax\n" +
                  "pop %rdi\n";
+    counter++;
   }
   else if (h == HookType::FUNCTION_RET) {
     inst_code = inst_code + 
@@ -194,7 +198,8 @@ Instrument::generate_hook(string hook_target, string args,
                 "jne .abort_shstk\n";
   }
   else if(h == HookType::CANARY_PROLOGUE) {
-    inst_code += "movq %fs:0x78," + args + "\n"
+    inst_code = inst_code +
+                 "movq %fs:0x78,%rsi\n" +
                  "addq $8, %fs:0x78\n";
   }
   else if(h == HookType::CANARY_EPILOGUE) {

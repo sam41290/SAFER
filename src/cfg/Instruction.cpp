@@ -449,6 +449,8 @@ Instruction::instrument() {
     }
     else if(tgt.first == InstPoint::CANARY_PROLOGUE) {
       args += op1().substr(op1().find(",") + 1);
+      args = args + "," + to_string(raOffset());
+      DEF_LOG("args is : " << args);
     }
     else {
       switch(allArgs.size()) {

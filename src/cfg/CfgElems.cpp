@@ -2178,7 +2178,7 @@ CfgElems::offsetFrmCanaryToRA(vector <BasicBlock *> &bb_list) {
   }
   return offt;
 }
-
+*/
 int 
 CfgElems::offsetFrmCanaryAddToRa(uint64_t add_loc, BasicBlock *bb) {
   auto ins_list = bb->insList();
@@ -2190,7 +2190,7 @@ CfgElems::offsetFrmCanaryAddToRa(uint64_t add_loc, BasicBlock *bb) {
   auto offt = stackDecrement(ins_till_canary);
   return offt;
 }
-
+/*
 void
 CfgElems::instrumentCanary() {
   for(auto fn : funcMap_) {
@@ -2251,6 +2251,40 @@ CfgElems::instrument() {
         for(auto & entry:entryPoint) {
           auto bb = fn.second->getBB(entry);
           bb->registerInstrumentation(entry,x.second,instArgs()[x.second]);
+        }
+      }
+    }
+    else if(x.first == InstPoint::CANARY_PROLOGUE) {
+      for(auto fn:funcMap_) {
+        auto entryPoint = fn.second->entryPoints();
+
+        //Add instrumentation code at each entry of a function.
+        //A function can have multiple entries.
+
+        for(auto & entry:entryPoint) {
+          auto bb = fn.second->getBB(entry);
+          if(bb != NULL) {
+            auto ins_list = bb->insList();
+            bool drct_call_func = false;
+            auto bb_parents = bb->parents(); 
+            for (auto &bb : bb_parents) {
+              if (bb->isCall()) {
+                drct_call_func = true;
+                break;
+              }
+            }
+            if(ins_list[0]->asmIns().find("endbr64") != string::npos || 
+                drct_call_func) {
+              for(auto & ins : ins_list) {
+                if(ins->asmIns().find("%fs:0x28") != string::npos && 
+                   ins->asmIns().find("mov") != string::npos) {
+                  auto canary_offt = offsetFrmCanaryAddToRa(ins->location(), bb); 
+                  ins->raOffset(canary_offt);
+                  bb->registerInstrumentation(x.first,x.second,instArgs()[x.second]);
+                }
+              }
+            }
+          }
         }
       }
     }
