@@ -1080,8 +1080,6 @@ Binary::genInstAsm() {
   ifile.close();
   //ofile<<"jmp *.gtt(%rip)\n";
   string shstk_init_file(TOOL_PATH"src/instrument/init_shstk.s");
-  ofile << ".INIT_SHSTK:\n";
-  ofile << "call .init_shstk\n";
   ifile.open(shstk_init_file);
   string shstk_line;
   while (getline(ifile, shstk_line)) {
