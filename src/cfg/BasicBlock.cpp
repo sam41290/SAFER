@@ -412,6 +412,7 @@ BasicBlock::instrument() {
       for(auto &ins : insList_) {
         if (ins->asmIns().find("%fs:0x28") != string::npos &&
             ins->asmIns().find("mov") != string::npos) {
+          ins->canaryAdd(true);
           ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
           DEF_LOG("The canary asm inst is: " << ins->asmIns());
         }
@@ -421,6 +422,7 @@ BasicBlock::instrument() {
       for(auto &ins : insList_) {
         if (ins->asmIns().find("%fs:0x28") != string::npos &&
             ins->asmIns().find("xor") != string::npos) {
+          ins->canaryCheck(true);
           ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
           DEF_LOG("The canary asm inst is:" << ins->asmIns());
         }

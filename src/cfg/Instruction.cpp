@@ -332,7 +332,7 @@ Instruction::print(string file_name, string lbl_sfx) {
     asm_ins += "\tcmp $0, %rcx\n\tje " + op1_ + "\n";
   }
   else {
-    if((isJump_ || isCall_ || isRltvAccess_)
+    if((isJump_ || isCall_ || isRltvAccess_ || canaryAdd_ || canaryCheck_)
         && asmIns_.find("ret") == string::npos)
       asm_ins += "\t" + asmIns_ + "\n";
     else {
