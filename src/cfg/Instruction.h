@@ -48,7 +48,7 @@ private:
   uint64_t ripRltvOfft_ = 0;
   uint64_t constOp_ = 0;
   uint64_t constPtr_ = 0;
-  uint64_t raOffset_ = 0;
+  int raOffset_ = 0;
   string label_;
   string asmIns_;
   string prefix_ = "";
@@ -73,7 +73,7 @@ public:
   string fallSym() { return fallSym_; }
   void fallSym(string sym) { fallSym_ = sym; }
   void raOffset(uint64_t offt) { raOffset_ = offt; }
-  uint64_t raOffset() { return raOffset_; }
+  int raOffset() { return raOffset_; }
   void canaryCheck(bool chk) { canaryCheck_ = chk; }
   bool canaryCheck() { return canaryCheck_; }
   void canaryAdd(bool chk) { canaryAdd_ = chk; }

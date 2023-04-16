@@ -8,14 +8,17 @@ Dfs::stackDecrement(vector <Instruction *> &ins_list) {
   for(auto & ins : ins_list) {
     if(ins->asmIns().find("pop") != string::npos)
       offt += 8;
-    else if(ins->asmIns().find("add") != string::npos && ins->asmIns().find("rsp") != string::npos &&
-            ins->constOp() != 0)
-      offt += 8;
     else if(ins->asmIns().find("push") != string::npos)
       offt -= 8;
-    else if(ins->asmIns().find("sub") != string::npos && ins->asmIns().find("rsp") != string::npos &&
+    else if(ins->asmIns().find("add") != string::npos &&
+            ins->asmIns().find("rsp") != string::npos &&
+            ins->constOp() != 0) {
+      offt = ins->constOp();
+    }
+    else if(ins->asmIns().find("sub") != string::npos &&
+            ins->asmIns().find("rsp") != string::npos &&
             ins->constOp() != 0)
-      offt -= 8;
+      offt += ins->constOp();
   }
   return offt;
 }

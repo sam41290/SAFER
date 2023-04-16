@@ -2187,7 +2187,7 @@ CfgElems::offsetFrmCanaryAddToRa(uint64_t add_loc, BasicBlock *bb) {
     if(ins->location() <= add_loc)
       ins_till_canary.push_back(ins);
   }
-  auto offt = stackDecrement(ins_till_canary);
+  int offt = stackDecrement(ins_till_canary);
   return offt;
 }
 /*
@@ -2278,7 +2278,7 @@ CfgElems::instrument() {
               for(auto & ins : ins_list) {
                 if(ins->asmIns().find("%fs:0x28") != string::npos && 
                    ins->asmIns().find("mov") != string::npos) {
-                  auto canary_offt = offsetFrmCanaryAddToRa(ins->location(), bb); 
+                  int canary_offt = offsetFrmCanaryAddToRa(ins->location(), bb); 
                   ins->raOffset(canary_offt);
                   bb->registerInstrumentation(x.first,x.second,instArgs()[x.second]);
                 }

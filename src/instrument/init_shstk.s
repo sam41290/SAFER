@@ -1,5 +1,12 @@
 .init_shstk:
   pushq %rbp
+  pushq %rax
+  pushq %rdi
+  pushq %rsi
+  pushq %rdx
+  pushq %rcx
+  pushq %r8
+  pushq %r9
   movq %rsp,%rbp
   movq $0x9,%rax
   xor %rdi,%rdi
@@ -11,7 +18,14 @@
   syscall
   cmpq $-1,%rax
   je abort_shstk
-  movq %rax,%fs:0x78  
+  movq %rax,%fs:0x78
+  popq %r9
+  popq %r8
+  popq %rcx
+  popq %rdx
+  popq %rsi
+  popq %rdi
+  popq %rax
   movq %rbp,%rsp
   popq %rbp
   retq
