@@ -2219,6 +2219,75 @@ CfgElems::instrumentCanary() {
   }
 }
 */
+
+void
+CfgElems::shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x) {
+  auto ins_list = bb->insList();
+  for(auto &ins : ins_list) {
+    if (ins->asmIns().find("%fs:0x28") != string::npos &&
+        ins->asmIns().find("xor") != string::npos) {
+      bb->registerInstrumentation(InstPoint::SHSTK_CANARY_EPILOGUE,x.second,instArgs()[x.second]);
+      auto fall_bb = bb->fallThroughBB();
+      if(fall_bb != NULL) {
+        if(fall_bb->lastIns()->asmIns().find("ret") != string::npos)
+          fall_bb->registerInstrumentation(InstPoint::SHSTK_FUNCTION_RET,x.second,instArgs()[x.second]);
+      }
+      auto tgt_bb = bb->targetBB();
+      if(tgt_bb != NULL) {
+        if(tgt_bb->lastIns()->asmIns().find("ret") != string::npos) {
+          bb->lastIns()->mnemonic("jmp");
+          tgt_bb->registerInstrumentation(InstPoint::SHSTK_FUNCTION_RET,x.second,instArgs()[x.second]);
+        }
+      }
+      break;
+    }
+  }
+}
+
+void
+CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
+  for(auto fn:funcMap_) {
+    auto entryPoint = fn.second->entryPoints();
+
+    //Add instrumentation code at each entry of a function.
+    //A function can have multiple entries.
+
+    for(auto & entry:entryPoint) {
+      auto bb = fn.second->getBB(entry);
+      if(bb != NULL) {
+        auto ins_list = bb->insList();
+        bool drct_call_func = false;
+        auto bb_parents = bb->parents(); 
+        for (auto &bb : bb_parents) {
+          if (bb->isCall()) {
+            drct_call_func = true;
+            break;
+          }
+        }
+        if(ins_list[0]->asmIns().find("endbr64") != string::npos || 
+            drct_call_func) {
+          for(auto & ins : ins_list) {
+            if(ins->asmIns().find("%fs:0x28") != string::npos && 
+               ins->asmIns().find("mov") != string::npos) {
+              int canary_offt = offsetFrmCanaryAddToRa(ins->location(), bb); 
+              ins->raOffset(abs(canary_offt));
+              bb->registerInstrumentation(InstPoint::SHSTK_CANARY_PROLOGUE,x.second,instArgs()[x.second]);
+            }
+          }
+        }
+      }
+    }
+    vector<BasicBlock *> bbs = fn.second->getDefCode();
+    for(auto & bb : bbs) {
+      shadowStackRetInst(bb,x);
+    }
+    vector<BasicBlock *> bbs2 = fn.second->getUnknwnCode();
+    for(auto & bb : bbs2) {
+      shadowStackRetInst(bb,x);
+    }
+  }
+}
+
 void
 CfgElems::instrument() {
   vector<pair<uint64_t, string>> tgtAddrs = targetAddrs();
@@ -2230,7 +2299,7 @@ CfgElems::instrument() {
     }
   }
   vector<pair<InstPoint,string>> targetPos = targetPositions();
-  for(auto x:targetPos) {
+  for(auto & x : targetPos) {
     if(x.first == InstPoint::BASIC_BLOCK) {
       for(auto fn : funcMap_) {
         vector<BasicBlock *> bbs = fn.second->getDefCode();
@@ -2254,39 +2323,8 @@ CfgElems::instrument() {
         }
       }
     }
-    else if(x.first == InstPoint::CANARY_PROLOGUE) {
-      for(auto fn:funcMap_) {
-        auto entryPoint = fn.second->entryPoints();
-
-        //Add instrumentation code at each entry of a function.
-        //A function can have multiple entries.
-
-        for(auto & entry:entryPoint) {
-          auto bb = fn.second->getBB(entry);
-          if(bb != NULL) {
-            auto ins_list = bb->insList();
-            bool drct_call_func = false;
-            auto bb_parents = bb->parents(); 
-            for (auto &bb : bb_parents) {
-              if (bb->isCall()) {
-                drct_call_func = true;
-                break;
-              }
-            }
-            if(ins_list[0]->asmIns().find("endbr64") != string::npos || 
-                drct_call_func) {
-              for(auto & ins : ins_list) {
-                if(ins->asmIns().find("%fs:0x28") != string::npos && 
-                   ins->asmIns().find("mov") != string::npos) {
-                  int canary_offt = offsetFrmCanaryAddToRa(ins->location(), bb); 
-                  ins->raOffset(canary_offt);
-                  bb->registerInstrumentation(x.first,x.second,instArgs()[x.second]);
-                }
-              }
-            }
-          }
-        }
-      }
+    else if(x.first == InstPoint::SHADOW_STACK) {
+      shadowStackInstrument(x);
     }
     else {
       for(auto fn : funcMap_) {

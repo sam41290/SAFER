@@ -399,6 +399,8 @@ namespace SBI {
         return NULL;
     }
     void instrument();
+    void shadowStackInstrument(pair<InstPoint,string> &x);
+    void shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x);
     void instrument(uint64_t hook_point,string code);
     vector <JumpTable> jumpTables() { return jmpTables_; }
     void jumpTable(JumpTable j) { jmpTables_.push_back(j); }

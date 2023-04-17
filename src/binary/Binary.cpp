@@ -1020,7 +1020,7 @@ Binary::genInstAsm() {
   vector<string> instFuncs = instFunctions();
   instFuncs.push_back("atf");
   map<uint64_t,string> instLabels;
-  for(string s:instFuncs) {
+  for(string & s : instFuncs) {
     off_t addrs = inst_exe->symbolVal(s);
     if(addrs > 0) 
       instLabels[addrs] = "." + s;

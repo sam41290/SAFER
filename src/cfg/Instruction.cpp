@@ -435,21 +435,21 @@ Instruction::instrument() {
     }
     else if(tgt.first == InstPoint::RET_CHK)
       args += "pop %rax\n";
-    else if (tgt.first == InstPoint::FUNCTION_CALL) {
+    else if (tgt.first == InstPoint::SHSTK_FUNCTION_CALL) {
       args += fallSym();
       DEF_LOG("call arg is: " << args);
     }
-    else if (tgt.first == InstPoint::FUNCTION_RET) {
+    else if (tgt.first == InstPoint::SHSTK_FUNCTION_RET) {
       //TODO:   
     }
-    else if(tgt.first == InstPoint::CANARY_EPILOGUE) {
+    else if(tgt.first == InstPoint::SHSTK_CANARY_EPILOGUE) {
       DEF_LOG("operand 2 is : " << op1());
       args += op1().substr(op1().find(",") + 1);
       DEF_LOG("args is : " << args);
     }
-    else if(tgt.first == InstPoint::CANARY_PROLOGUE) {
+    else if(tgt.first == InstPoint::SHSTK_CANARY_PROLOGUE) {
       args += op1().substr(op1().find(",") + 1);
-      args = args + "," + to_string(raOffset());
+      args = args + "," + to_string(raOffset() + 16);
       DEF_LOG("args is : " << args);
     }
     else {
@@ -489,20 +489,20 @@ Instruction::instrument() {
     }
     else if(tgt.first == InstPoint::SYSCALL_CHECK)
       instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SYSCALL_CHECK);
-    else if (tgt.first == InstPoint::FUNCTION_CALL) {
-      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::FUNCTION_CALL);
+    else if (tgt.first == InstPoint::SHSTK_FUNCTION_CALL) {
+      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_FUNCTION_CALL);
     }
-    else if (tgt.first == InstPoint::FUNCTION_RET) {
-      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::FUNCTION_RET);
+    else if (tgt.first == InstPoint::SHSTK_FUNCTION_RET) {
+      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_FUNCTION_RET);
     }
-    else if(tgt.first == InstPoint::CANARY_EPILOGUE) {
+    else if(tgt.first == InstPoint::SHSTK_CANARY_EPILOGUE) {
       DEF_LOG("Instrumenting canary checks: "<<args);
-      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::CANARY_EPILOGUE);
+      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_CANARY_EPILOGUE);
       DEF_LOG("canary inst: "<<asmIns_);
     }
-    else if(tgt.first == InstPoint::CANARY_PROLOGUE) {
+    else if(tgt.first == InstPoint::SHSTK_CANARY_PROLOGUE) {
       DEF_LOG("Instrumenting canary checks: "<<args);
-      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::CANARY_PROLOGUE);
+      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_CANARY_PROLOGUE);
       DEF_LOG("canary inst: "<< asmIns_);
     }
     else

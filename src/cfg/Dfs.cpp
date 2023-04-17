@@ -13,12 +13,12 @@ Dfs::stackDecrement(vector <Instruction *> &ins_list) {
     else if(ins->asmIns().find("add") != string::npos &&
             ins->asmIns().find("rsp") != string::npos &&
             ins->constOp() != 0) {
-      offt = ins->constOp();
+      offt += ins->constOp();
     }
     else if(ins->asmIns().find("sub") != string::npos &&
             ins->asmIns().find("rsp") != string::npos &&
             ins->constOp() != 0)
-      offt += ins->constOp();
+      offt -= ins->constOp();
   }
   return offt;
 }
