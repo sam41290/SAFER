@@ -332,7 +332,7 @@ Instruction::print(string file_name, string lbl_sfx) {
     asm_ins += "\tcmp $0, %rcx\n\tje " + op1_ + "\n";
   }
   else {
-    if((isJump_ || isCall_ || isRltvAccess_ || canaryAdd_ || canaryCheck_)
+    if((isJump_ || isCall_ || isRltvAccess_ || forcePrintAsm_ /*canaryAdd_ || canaryCheck_*/)
         && asmIns_.find("ret") == string::npos)
       asm_ins += "\t" + asmIns_ + "\n";
     else {
@@ -481,11 +481,14 @@ Instruction::instrument() {
     }
     if(tgt.first == InstPoint::LEA_INS_POST)
       instAsmPost_ += generate_hook(tgt.second,args,mnemonic_);
-    else if(tgt.first == InstPoint::ADDRS_TRANS)
+    else if(tgt.first == InstPoint::ADDRS_TRANS) {
       asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::ADDRS_TRANS);
+      forcePrintAsm_ = true;
+    }
     else if(tgt.first == InstPoint::RET_CHK) {
       //DEF_LOG("Instrumenting returns: "<<hex<<loc_);
       asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::RET_CHK);
+      forcePrintAsm_ = true;
     }
     else if(tgt.first == InstPoint::SYSCALL_CHECK)
       instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SYSCALL_CHECK);
@@ -498,12 +501,14 @@ Instruction::instrument() {
     else if(tgt.first == InstPoint::SHSTK_CANARY_EPILOGUE) {
       DEF_LOG("Instrumenting canary checks: "<<args);
       asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_CANARY_EPILOGUE);
+      forcePrintAsm_ = true;
       DEF_LOG("canary inst: "<<asmIns_);
     }
     else if(tgt.first == InstPoint::SHSTK_CANARY_PROLOGUE) {
       DEF_LOG("Instrumenting canary checks: "<<args);
       asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_CANARY_PROLOGUE);
-      DEF_LOG("canary inst: "<< asmIns_);
+      forcePrintAsm_ = true;
+      DEF_LOG(hex<<location()<<": canary inst: "<< asmIns_);
     }
     else
       instAsmPre_ += generate_hook(tgt.second,args,mnemonic_);

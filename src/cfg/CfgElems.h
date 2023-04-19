@@ -469,6 +469,7 @@ namespace SBI {
     unordered_map <uint64_t, long double> fnSigInGap(uint64_t g_start, uint64_t g_end);
     long double defCodeCftScore(vector <BasicBlock *> &bb_lst);
     bool otherUseOfJmpTbl(JumpTable &j);
+    vector <Instruction *> canaryCheckWindow(BasicBlock *bb);
   };
 
 }

@@ -30,6 +30,7 @@ private:
   vector <uint8_t> insBinary_; //hex bytes of original Instruction
   uint64_t target_ = false;
   bool isJump_ = false;
+  bool forcePrintAsm_ = false;
   bool isUnconditionalJmp_ = false;
   bool isCall_ = false;
   bool isLea_ = false;

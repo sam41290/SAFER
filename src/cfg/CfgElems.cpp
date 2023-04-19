@@ -2226,17 +2226,36 @@ CfgElems::shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x) {
   for(auto &ins : ins_list) {
     if (ins->asmIns().find("%fs:0x28") != string::npos &&
         ins->asmIns().find("xor") != string::npos) {
-      bb->registerInstrumentation(InstPoint::SHSTK_CANARY_EPILOGUE,x.second,instArgs()[x.second]);
+      ins->canaryCheck(true);
+      ins->registerInstrumentation(InstPoint::SHSTK_CANARY_EPILOGUE,x.second,instArgs()[x.second]);
+      DEF_LOG("Registering canary epilogue instrumentation: "<<hex<<ins->location());
+      while (true) {
+        auto last_ins = bb->lastIns();
+        if(last_ins->isJump() || last_ins->isCall() || last_ins->asmIns().find("ret") != string::npos)
+          break;
+        bb = bb->fallThroughBB();
+        if(bb == NULL)
+          break;
+      }
       auto fall_bb = bb->fallThroughBB();
       if(fall_bb != NULL) {
-        if(fall_bb->lastIns()->asmIns().find("ret") != string::npos)
-          fall_bb->registerInstrumentation(InstPoint::SHSTK_FUNCTION_RET,x.second,instArgs()[x.second]);
+        auto list = canaryCheckWindow(fall_bb);
+        auto last_ins = list[list.size() - 1];
+        DEF_LOG("Canary window: "<<hex<<list[0]->location()<<"->"<<last_ins->location());
+        if(last_ins->asmIns().find("ret") != string::npos) {
+          DEF_LOG("Registering shadow stack return instrumentation: "<<hex<<last_ins->location());
+          last_ins->registerInstrumentation(InstPoint::SHSTK_FUNCTION_RET,x.second,instArgs()[x.second]);
+        }
       }
       auto tgt_bb = bb->targetBB();
       if(tgt_bb != NULL) {
-        if(tgt_bb->lastIns()->asmIns().find("ret") != string::npos) {
+        auto list = canaryCheckWindow(tgt_bb);
+        auto last_ins = list[list.size() - 1];
+        DEF_LOG("Canary window: "<<hex<<list[0]->location()<<"->"<<last_ins->location());
+        if(last_ins->asmIns().find("ret") != string::npos) {
           bb->lastIns()->mnemonic("jmp");
-          tgt_bb->registerInstrumentation(InstPoint::SHSTK_FUNCTION_RET,x.second,instArgs()[x.second]);
+          DEF_LOG("Registering shadow stack return instrumentation: "<<hex<<last_ins->location());
+          last_ins->registerInstrumentation(InstPoint::SHSTK_FUNCTION_RET,x.second,instArgs()[x.second]);
         }
       }
       break;
@@ -2244,34 +2263,62 @@ CfgElems::shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x) {
   }
 }
 
+vector <Instruction *>
+CfgElems::canaryCheckWindow(BasicBlock *bb) {
+  auto ins_list = bb->insList();
+  vector <Instruction *> window;
+  window.insert(window.end(),ins_list.begin(),ins_list.end());
+  while (true){
+    auto last_ins = bb->lastIns();
+    if(last_ins->isJump() || last_ins->isCall() || last_ins->asmIns().find("ret") != string::npos)
+      break;
+    bb = bb->fallThroughBB();
+    if(bb != NULL) {
+      auto list = bb->insList();
+      window.insert(window.end(),list.begin(),list.end());
+    }
+    else
+      break;
+  }
+  return window;
+}
+
 void
 CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
-  for(auto fn:funcMap_) {
-    auto entryPoint = fn.second->entryPoints();
+  for(auto & fn : funcMap_) {
+    auto entryPoint = fn.second->allEntries();
 
     //Add instrumentation code at each entry of a function.
     //A function can have multiple entries.
 
     for(auto & entry:entryPoint) {
+      DEF_LOG("Shadow stack instrumentation for entry: "<<hex<<entry);
       auto bb = fn.second->getBB(entry);
       if(bb != NULL) {
-        auto ins_list = bb->insList();
         bool drct_call_func = false;
         auto bb_parents = bb->parents(); 
         for (auto &bb : bb_parents) {
           if (bb->isCall()) {
             drct_call_func = true;
+            DEF_LOG("Entry is call target");
             break;
           }
         }
+        auto ins_list = canaryCheckWindow(bb);
         if(ins_list[0]->asmIns().find("endbr64") != string::npos || 
             drct_call_func) {
+          DEF_LOG("Entry is either call target or has endbr64..canary window:"<<hex<<
+                   ins_list[0]->location()<<"->"<<hex<<ins_list[ins_list.size() - 1]->location());
+          vector <Instruction *> ins_till_canary;
           for(auto & ins : ins_list) {
+            ins_till_canary.push_back(ins);
             if(ins->asmIns().find("%fs:0x28") != string::npos && 
                ins->asmIns().find("mov") != string::npos) {
-              int canary_offt = offsetFrmCanaryAddToRa(ins->location(), bb); 
+              DEF_LOG("Canary prologue instrumentation: "<<hex<<ins->location());
+              int canary_offt = stackDecrement(ins_till_canary);//offsetFrmCanaryAddToRa(ins->location(), bb); 
               ins->raOffset(abs(canary_offt));
-              bb->registerInstrumentation(InstPoint::SHSTK_CANARY_PROLOGUE,x.second,instArgs()[x.second]);
+              ins->canaryAdd(true);
+              ins->registerInstrumentation(InstPoint::SHSTK_CANARY_PROLOGUE,x.second,instArgs()[x.second]);
             }
           }
         }
