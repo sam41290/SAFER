@@ -5,19 +5,27 @@
   mov    %rdx,24(%rsp)
   mov    %rbx,32(%rsp)
   mov    %r8,40(%rsp)
+  lea    .loader_map_start(%rip),%rdx
+  cmp    %rax,(%rdx)
+  ja     .global_look_up
+  lea    .loader_map_end(%rip),%rdx
+  cmp    %rax,(%rdx)
+  jg     .copy_and_ret
+.global_look_up:
   mov    %rax,%rbx
-  movslq .hash_tbl_bit_sz(%rip),%rdx
-  movslq .hash_tbl_sz(%rip),%rsi
-  movslq (%rdx),%rdx
-  movslq (%rsi),%rsi
-  movabs $0x9e3779b97f4a7c55,%rcx
+  mov    .hash_tbl_bit_sz(%rip),%rdx
+  mov    .hash_tbl_sz(%rip),%rsi
+  mov    (%rdx),%rdx
+  mov    (%rsi),%rsi
+  mov    .hash_key(%rip),%rcx
   imul   %rcx,%rax
   mov    $0x40,%ecx
   lea    -0x1(%rsi),%rdi
   sub    %edx,%ecx
-  shr    %cl,%rdi
+  shr    %cl,%rax
   and    %rax,%rdi
-  movslq .hash_tbl(%rip),%r8
+  xor    %r8,%r8
+  mov    .hash_tbl(%rip),%r8
   mov    (%r8),%r8
   mov    %rdi,%rcx
   lea    (%rdi,%rdi,2),%rdi
@@ -31,6 +39,7 @@
   jle    .die_reg
   mov    $0x1,%ecx
   jmp    .qprobe
+  .align 8
 .rep_qprobe:
   test   %rax,%rax
   je     .die_reg
@@ -49,20 +58,25 @@
   cmp    %rbx,%rax
   jne    .rep_qprobe
   mov    %rdx,%rdi
+  .align 8
 .jump_to_target:
   lea    (%rdi,%rdi,2),%rdi
   lea    (%r8,%rdi,8),%rdx
   add    $8,%rdx
   mov    (%rdx),%rax
-  mov    %rdi,0(%rsp)
-  mov    %rsi,8(%rsp)
-  mov    %rcx,16(%rsp)
-  mov    %rdx,24(%rsp)
-  mov    %rbx,32(%rsp)
-  mov    %r8,40(%rsp)
+  mov    0(%rsp),%rdi
+  mov    8(%rsp),%rsi
+  mov    16(%rsp),%rcx
+  mov    24(%rsp),%rdx
+  mov    32(%rsp),%rbx
+  mov    40(%rsp),%r8
   add    $48,%rsp
   jmp    *%rax
 .die_reg:
   hlt
-
-
+.copy_and_ret:
+  mov    %rax,%r11
+  mov    24(%rsp),%rdx
+  mov    %fs:0x88,%rax
+  add    $48,%rsp
+  jmp    *%r11
