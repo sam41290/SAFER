@@ -439,9 +439,6 @@ Instruction::instrument() {
       args += fallSym();
       DEF_LOG("call arg is: " << args);
     }
-    else if (tgt.first == InstPoint::SHSTK_FUNCTION_RET) {
-      //TODO:   
-    }
     else if(tgt.first == InstPoint::SHSTK_CANARY_EPILOGUE) {
       DEF_LOG("operand 2 is : " << op1());
       args += op1().substr(op1().find(",") + 1);

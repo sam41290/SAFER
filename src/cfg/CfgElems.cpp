@@ -2291,6 +2291,7 @@ CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
     //Add instrumentation code at each entry of a function.
     //A function can have multiple entries.
 
+    bool canary_found = false;
     for(auto & entry:entryPoint) {
       DEF_LOG("Shadow stack instrumentation for entry: "<<hex<<entry);
       auto bb = fn.second->getBB(entry);
@@ -2298,7 +2299,7 @@ CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
         bool drct_call_func = false;
         auto bb_parents = bb->parents(); 
         for (auto &bb : bb_parents) {
-          if (bb->isCall()) {
+          if (bb->isCall() || bb->lastIns()->isUnconditionalJmp()) {
             drct_call_func = true;
             DEF_LOG("Entry is call target");
             break;
@@ -2319,18 +2320,28 @@ CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
               ins->raOffset(abs(canary_offt));
               ins->canaryAdd(true);
               ins->registerInstrumentation(InstPoint::SHSTK_CANARY_PROLOGUE,x.second,instArgs()[x.second]);
+              canary_found = true;
             }
           }
+          /*
+          if(canary_found) {
+            auto bb_list = bbSeq(bb);
+            for(auto & bb2 : bb_list)
+              shadowStackRetInst(bb2,x);
+          }
+          */
         }
       }
     }
-    vector<BasicBlock *> bbs = fn.second->getDefCode();
-    for(auto & bb : bbs) {
-      shadowStackRetInst(bb,x);
-    }
-    vector<BasicBlock *> bbs2 = fn.second->getUnknwnCode();
-    for(auto & bb : bbs2) {
-      shadowStackRetInst(bb,x);
+    if(canary_found) {
+      vector<BasicBlock *> bbs = fn.second->getDefCode();
+      for(auto & bb : bbs) {
+        shadowStackRetInst(bb,x);
+      }
+      vector<BasicBlock *> bbs2 = fn.second->getUnknwnCode();
+      for(auto & bb : bbs2) {
+        shadowStackRetInst(bb,x);
+      }
     }
   }
 }

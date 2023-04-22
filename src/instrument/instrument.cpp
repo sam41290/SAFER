@@ -192,10 +192,14 @@ Instrument::generate_hook(string hook_target, string args,
   }
   else if (h == HookType::SHSTK_FUNCTION_RET) {
     inst_code = inst_code + 
-                "movq (%rsp),%rdi\n" +
+                "push %rdi\n" +
+                "push %rsi\n" +
+                "movq 16(%rsp),%rdi\n" +
                 "movq %fs:0x78,%rsi\n" +
-                "cmpq (%rsi),%rdi\n" +
-                "jne ." + hook_target + "\n";
+                "cmpq (%rsi),%rdi\n" + args + "\n" +
+                "jne ." + hook_target + "\n" +
+                "pop %rsi\n" +
+                "pop %rdi\n";
   }
   else if(h == HookType::SHSTK_CANARY_PROLOGUE) {
     string ca_reg;
@@ -220,7 +224,8 @@ Instrument::generate_hook(string hook_target, string args,
   }
   else if(h == HookType::SHSTK_CANARY_EPILOGUE) {
     inst_code = inst_code + 
-                "movq " + args + ",%fs:0x78\n";
+                "movq " + args + ",%fs:0x78\n" +
+                "xor " + args + "," + args + "\n";
   }
   else {
     inst_code += save(h);
