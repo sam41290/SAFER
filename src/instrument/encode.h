@@ -92,10 +92,10 @@ public:
 
   string attTableAsm() {
     //createHash();
-    string tbl = ".att_key: .8byte " + to_string(randKey_) + "\n";
-    tbl += ".att_tbl_bit: .8byte " + to_string(hashTblBit_) + "\n";
-    tbl += ".att_tbl_sz: .8byte " + to_string(hashTblSize_) + "\n";
-    tbl += ".hash_tbl_loc: .8byte .hash_tbl_start - .elf_header_start\n";
+    string tbl = ".hash_key: .8byte " + to_string(randKey_) + "\n";
+    tbl += ".hash_tbl_bit_sz: .8byte " + to_string(hashTblBit_) + "\n";
+    tbl += ".hash_tbl_sz: .8byte " + to_string(hashTblSize_) + "\n";
+    tbl += ".hash_tbl: .8byte .hash_tbl_start - .elf_header_start\n";
     int ctr = 0;
     for (auto & e : attTable_) {
       e.lookupEntrySym_ = ".attentry_lookup_" + to_string(e.val_);
@@ -128,7 +128,7 @@ public:
           //+ ".8byte " + e.tramp_ + " - .elf_header_start\n"
       ctr++;
     }
-    tbl += ".rt_resolver: .8byte 0\n.gtt_node: .8byte 0\n.gtt_ind: .8byte 0\n";
+    tbl += ".loader_map_start: .8byte 0\n.gtt_node: .8byte 0\n.loader_map_end: .8byte 0\n";
     tbl += ".att_arr: .8byte 0\n.gtt: .8byte 0\n.syscall_checker: .8byte 0\n";
     return tbl;
   };

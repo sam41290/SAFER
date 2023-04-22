@@ -126,3 +126,4 @@
 
 //#define OPTIMIZED_EH_METADATA
 
+#define ONE_LEVEL_HASH

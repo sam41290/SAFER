@@ -1759,7 +1759,10 @@ ElfClass::updateWithoutObjCopy(string bname,string obj_file) {
   //updTramps (new_bname);
   updDynSection (new_bname);
   changeEntryPnt (new_bname);
+#ifdef ONE_LEVEL_HASH
+#else
   insertHashTbl (new_bname);
+#endif
   instBname(new_bname);
 }
 

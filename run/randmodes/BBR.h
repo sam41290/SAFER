@@ -123,6 +123,7 @@
 
 #define ENCODE 1
 #define ENCCLASS GttAtt
+#define ONE_LEVEL_HASH
 
 //#define OPTIMIZED_EH_METADATA
 

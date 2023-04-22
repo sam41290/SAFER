@@ -1067,10 +1067,16 @@ Binary::genInstAsm() {
     prev_sec = sec_start;
     free(section_data);
   }
+  ofile<<".align 16\n";
   ofile<<".GTF_stack:\n";
   //ofile<<"jmp *.dispatcher_stack(%rip)\n";
+  ofile<<".align 16\n";
   ofile<<".GTF_reg:\n";
+#ifdef ONE_LEVEL_HASH
+  string atf_file(TOOL_PATH"src/instrument/one_level_atf.s");
+#else
   string atf_file(TOOL_PATH"src/instrument/atf.s");
+#endif
   ifstream ifile;
   ifile.open(atf_file);
   string atf_line;
@@ -1363,6 +1369,25 @@ string Binary::print_assembly() {
 
   rewrite_jmp_tbls("jmp_tbl.s");
   utils::append_files("jmp_tbl.s", "new_code.s");
+
+#ifdef ONE_LEVEL_HASH
+  manager_->printNonLoadSecs("nonloadsecs.s");
+  manager_->printExeHdr("exe_hdr.s");
+  manager_->printPHdrs("pheaders.s");
+
+  utils::append_files("exe_hdr.s", file_name);
+  utils::append_files("old_code_and_data.s", file_name);
+  utils::printAlgn(manager_->segAlign(), file_name);
+  utils::printLbl(".new_codesegment_start",file_name);
+  utils::printLbl(".pheader_start",file_name);
+  utils::append_files("pheaders.s", file_name);
+  utils::printLbl(".pheader_end",file_name);
+  utils::append_files("new_code.s", file_name);
+
+  utils::printLbl(".new_codesegment_end",file_name);
+  utils::append_files("nonloadsecs.s", file_name);
+  return file_name;
+#else
   //{
     //New section for hash table
     section hash_tbl_sec("hash_tbl",0,0,0,8);
@@ -1409,6 +1434,7 @@ string Binary::print_assembly() {
   utils::append_files("nonloadsecs.s", file_name);
   //utils::append_files(TOOL_PATH"/src/instrument/atf.s",file_name);
   return file_name;
+#endif
 }
 
 
