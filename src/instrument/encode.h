@@ -96,6 +96,18 @@ public:
     tbl += ".hash_tbl_bit_sz: .8byte " + to_string(hashTblBit_) + "\n";
     tbl += ".hash_tbl_sz: .8byte " + to_string(hashTblSize_) + "\n";
     tbl += ".hash_tbl: .8byte .hash_tbl_start - .elf_header_start\n";
+    tbl += ".load_start:\n.8byte 0\n.8byte 0\n.8byte 0\n";
+    tbl += ".byte 0x90\n"; 
+    tbl += ".byte 0x90\n"; 
+    tbl += ".byte 0x90\n"; 
+    tbl += ".byte 0x90\n"; 
+    tbl += ".byte 0x90\n"; 
+    tbl += ".byte 0x90\n"; 
+    tbl += ".byte 0x90\n";
+    tbl += ".byte 0x90\n"; 
+    tbl += ".byte 0x90\n";
+    tbl += ".byte 0x90\n.4byte 0x90909090\n";
+    tbl += ".byte 0x90\n.byte 0x90\n";
     int ctr = 0;
     for (auto & e : attTable_) {
       e.lookupEntrySym_ = ".attentry_lookup_" + to_string(e.val_);
@@ -148,7 +160,7 @@ public:
   }
 
   int attIndex(uint64_t val) {
-    int ctr = 0;
+    int ctr = 1;
     for(auto & e : attTable_) {
       if(e.val_ == val)
         return ctr;

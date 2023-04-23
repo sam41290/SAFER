@@ -1,10 +1,11 @@
-  sub    $48,%rsp
+  sub    $56,%rsp
   mov    %rdi,0(%rsp)
   mov    %rsi,8(%rsp)
   mov    %rcx,16(%rsp)
   mov    %rdx,24(%rsp)
   mov    %rbx,32(%rsp)
   mov    %r8,40(%rsp)
+  mov    %r9,48(%rsp)
   lea    .loader_map_start(%rip),%rdx
   cmp    %rax,(%rdx)
   ja     .global_look_up
@@ -27,24 +28,23 @@
   xor    %r8,%r8
   mov    .hash_tbl(%rip),%r8
   mov    (%r8),%r8
-  mov    %rdi,%rcx
-  lea    (%rdi,%rdi,2),%rdi
-  mov    (%r8,%rdi,8),%rdx
+  mov    .att_arr(%rip),%r9
+  mov    $0x0,%rcx
+  mov    %rdi,%rax
+.fetch_target:
+  lea    (%r8,%rax,8),%rax
+  movslq (%rax),%rdx
   test   %rdx,%rdx
   je     .die_reg
-  mov    %ecx,%edi
-  cmp    %rbx,%rdx
+  movslq 0x4(%rax),%rax
+  lea    (%rax,%rax,4),%rax
+  mov    (%r9,%rdx,8),%rdx
+  lea    (%rdx,%rax,8),%rdx
+  cmp    (%rdx),%rbx
   je     .jump_to_target
-  cmp    $0x1,%esi
-  jle    .die_reg
-  mov    $0x1,%ecx
-  jmp    .qprobe
-  .align 8
 .rep_qprobe:
-  test   %rax,%rax
-  je     .die_reg
-  add    $0x1,%ecx
-  cmp    %esi,%ecx
+  add    $0x1,%rcx
+  cmp    %rsi,%rcx
   je     .die_reg
 .qprobe:
   mov    %ecx,%eax
@@ -52,25 +52,20 @@
   imul   %ecx,%eax
   add    %edi,%eax
   div    %esi
-  mov    %edx,%eax
-  lea    (%rax,%rax,2),%rax
-  mov    (%r8,%rax,8),%rax
-  cmp    %rbx,%rax
-  jne    .rep_qprobe
-  mov    %rdx,%rdi
+  mov    %rdx,%rax
+  jmp    .fetch_target
   .align 8
 .jump_to_target:
-  lea    (%rdi,%rdi,2),%rdi
-  lea    (%r8,%rdi,8),%rdx
-  add    $8,%rdx
-  mov    (%rdx),%rax
+  add    $24,%rdx
+  mov    %rdx,%rax
   mov    0(%rsp),%rdi
   mov    8(%rsp),%rsi
   mov    16(%rsp),%rcx
   mov    24(%rsp),%rdx
   mov    32(%rsp),%rbx
   mov    40(%rsp),%r8
-  add    $48,%rsp
+  mov    48(%rsp),%r9
+  add    $56,%rsp
   jmp    *%rax
 .die_reg:
   hlt
@@ -78,5 +73,5 @@
   mov    %rax,%r11
   mov    24(%rsp),%rdx
   mov    %fs:0x88,%rax
-  add    $48,%rsp
+  add    $56,%rsp
   jmp    *%r11
