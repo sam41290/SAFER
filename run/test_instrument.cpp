@@ -8,7 +8,6 @@
 #include "Binary.h"
 
 using namespace std;
-
 int
 main (int argc, char *args[]) {
   string binary_path ("");
@@ -23,6 +22,11 @@ main (int argc, char *args[]) {
   //b.registerInstrumentation(InstPoint::INDIRECT_CF,"LOG",arglst);
   //
 
+  //vector<InstArg> arglst;
+  //arglst.push_back(InstArg::EXENAME);
+  //arglst.push_back(InstArg::RIP);
+  //arglst.push_back(InstArg::REG_RAX);
+  //b.registerInstrumentation(InstPoint::BASIC_BLOCK,"LOGRAX",arglst);
   vector<InstArg> arglst2;
   arglst2.push_back(InstArg::INDIRECT_TARGET);
   arglst2.push_back(InstArg::RIP);
@@ -38,16 +42,15 @@ main (int argc, char *args[]) {
   }
   
   vector<InstArg> arglst5;
-  arglst5.push_back(InstArg::REG_RAX);
-  
-  //b.registerInstrumentation(InstPoint::CANARY_EPILOGUE,"XOR",arglst5);
+  arglst5.push_back(InstArg::EXENAME);
+  arglst5.push_back(InstArg::RIP);
+  //
+  ////b.registerInstrumentation(InstPoint::CANARY_EPILOGUE,"XOR",arglst5);
 
-  b.registerInstrumentation(InstPoint::CANARY_PROLOGUE,"XOR",arglst5);
+  b.registerInstrumentation(InstPoint::SHADOW_STACK,"abort_shstk",arglst5);
   //
   //b.registerInstrumentation(InstPoint::FUNCTION_CALL,"XOR",arglst5);
 
-  b.registerInstrumentation(InstPoint::FUNCTION_RET,"XOR",arglst5);
-  b.registerInstrumentation(InstPoint::CANARY_EPILOGUE,"XOR",arglst5);
   
   //
   //vector<InstArg> arglst2;
