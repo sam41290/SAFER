@@ -196,6 +196,7 @@ Instrument::generate_hook(string hook_target, string args,
                 "push %rsi\n" +
                 "movq 16(%rsp),%rdi\n" +
                 "movq %fs:0x78,%rsi\n" +
+                "subq $8,%fs:0x78\n" +
                 "cmpq (%rsi),%rdi\n" + args + "\n" +
                 "jne ." + hook_target + "\n" +
                 "pop %rsi\n" +
@@ -211,19 +212,21 @@ Instrument::generate_hook(string hook_target, string args,
                 "jne .shstk_ok_" + to_string(counter) + "\n" +
                 "callq .init_shstk\n"
                 ".shstk_ok_" + to_string(counter) +  ":\n" +
-                "addq $8, %fs:0x78\n"
+                "addq $8,%fs:0x78\n"
                 "pushq %r10\n" +
                 "pushq %r9\n" +
                 "movq " + ra_offt + "(%rsp),%r10\n" +
                 "movq %fs:0x78,%r9\n" +
                 "movq %r10,(%r9)\n" +
                 "movq %fs:0x78," + ca_reg + "\n" +
+                "xorq %fs:0x28," + ca_reg + "\n" +
                 "popq %r9\n" +
                 "popq %r10\n";
     counter++;
   }
   else if(h == HookType::SHSTK_CANARY_EPILOGUE) {
     inst_code = inst_code + 
+                "xorq %fs:0x28," + args + "\n" + 
                 "movq " + args + ",%fs:0x78\n" +
                 "xor " + args + "," + args + "\n";
   }

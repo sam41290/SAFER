@@ -10,7 +10,7 @@
   movq %r9,(%rsp)
   movq $0x9,%rax
   movq $0,%rdi
-  movq $0x8000,%rsi
+  movq $0x200000,%rsi
   movq $0x3,%rdx
   movq $0x22,%r10
   movq $-1,%r8
