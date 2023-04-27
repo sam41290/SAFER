@@ -101,6 +101,14 @@ public:
       }
     }
   }
+  bool alreadyInstrumented(InstPoint p) {
+    for(auto it = targetPos_.begin(); it != targetPos_.end(); it++) {
+      if((*it).first == p) {
+        return true;
+      }
+    }
+    return false;
+  }
   vector<pair<InstPoint,string>> targetPositions() { return targetPos_;}
   vector<pair<string,string>> targetFunctions() { return targetFuncs_;}
   vector<string> instFunctions() { return instFuncs_;}

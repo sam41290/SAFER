@@ -2298,10 +2298,11 @@ CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
       if(bb != NULL) {
         bool drct_call_func = false;
         auto bb_parents = bb->parents(); 
-        for (auto &bb : bb_parents) {
-          if (bb->isCall() || bb->lastIns()->isUnconditionalJmp()) {
+        for (auto &p_bb : bb_parents) {
+          if ((p_bb->isCall() || p_bb->lastIns()->isUnconditionalJmp()) &&
+              p_bb->target() == bb->start()) {
             drct_call_func = true;
-            DEF_LOG("Entry is call target");
+            DEF_LOG("Entry is call target..parent:"<<hex<<p_bb->start());
             break;
           }
         }
@@ -2314,7 +2315,8 @@ CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
           for(auto & ins : ins_list) {
             ins_till_canary.push_back(ins);
             if(ins->asmIns().find("%fs:0x28") != string::npos && 
-               ins->asmIns().find("mov") != string::npos) {
+               ins->asmIns().find("mov") != string::npos &&
+               ins->alreadyInstrumented(InstPoint::SHSTK_CANARY_PROLOGUE) == false) {
               DEF_LOG("Canary prologue instrumentation: "<<hex<<ins->location());
               int canary_offt = stackDecrement(ins_till_canary);//offsetFrmCanaryAddToRa(ins->location(), bb); 
               ins->raOffset(abs(canary_offt));
