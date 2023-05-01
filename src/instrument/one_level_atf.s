@@ -56,7 +56,10 @@
   jmp    .fetch_target
   .align 8
 .jump_to_target:
-  add    $24,%rdx
+  add    $8,%rdx
+  cmp    (%rdx),%rbx
+  je     .jmp_new_addr
+  add    $16,%rdx
   mov    %rdx,%rax
   mov    0(%rsp),%rdi
   mov    8(%rsp),%rsi
@@ -69,6 +72,14 @@
   jmp    *%rax
 .die_reg:
   hlt
+.jmp_new_addr:
+  mov    (%rdx),%rax
+  mov    0(%rsp),%rdi
+  mov    8(%rsp),%rsi
+  mov    16(%rsp),%rcx
+  mov    32(%rsp),%rbx
+  mov    40(%rsp),%r8
+  mov    48(%rsp),%r9
 .copy_and_ret:
   mov    %rax,%r11
   mov    24(%rsp),%rdx
