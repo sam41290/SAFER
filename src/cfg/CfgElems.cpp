@@ -2225,7 +2225,7 @@ CfgElems::shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x) {
   auto ins_list = bb->insList();
   for(auto &ins : ins_list) {
     if (ins->asmIns().find("%fs:0x28") != string::npos &&
-        ins->asmIns().find("xor") != string::npos) {
+       (ins->asmIns().find("xor") != string::npos || ins->asmIns().find("sub") != string::npos)) {
       ins->canaryCheck(true);
       ins->registerInstrumentation(InstPoint::SHSTK_CANARY_EPILOGUE,x.second,instArgs()[x.second]);
       DEF_LOG("Registering canary epilogue instrumentation: "<<hex<<ins->location());
