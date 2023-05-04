@@ -154,6 +154,7 @@ Instrument::generate_hook(string hook_target, string args,
    *  The stub saves caller saved registers and flags.
    *  Then makes a call to the instrumentation code.
    */
+  static int counter;
   string inst_code = "";
   if(h == HookType::ADDRS_TRANS) {
     uint64_t rax_offt = 16;
@@ -174,6 +175,63 @@ Instrument::generate_hook(string hook_target, string args,
     inst_code += args + mne + " ." + hook_target + "\n";
     DEF_LOG("Return check code: "<<inst_code);
   }
+  else if (h == HookType::SHSTK_FUNCTION_CALL) {
+    inst_code = inst_code + 
+                 "pushq %rdi\n" +
+                 "pushq %rax\n" +
+                 "cmpq $0,%fs:0x78\n" +
+                 "jne .shstk_ok_" + to_string(counter) + "\n" +
+                 "callq .init_shstk\n"
+                 ".shstk_ok_" + to_string(counter) +  ":\n" +
+                 "movq %fs:0x78,%rax\n" +
+                 "lea " + args + "(%rip),%rdi\n" +
+                 "movq %rdi,(%rax)\n" +
+                 "pop %rax\n" +
+                 "pop %rdi\n";
+    //counter++;
+  }
+  else if (h == HookType::SHSTK_FUNCTION_RET) {
+    inst_code = inst_code + 
+                "push %rdi\n" +
+                "push %rsi\n" +
+                "movq 16(%rsp),%rdi\n" +
+                "movq %fs:0x78,%rsi\n" +
+                "subq $8,%fs:0x78\n" +
+                "cmpq (%rsi),%rdi\n" + args + "\n" +
+                "jne ." + hook_target + "\n" +
+                "pop %rsi\n" +
+                "pop %rdi\n";
+  }
+  else if(h == HookType::SHSTK_CANARY_PROLOGUE) {
+    string ca_reg;
+
+    string ra_offt;
+    ca_reg = args.substr(0, args.find(","));
+    ra_offt = args.substr(args.find(",") + 1);
+    string extra_reg = "%r10";
+    if(ca_reg.find("r10") != string::npos) {
+      extra_reg = "%r9";
+    }
+    inst_code = inst_code + 
+                "cmpq $0,%fs:0x78\n" +
+                "jne .shstk_ok_" + to_string(counter) + "\n" +
+                "callq .init_shstk\n"
+                ".shstk_ok_" + to_string(counter) +  ":\n" +
+                "addq $8,%fs:0x78\n"
+                "pushq " + extra_reg + "\n" +
+                "movq " + ra_offt + "(%rsp)," + extra_reg + "\n" +
+                "movq %fs:0x78," + ca_reg + "\n" +
+                "movq " + extra_reg + ",(" + ca_reg + ")\n" +
+                "xorq %fs:0x28," + ca_reg + "\n" +
+                "popq " + extra_reg + "\n";
+    counter++;
+  }
+  else if(h == HookType::SHSTK_CANARY_EPILOGUE) {
+    inst_code = inst_code + 
+                "xorq %fs:0x28," + args + "\n" + 
+                "movq " + args + ",%fs:0x78\n" +
+                "xor " + args + "," + args + "\n";
+  }
   else {
     inst_code += save(h);
     inst_code += args + "call ." + hook_target + "\n";
@@ -193,7 +251,11 @@ Instrument::generate_hook(string hook_target, string args,
   //}
 
   if(h != HookType::ADDRS_TRANS 
-     && h != HookType::RET_CHK)
+     && h != HookType::RET_CHK
+     && h != HookType::SHSTK_CANARY_EPILOGUE
+     && h != HookType::SHSTK_CANARY_PROLOGUE
+     && h != HookType::SHSTK_FUNCTION_CALL
+     && h != HookType::SHSTK_FUNCTION_RET)
     inst_code = inst_code + restore(h);
   //if(h == HookType::ADDRS_TRANS) {
   //  inst_code += mne + " *-40(%rsp)\n";

@@ -399,6 +399,8 @@ namespace SBI {
         return NULL;
     }
     void instrument();
+    void shadowStackInstrument(pair<InstPoint,string> &x);
+    void shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x);
     void instrument(uint64_t hook_point,string code);
     vector <JumpTable> jumpTables() { return jmpTables_; }
     void jumpTable(JumpTable j) { jmpTables_.push_back(j); }
@@ -454,6 +456,7 @@ namespace SBI {
     unordered_set <uint64_t> allReturnAddresses();
     vector <string> allReturnSyms();
     vector <BasicBlock *> allIndrctTgt(uint64_t ins_loc);
+    int offsetFrmCanaryAddToRa(uint64_t add_loc, BasicBlock *bb);
   private:
     void readIndrctTgts(BasicBlock *bb,uint64_t fn_addrs);
     BasicBlock *readBB(ifstream & file);
@@ -466,6 +469,7 @@ namespace SBI {
     unordered_map <uint64_t, long double> fnSigInGap(uint64_t g_start, uint64_t g_end);
     long double defCodeCftScore(vector <BasicBlock *> &bb_lst);
     bool otherUseOfJmpTbl(JumpTable &j);
+    vector <Instruction *> canaryCheckWindow(BasicBlock *bb);
   };
 
 }

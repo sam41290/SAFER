@@ -32,6 +32,15 @@ enum class InstPoint
   ADDRS_TRANS,
   RET_CHK,
   SYSCALL_CHECK,
+  CANARY_PROLOGUE,
+  CANARY_EPILOGUE,
+  FUNCTION_CALL,
+  FUNCTION_RET,
+  SHADOW_STACK,
+  SHSTK_CANARY_PROLOGUE,
+  SHSTK_CANARY_EPILOGUE,
+  SHSTK_FUNCTION_CALL,
+  SHSTK_FUNCTION_RET,
 };
 
 enum class HookType
@@ -40,7 +49,11 @@ enum class HookType
   ADDRS_TRANS,
   RET_CHK,
   SYSCALL_CHECK,
-  GENERAL_INST
+  GENERAL_INST,
+  SHSTK_CANARY_PROLOGUE,
+  SHSTK_CANARY_EPILOGUE,
+  SHSTK_FUNCTION_CALL,
+  SHSTK_FUNCTION_RET,
 };
 
 
@@ -87,6 +100,14 @@ public:
         break;
       }
     }
+  }
+  bool alreadyInstrumented(InstPoint p) {
+    for(auto it = targetPos_.begin(); it != targetPos_.end(); it++) {
+      if((*it).first == p) {
+        return true;
+      }
+    }
+    return false;
   }
   vector<pair<InstPoint,string>> targetPositions() { return targetPos_;}
   vector<pair<string,string>> targetFunctions() { return targetFuncs_;}
