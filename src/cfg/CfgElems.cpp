@@ -89,10 +89,11 @@ CfgElems::chkJmpTblRewritability() {
   for(auto & j : jmpTables_) {
     if(FULL_ADDR_TRANS || SAFE_JTABLE == false) {
       j.rewritable(false);
-      auto cf_bbs = j.cfBBs();
-      for(auto & bb : cf_bbs) {
-        DEF_LOG("Marking cf for addr trans: "<<hex<<bb->start());
-        bb->addrTransMust(true);
+      auto cf_ins = j.cfIns();
+      for(auto & ins : cf_ins) {
+        DEF_LOG("Marking cf for addr trans: "<<hex<<ins->location());
+        //bb->addrTransMust(true);
+        ins->atRequired(true);
       }
       continue;
     }
@@ -107,11 +108,17 @@ CfgElems::chkJmpTblRewritability() {
       otherUseOfJmpTbl(j) || isMetadata(j.location())) {
       DEF_LOG("Marking jump table non transformable: "<<hex<<j.location());
       j.rewritable(false);
-      auto cf_bbs = j.cfBBs();
-      for(auto & bb : cf_bbs) {
-        DEF_LOG("Marking cf for addr trans: "<<hex<<bb->start());
-        bb->addrTransMust(true);
+      auto cf_ins = j.cfIns();
+      for(auto & ins : cf_ins) {
+        DEF_LOG("Marking cf for addr trans: "<<hex<<ins->location());
+        //bb->addrTransMust(true);
+        ins->atRequired(true);
       }
+      //auto cf_bbs = j.cfBBs();
+      //for(auto & bb : cf_bbs) {
+      //  DEF_LOG("Marking cf for addr trans: "<<hex<<bb->start());
+      //  bb->addrTransMust(true);
+      //}
     }
   }
   bool repeat = true;
@@ -119,24 +126,37 @@ CfgElems::chkJmpTblRewritability() {
     repeat = false;
     for(auto & j : jmpTables_) {
       if(j.rewritable()) {
-        auto cf_bbs = j.cfBBs();
+        //auto cf_bbs = j.cfBBs();
         bool addr_trans_must = false;
-        for(auto & bb : cf_bbs) {
-          if(bb->addrTransMust()) {
+        auto cf_ins = j.cfIns();
+        for(auto & ins : cf_ins) {
+          if(ins->atRequired()) {
             addr_trans_must = true;
             break;
           }
         }
+        //for(auto & bb : cf_bbs) {
+        //  if(bb->addrTransMust()) {
+        //    addr_trans_must = true;
+        //    break;
+        //  }
+        //}
         if(addr_trans_must) {
           DEF_LOG("Marking jump table non transformable: "<<hex<<j.location());
           j.rewritable(false);
-          for(auto & bb : cf_bbs) {
-            if(bb->addrTransMust() == false) {
-              DEF_LOG("Marking cf for addr trans: "<<hex<<bb->start());
-              bb->addrTransMust(true);
-              repeat = true;
-            }
+          for(auto & ins : cf_ins) {
+            DEF_LOG("Marking cf for addr trans: "<<hex<<ins->location());
+            //bb->addrTransMust(true);
+            ins->atRequired(true);
+            repeat = true;
           }
+          //for(auto & bb : cf_bbs) {
+          //  if(bb->addrTransMust() == false) {
+          //    DEF_LOG("Marking cf for addr trans: "<<hex<<bb->start());
+          //    bb->addrTransMust(true);
+          //    repeat = true;
+          //  }
+          //}
         }
       }
     }

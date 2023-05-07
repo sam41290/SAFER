@@ -26,6 +26,7 @@ class JumpTable
   vector <uint64_t> targets_;
   BasicBlock *baseBB_ = NULL;
   vector <BasicBlock *> cfBBs_;
+  vector <Instruction *> cfIns_;
   vector <uint64_t> cfLoc_;
   bool rewritable_ = true;
 public:
@@ -38,6 +39,13 @@ public:
         return;
     cfLoc_.push_back(loc); 
   }
+  void cfIns(Instruction *ins) { 
+    for(auto & in : cfIns_)
+      if(in->location() == ins->location())
+        return;
+    cfIns_.push_back(ins); 
+  }
+  vector<Instruction *> &cfIns() { return cfIns_; }
   vector<uint64_t> &cfLoc() { return cfLoc_; }
   void cfBB(BasicBlock *bb) {
     //if(bb->end() != cfLoc_)

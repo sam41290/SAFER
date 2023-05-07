@@ -214,13 +214,14 @@ Instrument::generate_hook(string hook_target, string args,
     }
     inst_code = inst_code + 
                 "cmpq $0,%fs:0x78\n" +
-                "jne .shstk_ok_" + to_string(counter) + "\n" +
-                "callq .init_shstk\n"
+                "jg .shstk_ok_" + to_string(counter) + "\n" +
+                ".init_sh_" + to_string(counter) +  ":\n" +
+                "callq .init_shstk\n" +
                 ".shstk_ok_" + to_string(counter) +  ":\n" +
-                "addq $8,%fs:0x78\n"
+                "addq $8,%fs:0x78\n" +
+                "movq %fs:0x78," + ca_reg + "\n" +
                 "pushq " + extra_reg + "\n" +
                 "movq " + ra_offt + "(%rsp)," + extra_reg + "\n" +
-                "movq %fs:0x78," + ca_reg + "\n" +
                 "movq " + extra_reg + ",(" + ca_reg + ")\n" +
                 "xorq %fs:0x28," + ca_reg + "\n" +
                 "popq " + extra_reg + "\n";

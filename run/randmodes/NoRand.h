@@ -2,7 +2,7 @@
 
 #define ACCEPT_THRESHOLD 1.79769e+308//powl(2,50)
 #define REJECT_THRESHOLD 0 //powl(2,10)
-#define CODE_SCORE 6
+#define CODE_SCORE 0
 
 //#define GROUND_TRUTH
 
@@ -13,17 +13,17 @@
 
 #define KNOWN_CODE_POINTER_ROOT
 //FULL AT conf
-#define FULL_ADDR_TRANS true
-#define FULL_ENCODE false 
-#define NO_RET_INST true 
-#define SAFE_JTABLE false 
-#define NO_ENCODE_LEAPTRS true
+//#define FULL_ADDR_TRANS true
+//#define FULL_ENCODE false 
+//#define NO_RET_INST true 
+//#define SAFE_JTABLE false 
+//#define NO_ENCODE_LEAPTRS true
 //Full encode conf
-//#define FULL_ADDR_TRANS false
-//#define FULL_ENCODE true
-//#define NO_RET_INST true
-//#define SAFE_JTABLE true
-//#define NO_ENCODE_LEAPTRS false
+#define FULL_ADDR_TRANS false
+#define FULL_ENCODE true
+#define NO_RET_INST true
+#define SAFE_JTABLE true
+#define NO_ENCODE_LEAPTRS false
 
 //#define DISASMONLY
 
@@ -78,6 +78,7 @@
 
 #define INSVALIDITY vector <InsValidityRules> {InsValidityRules::VLD_OP,InsValidityRules::VLD_MEM,InsValidityRules::VLD_PRFX,InsValidityRules::VLD_USRMODE_INS}
 
+/*
 #define PROPERTIES {Property::VALIDINS, Property::VALID_CF, Property::ABI_REG_PRESERVE_AND_VALID_INIT}
 #define DEFDATA(p) \
   ((p == Property::VALIDINS) ? true :\
@@ -85,6 +86,16 @@
 
 #define DEFCODE(p) \
   ((p == Property::ABI_REG_PRESERVE_AND_VALID_INIT) ? true :\
+   (p == Property::VALIDINIT) ? true : false)
+*/
+#define PROPERTIES {Property::VALIDINS, Property::VALID_CF}
+#define DEFDATA(p) \
+  ((p == Property::VALIDINS) ? true :\
+   (p == Property::VALID_CF) ? true : false)
+
+#define DEFCODE(p) \
+  ((p == Property::ABI_REG_PRESERVE_AND_VALID_INIT) ? true :\
+   (p == Property::VALID_CF) ? true :\
    (p == Property::VALIDINIT) ? true : false)
 
 #define TRANSITIVECF Update::LOCAL
@@ -107,7 +118,7 @@
 #endif
 
 
-#define TOOL_PATH "/home/soumyakant/SBI/"
+#define TOOL_PATH "/home/disasmdev/SBI/"
 
 #define INST_CODE_PATH TOOL_PATH"run/instrumentation_code_here/"
 #define INST_BINARY "tutorial"

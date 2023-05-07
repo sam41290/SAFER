@@ -1,6 +1,5 @@
 .init_shstk:
-  subq $64,%rsp
-  movq %rbp,56(%rsp)
+  subq $56,%rsp
   movq %rax,48(%rsp)
   movq %rdi,40(%rsp)
   movq %rsi,32(%rsp)
@@ -10,7 +9,7 @@
   movq %r9,(%rsp)
   movq $0x9,%rax
   movq $0,%rdi
-  movq $0x200000,%rsi
+  movq $0x400000,%rsi
   movq $0x3,%rdx
   movq $0x22,%r10
   movq $-1,%r8
@@ -26,7 +25,6 @@
   movq 32(%rsp),%rsi
   movq 40(%rsp),%rdi
   movq 48(%rsp),%rax
-  movq 56(%rsp),%rbp
-  addq $64,%rsp
+  addq $56,%rsp
   retq
 
