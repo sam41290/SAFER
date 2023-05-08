@@ -227,6 +227,10 @@ Instrument::generate_hook(string hook_target, string args,
                 "popq " + extra_reg + "\n";
     counter++;
   }
+  else if(h == HookType::SHSTK_CANARY_MOVE) {
+    inst_code = inst_code + 
+                "mov %fs:0x28," + args + "\n"; 
+  }
   else if(h == HookType::SHSTK_CANARY_EPILOGUE) {
     inst_code = inst_code + 
                 "xorq %fs:0x28," + args + "\n" + 
@@ -255,6 +259,7 @@ Instrument::generate_hook(string hook_target, string args,
      && h != HookType::RET_CHK
      && h != HookType::SHSTK_CANARY_EPILOGUE
      && h != HookType::SHSTK_CANARY_PROLOGUE
+     && h != HookType::SHSTK_CANARY_MOVE
      && h != HookType::SHSTK_FUNCTION_CALL
      && h != HookType::SHSTK_FUNCTION_RET)
     inst_code = inst_code + restore(h);

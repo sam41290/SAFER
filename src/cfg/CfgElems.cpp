@@ -60,6 +60,17 @@ CfgElems::sameLocDiffBase(uint64_t loc, uint64_t base) {
 bool
 CfgElems::otherUseOfJmpTbl(JumpTable &j) {
   DEF_LOG("Checking other use for: "<<hex<<j.location());
+  auto cf_loc = j.cfLoc();
+  int cnt = 0;
+  unordered_set <uint64_t> cf_set;
+  for(auto c : cf_loc) {
+    if(cf_set.find(c) == cf_set.end()) {
+      cf_set.insert(c);
+      cnt++;
+    }
+    if(cnt > 1)
+      return true;
+  }
   auto loc_ptr = ptr(j.location());
   if(loc_ptr != NULL) {
     auto sym_candidates = loc_ptr->symCandidate();
@@ -2273,7 +2284,7 @@ CfgElems::shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x) {
         auto last_ins = list[list.size() - 1];
         DEF_LOG("Canary window: "<<hex<<list[0]->location()<<"->"<<last_ins->location());
         if(last_ins->asmIns().find("ret") != string::npos) {
-          bb->lastIns()->mnemonic("jmp");
+          //bb->lastIns()->mnemonic("jmp");
           DEF_LOG("Registering shadow stack return instrumentation: "<<hex<<last_ins->location());
           last_ins->registerInstrumentation(InstPoint::SHSTK_FUNCTION_RET,x.second,instArgs()[x.second]);
         }
@@ -2332,6 +2343,7 @@ CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
           DEF_LOG("Entry is either call target or has endbr64..canary window:"<<hex<<
                    ins_list[0]->location()<<"->"<<hex<<ins_list[ins_list.size() - 1]->location());
           vector <Instruction *> ins_till_canary;
+          uint64_t canary_fall = 0;
           for(auto & ins : ins_list) {
             ins_till_canary.push_back(ins);
             if(ins->asmIns().find("%fs:0x28") != string::npos && 
@@ -2343,7 +2355,10 @@ CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
               ins->canaryAdd(true);
               ins->registerInstrumentation(InstPoint::SHSTK_CANARY_PROLOGUE,x.second,instArgs()[x.second]);
               canary_found = true;
+              canary_fall = ins->fallThrough();
             }
+            if(ins->location() == canary_fall)
+              ins->registerInstrumentation(InstPoint::SHSTK_CANARY_MOVE,x.second,instArgs()[x.second]);
           }
           /*
           if(canary_found) {

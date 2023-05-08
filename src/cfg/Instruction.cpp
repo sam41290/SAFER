@@ -449,6 +449,10 @@ Instruction::instrument() {
       args = args + "," + to_string(raOffset() + 8);
       DEF_LOG("args is : " << args);
     }
+    else if(tgt.first == InstPoint::SHSTK_CANARY_MOVE) {
+      args += op1().substr(0,op1().find(","));
+      DEF_LOG("args is : " << args);
+    }
     else {
       switch(allArgs.size()) {
         case 0:
@@ -505,6 +509,12 @@ Instruction::instrument() {
       DEF_LOG("Instrumenting canary checks: "<<args);
       asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_CANARY_PROLOGUE);
       forcePrintAsm_ = true;
+      DEF_LOG(hex<<location()<<": canary inst: "<< asmIns_);
+    }
+    else if(tgt.first == InstPoint::SHSTK_CANARY_MOVE) {
+      DEF_LOG("Instrumenting canary checks: "<<args);
+      instAsmPost_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_CANARY_MOVE);
+      //forcePrintAsm_ = true;
       DEF_LOG(hex<<location()<<": canary inst: "<< asmIns_);
     }
     else
