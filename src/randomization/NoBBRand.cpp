@@ -11,7 +11,7 @@ NoBBRand::print (vector <BasicBlock *> bbs, string file_name, uint64_t fstart)
   //DEF_LOG("printing bbs cnt: "<<bbs.size());
   if(bbs.size() <= 0)
     return;
-  bbs = removeDuplication(bbs);
+  //bbs = removeDuplication(bbs);
   BasicBlock *prevBB = NULL;
   for(auto bb : bbs) {
     if(prevBB != NULL && prevBB->fallThrough() != bb->start()) {

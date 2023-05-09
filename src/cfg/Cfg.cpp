@@ -1544,6 +1544,21 @@ Cfg::handleLoopIns(vector <BasicBlock *> &bb_list) {
 }
 
 void
+Cfg::reAddFallThrough(vector <BasicBlock *> &bb_list) {
+  for(auto & bb : bb_list) {
+    if(bb->isCall() && bb->fallThroughBB() == NULL) {
+      auto fall = bb->lastIns()->fallThrough();
+      auto fall_bb = getBB(fall);
+      if(fall_bb != NULL) {
+        DEF_LOG("Re adding fall through: "<<hex<<bb->start()<<"->"<<fall);
+        bb->fallThrough(fall);
+        bb->fallThroughBB(fall_bb);
+      }
+    }
+  }
+}
+
+void
 Cfg::printFunc(uint64_t fstart, string file_name) {
   /* Prints ASM for a function
    */
@@ -1556,7 +1571,9 @@ Cfg::printFunc(uint64_t fstart, string file_name) {
   Function *f = fn_map[fstart];
   vector <BasicBlock *> defbbs = f->getDefCode();
   handleLoopIns(defbbs);
+  reAddFallThrough(defbbs);
   vector <BasicBlock *> unknwnbbs = f->getUnknwnCode();
+  reAddFallThrough(unknwnbbs);
   vector <BasicBlock *> psbl_code;
   for(auto & bb : unknwnbbs) {
     if(dataByProperty(bb) == false) {

@@ -98,6 +98,7 @@ private:
   void checkPsblEntries(uint64_t psbl_fn_start, uint64_t gap_end);
   void addHintBasedEntries();
   void handleLoopIns(vector <BasicBlock *> &bb_list);
+  void reAddFallThrough(vector <BasicBlock *> &bb_list);
 };
 }
 #endif
