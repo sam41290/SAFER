@@ -1929,26 +1929,26 @@ ElfClass::updDynSection (string bname) {
       }
     }
     /*
-       else if(dyn[i].d_tag == DT_SONAME) {
+    else if(dyn[i].d_tag == DT_SONAME) {
        if(bname.find("ld-2.27.so") != string::npos) {
        LOG("SO NAME offset: "<<hex<<dyn[i].d_un.d_val);
        section dyn_str_sec = secHeader(".dynstr");
        char soname[] = "ld-chngd-x86-64.so.2";
        utils::WRITE_TO_FILE(bname,soname,dyn_str_sec.offset + dyn[i].d_un.d_val,20);
        }
-       }
-       else if(dyn[i].d_tag == DT_NEEDED) {
+    }
+    */
+    else if(dyn[i].d_tag == DT_NEEDED) {
        LOG("Shared lib name offset: "<<hex<<dyn[i].d_un.d_val);
        section dyn_str_sec = secHeader(".dynstr");
        char name[20];
        utils::READ_FROM_FILE(bname,name,dyn_str_sec.offset + dyn[i].d_un.d_val,20);
        LOG("lib name: "<<name);
        if(strncmp(name,"ld-linux-x86-64.so.2",20) == 0) {
-       char newname[] = "ld-chngd-x86-64.so.2";
-       utils::WRITE_TO_FILE(bname,newname,dyn_str_sec.offset + dyn[i].d_un.d_val,20);
+         char newname[] = "ld-linux-xsafer.so.2";
+         utils::WRITE_TO_FILE(bname,newname,dyn_str_sec.offset + dyn[i].d_un.d_val,20);
        }
-       }
-     */
+    }
   }
   utils::WRITE_TO_FILE (bname, dyn, dyn_offset, size);
 

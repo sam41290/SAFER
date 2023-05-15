@@ -168,12 +168,21 @@ Instrument::generate_hook(string hook_target, string args,
     inst_code += decodeIcf(hook_target,args,mne);
   }
   else if(h == HookType::RET_CHK) {
-    uint64_t rax_offt = 8;
-    mne = "jmp";
-    inst_code += "mov %rax,%fs:0x88\n";
-    //inst_code += "mov %rax,-" + to_string(rax_offt) + "(%rsp)\n"; 
-    inst_code += args + mne + " ." + hook_target + "\n";
-    DEF_LOG("Return check code: "<<inst_code);
+    if(mne.find("call") != string::npos) {
+      inst_code += "mov %rax,%fs:0x28\n";
+      inst_code += args + "push %rax\n";
+      inst_code += "mov %fs:0x28,%rax\n";
+      inst_code += "jmp " + hook_target + "\n";
+    }
+    else {
+      uint64_t rax_offt = 8;
+      mne = "jmp";
+      //inst_code += "mov %rax,%fs:0x88\n";
+      //inst_code += "mov %rax,-" + to_string(rax_offt) + "(%rsp)\n"; 
+      //inst_code += args + mne + " ." + hook_target + "\n";
+      inst_code += decodeRet(hook_target,args,mne);
+      DEF_LOG("Return check code: "<<inst_code);
+    }
   }
   else if (h == HookType::SHSTK_FUNCTION_CALL) {
     inst_code = inst_code + 

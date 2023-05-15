@@ -1886,7 +1886,7 @@ bool CfgElems::isDataPtr(Pointer * ptr) {
   
   uint64_t
     val = ptr->address();
-  if(val >= codeSegEnd_ || isJmpTblLoc(val) == true 
+  if(val >= codeSegEnd_ || isJmpTbl(val) == true 
      || withinRoSection(val) || withinRWSection(val)/* || isDatainCode(val)*/)
     return true;
 
@@ -2489,8 +2489,17 @@ CfgElems::jmpTblExists(JumpTable &new_j) {
 
 bool
 CfgElems::isJmpTblLoc(uint64_t addrs) {
-  for(unsigned int i = 0; i < jmpTables_.size (); i++) {
-    if(jmpTables_[i].location () == addrs)
+  for(auto & j : jmpTables_) {
+    if(j.location () == addrs)
+      return true;
+  }
+  return false;
+}
+
+bool
+CfgElems::isJmpTbl(uint64_t addrs) {
+  for(auto & j : jmpTables_) {
+    if(j.location () == addrs && j.type() != 2)
       return true;
   }
   return false;
