@@ -169,9 +169,9 @@ Instrument::generate_hook(string hook_target, string args,
   }
   else if(h == HookType::RET_CHK) {
     if(mne.find("call") != string::npos) {
-      inst_code += "mov %rax,%fs:0x28\n";
+      inst_code += "mov %rax,%fs:0x88\n";
       inst_code += args + "push %rax\n";
-      inst_code += "mov %fs:0x28,%rax\n";
+      inst_code += "mov %fs:0x88,%rax\n";
     }
     else {
       uint64_t rax_offt = 8;
