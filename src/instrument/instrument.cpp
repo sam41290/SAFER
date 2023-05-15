@@ -172,7 +172,6 @@ Instrument::generate_hook(string hook_target, string args,
       inst_code += "mov %rax,%fs:0x28\n";
       inst_code += args + "push %rax\n";
       inst_code += "mov %fs:0x28,%rax\n";
-      inst_code += "jmp " + hook_target + "\n";
     }
     else {
       uint64_t rax_offt = 8;

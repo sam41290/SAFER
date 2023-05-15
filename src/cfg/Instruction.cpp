@@ -496,8 +496,9 @@ Instruction::instrument() {
     }
     else if(tgt.first == InstPoint::RET_CHK) {
       //DEF_LOG("Instrumenting returns: "<<hex<<loc_);
-      if(isCall())
-        asmIns_ = generate_hook(op1(),args,mnemonic_,HookType::RET_CHK);
+      if(isCall()) {
+        instAsmPre_ = generate_hook(op1(),args,"call",HookType::RET_CHK);
+      }
       else
         asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::RET_CHK);
       forcePrintAsm_ = true;
