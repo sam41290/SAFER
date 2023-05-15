@@ -375,7 +375,7 @@ BasicBlock::instrument() {
         if(ins->asmIns().find("ret") != string::npos) {
           ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
         }
-        else if(ins->isCall()) {
+        else if(ins->isCall() && ins->asmIns().find("syscall") == string::npos) {
           ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
           ins->mnemonic("jmp");
           ins->asmIns(ins->mnemonic() + " " + ins->op1());
