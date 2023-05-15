@@ -409,6 +409,7 @@ namespace SBI {
     bool sameLocDiffBase(uint64_t loc, uint64_t base);
     bool jmpTblExists(JumpTable &j);
     bool isJmpTblLoc(uint64_t addrs);
+    bool isJmpTbl(uint64_t addrs);
     bool isJmpTblBase(uint64_t addrs);
     unsigned int jumpTableCnt() { return jmpTables_.size(); }
     void updateJmpTblTgts() {

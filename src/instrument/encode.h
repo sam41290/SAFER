@@ -256,6 +256,10 @@ class GttAtt : public Encode {
         string inst = "mov ." + to_string(ptr) + "_enc_ptr(%rip)," + reg + "\n";
         return inst;
     }
+    string encodeRet(uint64_t ptr) {
+        string inst = "mov ." + to_string(ptr) + "_enc_ptr(%rip),%rax\n";
+        return inst;
+    }
 
     string decodeIcf(string hook_target, string args, string mne) {
       string inst_code = "";
@@ -263,7 +267,7 @@ class GttAtt : public Encode {
       inst_code += args;
       inst_code += ".decode_" + to_string(decode_counter) + ":\n"
                  + "cmp $0,%rax\n" + "jg .at_" + to_string(decode_counter) + "\n"
-                 + "sub $40,%rsp\n"
+                 + "sub $16,%rsp\n"
                  + "mov %rcx,0(%rsp)\n"
                  + "mov %rdx,8(%rsp)\n"
                  + "mov .att_arr(%rip),%rdx\n"
@@ -277,9 +281,38 @@ class GttAtt : public Encode {
                  + "lea 24(%rdx,%rax,8),%rax\n"
                  + "mov 0(%rsp),%rcx\n"
                  + "mov 8(%rsp),%rdx\n"
-                 + "add $40,%rsp\n"
+                 + "add $16,%rsp\n"
                  + mne + " *%rax\n"
                  + "jmp .fall_" + to_string(decode_counter) + "\n";
+      inst_code += ".at_" + to_string(decode_counter) + ":\n"
+                 + mne + " ." + hook_target + "\n" + ".fall_" + to_string(decode_counter) +":\n";
+
+      decode_counter++;
+      return inst_code;
+    }
+    string decodeRet(string hook_target, string args, string mne) {
+      string inst_code = "";
+      inst_code += "mov %rax,%fs:0x88\n";
+      inst_code += args;
+      inst_code += ".decode_" + to_string(decode_counter) + ":\n"
+                 + "cmp $0,%rax\n" + "jg .at_" + to_string(decode_counter) + "\n"
+                 + "sub $24,%rsp\n"
+                 + "mov %rcx,0(%rsp)\n"
+                 + "mov %rdx,8(%rsp)\n"
+                 + "mov .att_arr(%rip),%rdx\n"
+                 + "mov %rax,%rcx\n"
+                 + "shr $4,%eax\n"
+                 + "and $0xfffff,%rax\n"
+                 + "shr $32,%rcx\n"
+                 + "and $0xff,%rcx\n"
+                 + "mov 0x0(%rdx,%rcx,8),%rdx\n"
+                 + "lea 0x0(%rax,%rax,4),%rax\n"
+                 + "lea 24(%rdx,%rax,8),%rax\n"
+                 + "mov 0(%rsp),%rcx\n"
+                 + "mov 8(%rsp),%rdx\n"
+                 + "add $16,%rsp\n"
+                 + "mov %fs:0x28,%rax\n"
+                 + "ret\n";
       inst_code += ".at_" + to_string(decode_counter) + ":\n"
                  + mne + " ." + hook_target + "\n" + ".fall_" + to_string(decode_counter) +":\n";
 
@@ -332,6 +365,10 @@ class MultInv : public Encode {
         string inst = "mov ." + to_string(ptr) + "_enc_ptr(%rip)," + reg + "\n";
         return inst;
     }
+    string encodeRet(uint64_t ptr) {
+        string inst = "mov ." + to_string(ptr) + "_enc_ptr(%rip),%rax\n";
+        return inst;
+    }
 
     string decodeIcf(string hook_target, string args, string mne) {
       string inst_code = "";
@@ -347,6 +384,27 @@ class MultInv : public Encode {
                  + "pop %rdx\n"
                  + mne + " *%rax\n"
                  + "jmp .fall_" + to_string(decode_counter) + "\n";
+      inst_code += ".at_" + to_string(decode_counter) + ":\n"
+                 + mne + " ." + hook_target + "\n" + ".fall_" + to_string(decode_counter) +":\n";
+
+      decode_counter++;
+      return inst_code;
+    }
+    string decodeRet(string hook_target, string args, string mne) {
+      string inst_code = "";
+      inst_code += "mov %rax,%fs:0x88\n";
+      inst_code += args;
+      inst_code += ".decode_" + to_string(decode_counter) + ":\n"
+                 + "cmp $0,%rax\n" + "jg .at_" + to_string(decode_counter) + "\n"
+                 + "push %rdx\n"
+                 + "movabs $" + to_string(ODD_A) + ",%rdx\n"
+                 + "mulx %rax,%rax,%rdx\n"
+                 + "movabs $0x7fffffffffffffff,%rdx\n"
+                 + "and %rdx,%rax\n"
+                 + "pop %rdx\n"
+                 + "push %rax\n"
+                 + "mov %fs:0x28,%rax\n"
+                 + "ret\n";
       inst_code += ".at_" + to_string(decode_counter) + ":\n"
                  + mne + " ." + hook_target + "\n" + ".fall_" + to_string(decode_counter) +":\n";
 

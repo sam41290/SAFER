@@ -82,12 +82,12 @@ unordered_set <uint64_t>
 Frame::allReturnAddresses() {
   unordered_set <uint64_t> all_ras;
   for(auto & bb:defCodeBBs_) {
-    if(bb->isCall() && bb->fallThrough() != 0)
-      all_ras.insert(bb->fallThrough());
+    if(bb->isCall() /*&& bb->fallThrough() != 0*/)
+      all_ras.insert(bb->lastIns()->fallThrough());
   }
   for(auto & bb:unknwnCodeBBs_) {
-    if(bb->isCall() && bb->fallThrough() != 0)
-      all_ras.insert(bb->fallThrough());
+    if(bb->isCall() /*&& bb->fallThrough() != 0*/)
+      all_ras.insert(bb->lastIns()->fallThrough());
   }
   return all_ras;
 }

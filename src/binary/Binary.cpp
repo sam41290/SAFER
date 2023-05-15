@@ -145,8 +145,6 @@ Binary::disassemble() {
   funcMap_ = codeCFG_->funcMap();
   //ofstream ofile("tramp.s");
   for(auto it = pointerMap_.begin(); it != pointerMap_.end(); it++) {
-    if(it->first == 0x8ddf0)
-      DEF_LOG("ptr: "<<hex<<it->first<<" type: "<<(int)it->second->type());
     if(it->second->type() == PointerType::CP /*&& it->second->encodable() == true*/) {
       string sym = codeCFG_->getSymbol(it->first);
       manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
@@ -616,7 +614,7 @@ Binary::printOldCodeAndData(string file_name) {
   for(section & sec : rxSections_) {
     section new_sec = sec;
     new_sec.sec_type = section_types::RONLY;
-    if(manager_->isEhSection(sec.vma) == false && sec.sec_type != section_types::RX) { 
+    if((RA_OPT || manager_->isEhSection(sec.vma) == false) && sec.sec_type != section_types::RX) { 
       if(sec.name.rfind(".") == 0) {
         new_sec.start_sym = sec.name + "_dup";
         new_sec.end_sym = sec.name + "_dup_end";
@@ -731,6 +729,7 @@ Binary::printOldCodeAndData(string file_name) {
     for(uint64_t i = 0; i < data_sz; ) {
       auto addr = vma + i;
       bool rw_sec = false;
+      bool interp_sec = false;
       uint64_t sec_size = 0;
       if(section_range_map.find(addr) != section_range_map.end()) {
         for(auto & sec : section_range_map[addr])
@@ -744,6 +743,10 @@ Binary::printOldCodeAndData(string file_name) {
             rw_sec = true;
             if(sec_size > sec.size || sec_size == 0)
               sec_size = sec.size;
+          }
+          else if(sec.name == ".interp") {
+            interp_sec = true;
+            sec_size = sec.size;
           }
         }
       }
@@ -771,6 +774,20 @@ Binary::printOldCodeAndData(string file_name) {
           utils::printAsm("\t.skip " + to_string(byte_cnt - skipped) + "\n",addr + skipped,
                            "." + to_string(addr + skipped),b,file_name);
         }
+        i += sec_size;
+      }
+      else if(interp_sec) {
+        string interp((char *)(data + i));
+        interp.replace(interp.find("x86-64"),6,"xsafer");
+        auto len = interp.length();
+        const char *interp_char = interp.c_str();
+        uint64_t j = 0;
+        for(j = 0; j < len; j++) {
+          label = "." + to_string(addr + j);
+          utils::printAsm(".byte " + to_string((uint32_t)interp_char[j]) + "\n",addr + j, label, b, file_name);
+        }
+        label = "." + to_string(addr + j);
+        utils::printAsm(".byte " + to_string((uint32_t)0) + "\n",addr + j, label, b, file_name);
         i += sec_size;
       }
       else {
@@ -1070,6 +1087,18 @@ Binary::genInstAsm() {
   ofile<<".align 16\n";
   ofile<<".GTF_stack:\n";
   //ofile<<"jmp *.dispatcher_stack(%rip)\n";
+#ifdef ONE_LEVEL_HASH
+  string ra_atf_file(TOOL_PATH"src/instrument/one_level_atf_ra.s");
+#else
+  string ra_atf_file(TOOL_PATH"src/instrument/atf.s");
+#endif
+  ifstream ifile;
+  ifile.open(ra_atf_file);
+  string ra_atf_line;
+  while(getline(ifile,ra_atf_line)) {
+    ofile<<ra_atf_line<<endl;
+  }
+  ifile.close();
   ofile<<".align 16\n";
   ofile<<".GTF_reg:\n";
 #ifdef ONE_LEVEL_HASH
@@ -1077,7 +1106,6 @@ Binary::genInstAsm() {
 #else
   string atf_file(TOOL_PATH"src/instrument/atf.s");
 #endif
-  ifstream ifile;
   ifile.open(atf_file);
   string atf_line;
   while(getline(ifile,atf_line)) {
@@ -1280,10 +1308,12 @@ Binary::printSections() {
   }
 
   //Assembly files for EH sections generated here.
-  eh_frame.printAllCallSiteTbls();
-  eh_frame.print_eh_frame(rwSections_[0].vma);
-  eh_frame.print_lsda(rwSections_[0].vma);
-  eh_frame.print_eh_frame_hdr();
+  if(RA_OPT) {
+    eh_frame.printAllCallSiteTbls();
+    eh_frame.print_eh_frame(rwSections_[0].vma);
+    eh_frame.print_lsda(rwSections_[0].vma);
+    eh_frame.print_eh_frame_hdr();
+  }
 
 }
 
@@ -1335,6 +1365,8 @@ string Binary::print_assembly() {
   phdr_sec.additional = true;
   manager_->newSection(phdr_sec);
   stitchSections(section_types::RX,"new_code.s",true);
+
+  if(RA_OPT) {
     int ctr = 0;
     auto all_ras = codeCFG_->allReturnSyms();
     for(auto & s : all_ras) {
@@ -1343,6 +1375,19 @@ string Binary::print_assembly() {
                             s, 1);
       ctr++;
     }
+  }
+  else {
+    pointerMap_ = codeCFG_->pointers();
+    auto all_ras = codeCFG_->allReturnAddresses();
+    for(auto & r : all_ras) {
+      if(pointerMap_.find(r) == pointerMap_.end()) { //Else already added
+        string sym = codeCFG_->getSymbol(r);
+        manager_->addAttEntry(r,".8byte " + to_string(r),
+                              ".8byte " + sym + " - " + ".elf_header_start",
+                              sym, 0);
+      }
+    }
+  }
   //{
 
     //ADD ATT

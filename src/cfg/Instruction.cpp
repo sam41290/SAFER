@@ -332,8 +332,8 @@ Instruction::print(string file_name, string lbl_sfx) {
     asm_ins += "\tcmp $0, %rcx\n\tje " + op1_ + "\n";
   }
   else {
-    if((isJump_ || isCall_ || isRltvAccess_ || forcePrintAsm_ /*canaryAdd_ || canaryCheck_*/)
-        && asmIns_.find("ret") == string::npos)
+    if(forcePrintAsm_ || 
+      ((isJump_ || isCall_ || isRltvAccess_) && asmIns_.find("ret") == string::npos))
       asm_ins += "\t" + asmIns_ + "\n";
     else {
       for(auto byte : insBinary_)
@@ -433,8 +433,16 @@ Instruction::instrument() {
     if(tgt.first == InstPoint::ADDRS_TRANS) {
       args += "mov " + instParams_[(int)InstArg::INDIRECT_TARGET] + ",%rax\n";
     }
-    else if(tgt.first == InstPoint::RET_CHK)
-      args += "pop %rax\n";
+    else if(tgt.first == InstPoint::RET_CHK) {
+      if(asmIns_.find("ret") != string::npos)
+        args += "pop %rax\n";
+      else if(isCall()) {
+        if(FULL_ADDR_TRANS)
+          args += "lea ." + to_string(fallThrough()) + "(%rip),%rax\n";
+        else
+          args += encodeRet(fallThrough());
+      }
+    }
     else if (tgt.first == InstPoint::SHSTK_FUNCTION_CALL) {
       args += fallSym();
       DEF_LOG("call arg is: " << args);
@@ -488,7 +496,10 @@ Instruction::instrument() {
     }
     else if(tgt.first == InstPoint::RET_CHK) {
       //DEF_LOG("Instrumenting returns: "<<hex<<loc_);
-      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::RET_CHK);
+      if(isCall())
+        asmIns_ = generate_hook(op1(),args,mnemonic_,HookType::RET_CHK);
+      else
+        asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::RET_CHK);
       forcePrintAsm_ = true;
     }
     else if(tgt.first == InstPoint::SYSCALL_CHECK)
