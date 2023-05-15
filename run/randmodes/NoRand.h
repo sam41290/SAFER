@@ -77,6 +77,7 @@
 #define SYMBOLIZABLE(BB) isSymbolizable(BB->start())
 
 #define INSVALIDITY vector <InsValidityRules> {InsValidityRules::VLD_OP,InsValidityRules::VLD_MEM,InsValidityRules::VLD_PRFX,InsValidityRules::VLD_USRMODE_INS}
+
 /*
 #define PROPERTIES {Property::VALIDINS, Property::VALID_CF, Property::ABI_REG_PRESERVE_AND_VALID_INIT}
 #define DEFDATA(p) \
@@ -86,7 +87,9 @@
 #define DEFCODE(p) \
   ((p == Property::ABI_REG_PRESERVE_AND_VALID_INIT) ? true :\
    (p == Property::VALIDINIT) ? true : false)
+
 */
+
 #define PROPERTIES {Property::VALIDINS, Property::VALID_CF}
 #define DEFDATA(p) \
   ((p == Property::VALIDINS) ? true :\
@@ -96,6 +99,7 @@
   ((p == Property::ABI_REG_PRESERVE_AND_VALID_INIT) ? true :\
    (p == Property::VALID_CF) ? true :\
    (p == Property::VALIDINIT) ? true : false)
+
 #define TRANSITIVECF Update::LOCAL
 
 #define CFTODEFCODE 0
@@ -116,7 +120,7 @@
 #endif
 
 
-#define TOOL_PATH "/home/soumyakant/SBI/"
+#define TOOL_PATH "/home/disasmdev/SBI/"
 
 #define INST_CODE_PATH TOOL_PATH"run/instrumentation_code_here/"
 #define INST_BINARY "tutorial"
