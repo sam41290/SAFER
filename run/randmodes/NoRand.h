@@ -2,7 +2,7 @@
 
 #define ACCEPT_THRESHOLD 1.79769e+308//powl(2,50)
 #define REJECT_THRESHOLD 0 //powl(2,10)
-#define CODE_SCORE 0
+#define CODE_SCORE 6
 
 //#define GROUND_TRUTH
 
@@ -78,7 +78,6 @@
 
 #define INSVALIDITY vector <InsValidityRules> {InsValidityRules::VLD_OP,InsValidityRules::VLD_MEM,InsValidityRules::VLD_PRFX,InsValidityRules::VLD_USRMODE_INS}
 
-/*
 #define PROPERTIES {Property::VALIDINS, Property::VALID_CF, Property::ABI_REG_PRESERVE_AND_VALID_INIT}
 #define DEFDATA(p) \
   ((p == Property::VALIDINS) ? true :\
@@ -87,7 +86,7 @@
 #define DEFCODE(p) \
   ((p == Property::ABI_REG_PRESERVE_AND_VALID_INIT) ? true :\
    (p == Property::VALIDINIT) ? true : false)
-*/
+/*
 #define PROPERTIES {Property::VALIDINS, Property::VALID_CF}
 #define DEFDATA(p) \
   ((p == Property::VALIDINS) ? true :\
@@ -97,7 +96,7 @@
   ((p == Property::ABI_REG_PRESERVE_AND_VALID_INIT) ? true :\
    (p == Property::VALID_CF) ? true :\
    (p == Property::VALIDINIT) ? true : false)
-
+*/
 #define TRANSITIVECF Update::LOCAL
 
 #define CFTODEFCODE 0

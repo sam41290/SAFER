@@ -12,6 +12,13 @@
         //Any relocated pointers within EH frame body considered as valid code pointer.
 
 #define KNOWN_CODE_POINTER_ROOT
+//FULL AT conf
+//#define FULL_ADDR_TRANS true
+//#define FULL_ENCODE false 
+//#define NO_RET_INST true 
+//#define SAFE_JTABLE false 
+//#define NO_ENCODE_LEAPTRS true
+//Full encode conf
 #define FULL_ADDR_TRANS false
 #define FULL_ENCODE true
 #define NO_RET_INST true
@@ -79,7 +86,17 @@
 #define DEFCODE(p) \
   ((p == Property::ABI_REG_PRESERVE_AND_VALID_INIT) ? true :\
    (p == Property::VALIDINIT) ? true : false)
+/*
+#define PROPERTIES {Property::VALIDINS, Property::VALID_CF}
+#define DEFDATA(p) \
+  ((p == Property::VALIDINS) ? true :\
+   (p == Property::VALID_CF) ? true : false)
 
+#define DEFCODE(p) \
+  ((p == Property::ABI_REG_PRESERVE_AND_VALID_INIT) ? true :\
+   (p == Property::VALID_CF) ? true :\
+   (p == Property::VALIDINIT) ? true : false)
+*/
 #define TRANSITIVECF Update::LOCAL
 
 #define CFTODEFCODE 0
@@ -100,7 +117,7 @@
 #endif
 
 
-#define TOOL_PATH "/home/soumyakant/SBI/"
+#define TOOL_PATH "/home/disasmdev/SBI/"
 
 #define INST_CODE_PATH TOOL_PATH"run/instrumentation_code_here/"
 #define INST_BINARY "tutorial"
