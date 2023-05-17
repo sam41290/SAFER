@@ -334,9 +334,10 @@ class GttAtt : public Encode {
       inst_code += "push %rbx\n";
       inst_code += "mov 16(%rsp),%rbx\n";
       inst_code += "mov %rbx,-8(%rax)\n";
+      inst_code += "lea 16(%rsp),%rbx\n";
+      inst_code += "mov %rbx,-16(%rax)\n";
       inst_code += "pop %rbx\n";
       inst_code += "pop %rax\n";
-      inst_code += "mov %rsp,-16(%rax)\n";
       inst_code += "cmp $0,%rax\njg .at_tramp\n";
       inst_code +=  "sub $16,%rsp\n";
       inst_code +=  "mov %rcx,0(%rsp)\n";
@@ -464,9 +465,10 @@ class MultInv : public Encode {
       inst_code += "push %rbx\n";
       inst_code += "mov 16(%rsp),%rbx\n";
       inst_code += "mov %rbx,-8(%rax)\n";
+      inst_code += "lea 16(%rsp),%rbx\n";
+      inst_code += "mov %rbx,-16(%rax)\n";
       inst_code += "pop %rbx\n";
       inst_code += "pop %rax\n";
-      inst_code += "mov %rsp,-16(%rax)\n";
       inst_code += "cmp $0,%rax\n";
       inst_code += "jg .at_tramp\n";
       inst_code += "push %rdx\n";
