@@ -188,6 +188,14 @@ Instrument::generate_hook(string hook_target, string args,
     inst_code += "mov %fs:0x88,%rax\n";
     counter++;
   }
+  else if(h == HookType::LEGACY_SHADOW_INDRCT_CALL) {
+      inst_code += "mov %rax,%fs:0x88\n";
+      string op = hook_target;
+      op.replace(0,1,"");
+      inst_code += "mov " + op + ",%rax\n";
+      inst_code += "call .shadow_tramp\n"; 
+      inst_code += fall_sym + ":\n";
+  }
   else if(h ==  HookType::LEGACY_SHADOW_RET) {
     inst_code += "cmpq $0,%fs:0x78\n";
     inst_code += "jg .legacy_shadow_chk_" + to_string(counter) + "\n";

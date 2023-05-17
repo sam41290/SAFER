@@ -1129,6 +1129,7 @@ Binary::genInstAsm() {
     ofile<<atf_line_tt<<endl;
   }
   ifile.close();
+  ofile<<shadowTramp();
   //ofile<<"jmp *.gtt(%rip)\n";
   string shstk_init_file(TOOL_PATH"src/instrument/init_shstk.s");
   ifile.open(shstk_init_file);
