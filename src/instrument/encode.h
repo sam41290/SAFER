@@ -320,6 +320,44 @@ class GttAtt : public Encode {
       decode_counter++;
       return inst_code;
     }
+    string shadowTramp() {
+      //Assume that rax has target
+      string inst_code = "";
+      inst_code += ".shadow_tramp:\n";
+      inst_code += "cmpq $0,%fs:0x78\n";
+      inst_code += "jne .push_ra\n";
+      inst_code += "callq .init_shstk\n";
+      inst_code += ".push_ra:\n";
+      inst_code += "addq $16,%fs:0x78\n";
+      inst_code += "push %rax\n";
+      inst_code += "mov %fs:0x78,%rax\n";
+      inst_code += "push %rbx\n";
+      inst_code += "mov 16(%rsp),%rbx\n";
+      inst_code += "mov %rbx,-8(%rax)\n";
+      inst_code += "pop %rbx\n";
+      inst_code += "pop %rax\n";
+      inst_code += "mov %rsp,-16(%rax)\n";
+      inst_code += "cmp $0,%rax\njg .at_tramp\n";
+      inst_code +=  "sub $16,%rsp\n";
+      inst_code +=  "mov %rcx,0(%rsp)\n";
+      inst_code +=  "mov %rdx,8(%rsp)\n";
+      inst_code +=  "mov .att_arr(%rip),%rdx\n";
+      inst_code +=  "mov %rax,%rcx\n";
+      inst_code +=  "shr $4,%eax\n";
+      inst_code +=  "and $0xfffff,%rax\n";
+      inst_code +=  "shr $32,%rcx\n";
+      inst_code +=  "and $0xff,%rcx\n";
+      inst_code +=  "mov 0x0(%rdx,%rcx,8),%rdx\n";
+      inst_code +=  "lea 0x0(%rax,%rax,4),%rax\n";
+      inst_code +=  "lea 24(%rdx,%rax,8),%rax\n";
+      inst_code +=  "mov 0(%rsp),%rcx\n";
+      inst_code +=  "mov 8(%rsp),%rdx\n";
+      inst_code +=  "add $16,%rsp\n";
+      inst_code +=  "jmp *%rax\n";
+      inst_code += ".at_tramp:\n";
+      inst_code += "jmp GTF_reg\n";
+      return inst_code;
+    }
     EncType enctype() { return EncType::ENC_GTT_ATT; }
 };
 
@@ -410,6 +448,36 @@ class MultInv : public Encode {
                  + mne + " ." + hook_target + "\n" + ".fall_" + to_string(decode_counter) +":\n";
 
       decode_counter++;
+      return inst_code;
+    }
+    string shadowTramp() {
+      //Assume that rax has target
+      string inst_code = "";
+      inst_code += ".shadow_tramp:\n";
+      inst_code += "cmpq $0,%fs:0x78\n";
+      inst_code += "jne .push_ra\n";
+      inst_code += "callq .init_shstk\n";
+      inst_code += ".push_ra:\n";
+      inst_code += "addq $16,%fs:0x78\n";
+      inst_code += "push %rax\n";
+      inst_code += "mov %fs:0x78,%rax\n";
+      inst_code += "push %rbx\n";
+      inst_code += "mov 16(%rsp),%rbx\n";
+      inst_code += "mov %rbx,-8(%rax)\n";
+      inst_code += "pop %rbx\n";
+      inst_code += "pop %rax\n";
+      inst_code += "mov %rsp,-16(%rax)\n";
+      inst_code += "cmp $0,%rax\n";
+      inst_code += "jg .at_tramp\n";
+      inst_code += "push %rdx\n";
+      inst_code += "movabs $" + to_string(ODD_A) + ",%rdx\n"
+                 + "mulx %rax,%rax,%rdx\n"
+                 + "movabs $0x7fffffffffffffff,%rdx\n"
+                 + "and %rdx,%rax\n"
+                 + "pop %rdx\n"
+                 + "jmp *%rax\n";
+      inst_code += ".at_tramp:\n";
+      inst_code += "jmp GTF_reg\n";
       return inst_code;
     }
     EncType enctype() { return EncType::ENC_MULT_INV; }

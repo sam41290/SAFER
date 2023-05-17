@@ -515,7 +515,10 @@ Instruction::instrument() {
     else if(tgt.first == InstPoint::LEGACY_SHADOW_STACK) {
       //DEF_LOG("Instrumenting returns: "<<hex<<loc_);
       if(isCall()) {
-        instAsmPre_ = generate_hook(fallBBSym(),args,"call",HookType::LEGACY_SHADOW_CALL,fallSym());
+        if(isIndrctCf_)
+          instAsmPre_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_CALL,fallSym());
+        else
+          instAsmPre_ = generate_hook(fallBBSym(),args,"call",HookType::LEGACY_SHADOW_CALL,fallSym());
       }
       else
         asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_RET);
