@@ -434,6 +434,8 @@ Instruction::instrument() {
     vector<InstArg> allArgs= instArgs()[tgt.second];
     string args = "";
     if(tgt.first == InstPoint::ADDRS_TRANS) {
+      if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK))
+        continue;
       args += "mov " + instParams_[(int)InstArg::INDIRECT_TARGET] + ",%rax\n";
     }
     else if(tgt.first == InstPoint::RET_CHK) {
@@ -516,7 +518,7 @@ Instruction::instrument() {
       //DEF_LOG("Instrumenting returns: "<<hex<<loc_);
       if(isCall()) {
         if(isIndrctCf_)
-          instAsmPre_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_CALL,fallSym());
+          asmIns_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_INDRCT_CALL,fallSym());
         else
           instAsmPre_ = generate_hook(fallBBSym(),args,"call",HookType::LEGACY_SHADOW_CALL,fallSym());
       }

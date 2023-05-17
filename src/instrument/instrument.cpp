@@ -379,7 +379,8 @@ Instrument::generate_hook(string hook_target, string args,
      && h != HookType::SHSTK_FUNCTION_CALL
      && h != HookType::SHSTK_FUNCTION_RET
      && h != HookType::LEGACY_SHADOW_CALL
-     && h != HookType::LEGACY_SHADOW_RET)
+     && h != HookType::LEGACY_SHADOW_RET
+     && h != HookType::LEGACY_SHADOW_INDRCT_CALL)
     inst_code = inst_code + restore(h);
   //if(h == HookType::ADDRS_TRANS) {
   //  inst_code += mne + " *-40(%rsp)\n";
