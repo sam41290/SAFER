@@ -8,8 +8,15 @@
   mov    %r9,48(%rsp)
   lea    .loader_map_start(%rip),%rdx
   cmp    %rax,(%rdx)
-  ja     .global_look_up_ra
+  ja     .vdso_check_ra
   lea    .loader_map_end(%rip),%rdx
+  cmp    %rax,(%rdx)
+  jg     .copy_and_ret_ra
+.vdso_check_ra:
+  lea    .vdso_start(%rip),%rdx
+  cmp    %rax,(%rdx)
+  ja     .global_look_up_ra
+  lea    .vdso_end(%rip),%rdx
   cmp    %rax,(%rdx)
   jg     .copy_and_ret_ra
 .global_look_up_ra:

@@ -137,6 +137,12 @@ using namespace std;
        SymbolType stype = SymbolType::LINEAR_SCAN;\
        ADDSYMBOLCANDIDATE(addrs,storage,symbolize,t,stype);\
        break;}\
+     case PointerSource::GAP_HINT : \
+     {\
+       bool symbolize = false;\
+       SymbolType stype = SymbolType::LINEAR_SCAN;\
+       ADDSYMBOLCANDIDATE(addrs,storage,symbolize,t,stype);\
+       break;}\
      default : \
      {\
        bool symbolize = true;\
@@ -454,7 +460,7 @@ namespace SBI {
     long double fnSigScore(vector <Instruction *> &ins_list);
     void chkJmpTblRewritability();
     uint64_t dataSegmntEnd (uint64_t addrs);
-    unordered_set <uint64_t> allReturnAddresses();
+    unordered_map <uint64_t,string> allReturnAddresses();
     vector <string> allReturnSyms();
     vector <BasicBlock *> allIndrctTgt(uint64_t ins_loc);
     int offsetFrmCanaryAddToRa(uint64_t add_loc, BasicBlock *bb);

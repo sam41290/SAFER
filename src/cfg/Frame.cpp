@@ -78,16 +78,23 @@ Frame::withinBB(uint64_t addrs) {
   return NULL;
 }
 
-unordered_set <uint64_t>
+unordered_map <uint64_t,string>
 Frame::allReturnAddresses() {
-  unordered_set <uint64_t> all_ras;
+  unordered_map <uint64_t,string> all_ras;
   for(auto & bb:defCodeBBs_) {
-    if(bb->isCall() /*&& bb->fallThrough() != 0*/)
-      all_ras.insert(bb->lastIns()->fallThrough());
+    if(bb->lastIns()->isCall()) {
+      auto f = bb->lastIns()->fallThrough();
+      auto s = bb->fallSym();
+      all_ras[f] = s;
+    }
   }
   for(auto & bb:unknwnCodeBBs_) {
-    if(bb->isCall() /*&& bb->fallThrough() != 0*/)
-      all_ras.insert(bb->lastIns()->fallThrough());
+    if(bb->lastIns()->isCall()) {
+      auto f = bb->lastIns()->fallThrough();
+      auto s = bb->fallSym();
+      if(all_ras.find(f) == all_ras.end())
+        all_ras[f] = s;
+    }
   }
   return all_ras;
 }

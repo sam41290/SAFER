@@ -172,6 +172,10 @@ Binary::disassemble() {
         manager_->addAttEntry(ptr,".8byte " + sym + "- .elf_header_start",
                               ".8byte " + sym + " - " + ".elf_header_start",
                               sym, 1);
+        //if(RA_OPT == false)
+        //  manager_->addAttEntry(ptr,".8byte " + to_string(ptr),
+        //                      ".8byte " + sym + " - " + ".elf_header_start",
+        //                      sym, 0);
       }
     }
   }
@@ -984,7 +988,7 @@ Binary::install_segfault_handler() {
 
   string label = "fill_sigaction";
   uint64_t sigaction_addrs = manager_->symbolVal("sigaction");	//get address of sigaction in GLIBC
-  string inst_code = generate_hook(label,"","",HookType::SEGFAULT, sigaction_addrs);
+  string inst_code = generate_hook(label,"","",HookType::SEGFAULT, "",sigaction_addrs);
 
   LOG("Installing signal handler at libcStartMain_" <<hex <<hook_point);
 
@@ -1110,6 +1114,19 @@ Binary::genInstAsm() {
   string atf_line;
   while(getline(ifile,atf_line)) {
     ofile<<atf_line<<endl;
+  }
+  ifile.close();
+  ofile<<".align 16\n";
+  ofile<<".GTF_translate:\n";
+#ifdef ONE_LEVEL_HASH
+  string atf_file_tt(TOOL_PATH"src/instrument/one_level_atf_translate_ptr.s");
+#else
+  string atf_file_tt(TOOL_PATH"src/instrument/atf.s");
+#endif
+  ifile.open(atf_file_tt);
+  string atf_line_tt;
+  while(getline(ifile,atf_line_tt)) {
+    ofile<<atf_line_tt<<endl;
   }
   ifile.close();
   //ofile<<"jmp *.gtt(%rip)\n";
@@ -1366,7 +1383,7 @@ string Binary::print_assembly() {
   manager_->newSection(phdr_sec);
   stitchSections(section_types::RX,"new_code.s",true);
 
-  if(RA_OPT) {
+  //if(RA_OPT) {
     int ctr = 0;
     auto all_ras = codeCFG_->allReturnSyms();
     for(auto & s : all_ras) {
@@ -1375,16 +1392,17 @@ string Binary::print_assembly() {
                             s, 1);
       ctr++;
     }
-  }
-  else {
+ // }
+  if(RA_OPT == false) {
     pointerMap_ = codeCFG_->pointers();
     auto all_ras = codeCFG_->allReturnAddresses();
     for(auto & r : all_ras) {
-      if(pointerMap_.find(r) == pointerMap_.end()) { //Else already added
-        string sym = codeCFG_->getSymbol(r);
-        manager_->addAttEntry(r,".8byte " + to_string(r),
-                              ".8byte " + sym + " - " + ".elf_header_start",
-                              sym, 0);
+      DEF_LOG("Adding old RA to hash: "<<hex<<r.first<<"->"<<r.second);
+      if(pointerMap_.find(r.first) == pointerMap_.end()) { //Else already added
+        //string sym = codeCFG_->getSymbol(r);
+        manager_->addAttEntry(r.first,".8byte " + to_string(r.first),
+                              ".8byte " + r.second + " - " + ".elf_header_start",
+                              r.second, 0);
       }
     }
   }

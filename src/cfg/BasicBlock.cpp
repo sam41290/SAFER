@@ -215,11 +215,16 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
   if(isCode() == false) {
     ins_lbl_sfx = "_" + to_string(start_) + "_unknown_code";
   }
-  if(if_exists(start_, map_of_pointer)) {
+  bool call_fall_thru = false;
+  for(auto & p : parents_)
+    if(p->lastIns()->isCall() && p->lastIns()->fallThrough() == start())
+      call_fall_thru = true;
+  if(call_fall_thru == false && if_exists(start_, map_of_pointer)) {
     auto ptr = map_of_pointer[start_];
-    if(ptr->symbolizable(SymbolizeIf::CONST) ||
+    if(ptr->source() != PointerSource::POSSIBLE_RA &&
+      (ptr->symbolizable(SymbolizeIf::CONST) ||
        ptr->symbolizable(SymbolizeIf::IMMOPERAND) ||
-       ptr->symbolizable(SymbolizeIf::RLTV)) {
+       ptr->symbolizable(SymbolizeIf::RLTV))) {
       utils::printAlgn(16,file_name);
     }
   }
@@ -370,6 +375,19 @@ BasicBlock::instrument() {
           ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
       }
     }
+    else if(p.first == InstPoint::LEGACY_SHADOW_STACK) {
+      for(auto & ins : insList_) {
+        if(ins->asmIns().find("ret") != string::npos) {
+          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
+        }
+        else if(ins->isCall() && ins->asmIns().find("syscall") == string::npos) {
+          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
+          ins->mnemonic("jmp");
+          ins->asmIns(ins->mnemonic() + " " + ins->op1());
+          ins->fallSym(ins->label() + lblSuffix() + "_fall");
+        }
+      }
+    }
     else if(p.first == InstPoint::RET_CHK) {
       for(auto & ins : insList_) {
         if(ins->asmIns().find("ret") != string::npos) {
@@ -380,6 +398,8 @@ BasicBlock::instrument() {
           ins->mnemonic("jmp");
           ins->asmIns(ins->mnemonic() + " " + ins->op1());
         }
+        else if(ins->isPltJmp())
+          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
       }
     }
     else if(p.first == InstPoint::SYSCALL_CHECK) {

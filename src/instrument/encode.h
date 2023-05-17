@@ -142,6 +142,7 @@ public:
     }
     tbl += ".loader_map_start: .8byte 0\n.gtt_node: .8byte 0\n.loader_map_end: .8byte 0\n";
     tbl += ".att_arr: .8byte 0\n.gtt: .8byte 0\n.syscall_checker: .8byte 0\n";
+    tbl += ".vdso_start: .8byte 0\n.vdso_end: .8byte 0\n";
     return tbl;
   };
 
@@ -181,7 +182,7 @@ public:
     AttRec *tbl_start = (AttRec *)att_tbl;
     //Ignore first record and last record;
     att_tbl += (4 * 8);
-    size -= (6 * 8);
+    size -= (8 * 8);
     double l = log2(attTable_.size());
     l += 1;
     hashTblBit_ = l;

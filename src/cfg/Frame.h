@@ -94,7 +94,7 @@ public:
   BasicBlock *getDataBlock(uint64_t addrs);
   void linkCFToJumpTable(JumpTable *j, uint64_t ins_loc);
   uint64_t firstCodeAddress();
-  unordered_set <uint64_t> allReturnAddresses(); 
+  unordered_map <uint64_t,string> allReturnAddresses(); 
   vector <string> allReturnSyms();
   vector <BasicBlock *> allIndrctTgt(uint64_t ins_loc);
   virtual vector <uint64_t> allValidEntries() = 0;

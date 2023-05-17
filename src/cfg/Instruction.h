@@ -68,6 +68,7 @@ private:
   bool atRequired_ = false;
   bool canaryCheck_ = false;
   bool canaryAdd_ = false;
+  int fallctr_ = 0;
   //bool addrTransMust_ = false;
 public:
   Instruction() {}

@@ -1408,6 +1408,7 @@ Cfg::genCFG() {
 #ifdef CFGCONSISTENCYCHECK
   saveCnsrvtvCode();
   cfgConsistencyAnalysis();
+  //dump();
 #else
   dump();
 #endif

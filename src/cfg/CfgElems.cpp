@@ -19,16 +19,14 @@ CfgElems::allReturnSyms() {
   for(auto & fn : funcMap_) {
     auto bb_list = fn.second->getDefCode();
     for(auto & bb : bb_list) {
-      if(bb->isCall() && added.find(bb->start()) == added.end()) {
+      if(bb->lastIns()->isCall() && added.find(bb->start()) == added.end()) {
         ra_syms.push_back(bb->fallSym());
-        DEF_LOG("Adding ra symbol: "<<hex<<bb->start()<<"->"<<bb->fallThrough()<<":"<<bb->fallSym());
         added.insert(bb->start());
       }
     }
     bb_list = fn.second->getUnknwnCode();
     for(auto & bb : bb_list) {
-      if(bb->isCall() && added.find(bb->start()) == added.end()) {
-        DEF_LOG("Adding ra symbol: "<<hex<<bb->start()<<"->"<<bb->fallThrough()<<":"<<bb->fallSym());
+      if(bb->lastIns()->isCall() && added.find(bb->start()) == added.end()) {
         ra_syms.push_back(bb->fallSym());
         added.insert(bb->start());
       }
@@ -37,12 +35,14 @@ CfgElems::allReturnSyms() {
   return ra_syms;
 }
 
-unordered_set <uint64_t>
+unordered_map <uint64_t,string>
 CfgElems::allReturnAddresses() {
-  unordered_set <uint64_t> ra_set;
+  unordered_map <uint64_t,string> ra_set;
   for(auto & fn : funcMap_) {
     auto fn_ra_set = fn.second->allReturnAddresses();
-    ra_set.insert(fn_ra_set.begin(), fn_ra_set.end());
+    for(auto & f : fn_ra_set) {
+      ra_set[f.first] = f.second;
+    }
   }
   return ra_set;
 }

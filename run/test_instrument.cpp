@@ -40,6 +40,8 @@ main (int argc, char *args[]) {
     vector<InstArg> arglst4;
     b.registerInstrumentation(InstPoint::RET_CHK,"GTF_stack",arglst4);
   }
+  vector<InstArg> arglst5;
+  b.registerInstrumentation(InstPoint::LEGACY_SHADOW_STACK,"GTF_stack",arglst5);
   
   //vector<InstArg> arglst5;
   //arglst5.push_back(InstArg::EXENAME);

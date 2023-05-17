@@ -36,6 +36,7 @@ enum class InstPoint
   CANARY_EPILOGUE,
   FUNCTION_CALL,
   FUNCTION_RET,
+  LEGACY_SHADOW_STACK,
   SHADOW_STACK,
   SHSTK_CANARY_PROLOGUE,
   SHSTK_CANARY_MOVE,
@@ -51,6 +52,8 @@ enum class HookType
   RET_CHK,
   SYSCALL_CHECK,
   GENERAL_INST,
+  LEGACY_SHADOW_CALL,
+  LEGACY_SHADOW_RET,
   SHSTK_CANARY_PROLOGUE,
   SHSTK_CANARY_MOVE,
   SHSTK_CANARY_EPILOGUE,
@@ -128,6 +131,7 @@ public:
   string generate_hook(string hook_target, string args = "",
                           string mne = "",
                           HookType h = HookType::GENERAL_INST,
+                          string fall = "",
                           uint64_t sigaction_addrs = 0);
   string getRegVal(string reg, HookType h);  
   virtual void instrument() = 0;
