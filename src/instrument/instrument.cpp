@@ -170,7 +170,8 @@ Instrument::generate_hook(string hook_target, string args,
   }
   else if(h == HookType::LEGACY_SHADOW_CALL) {
     inst_code += "call .shadow_inst_" + to_string(counter) + "\n";
-    inst_code += "jmp " + fall_sym + "\n";
+    inst_code += fall_sym + ":\n";
+    inst_code += "jmp " + hook_target + "\n";
     inst_code += ".shadow_inst_" + to_string(counter) + ":\n";
     inst_code += "cmpq $0,%fs:0x78\n";
     inst_code += "jne .push_ra_" + to_string(counter) + "\n";

@@ -345,10 +345,9 @@ Instruction::print(string file_name, string lbl_sfx) {
   if(isCode())
     b = SymBind::FORCEBIND;
   utils::printAsm(asm_ins,location(),label_ + lbl_sfx,b,file_name);
-  //if(isCall()) {
-  //  utils::printLbl(label() + "_fall_" + to_string(fallctr_),file_name);
-  //  fallctr_++;
-  //}
+  if(isCall() && asm_ins.find(fallSym()) == string::npos) {
+    utils::printLbl(fallSym(),file_name);
+  }
 }
 
 void
@@ -516,7 +515,7 @@ Instruction::instrument() {
     else if(tgt.first == InstPoint::LEGACY_SHADOW_STACK) {
       //DEF_LOG("Instrumenting returns: "<<hex<<loc_);
       if(isCall()) {
-        instAsmPre_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_CALL,fallSym());
+        instAsmPre_ = generate_hook(fallBBSym(),args,"call",HookType::LEGACY_SHADOW_CALL,fallSym());
       }
       else
         asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_RET);

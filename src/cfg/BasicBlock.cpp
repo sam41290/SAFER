@@ -240,11 +240,16 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
         it->op1(fallThroughBB_->label() + " + 1");
       }
     }
-    it->print(file_name,ins_lbl_sfx);
     if(it->isCall()) {
-      fallSym_ = it->label() + ins_lbl_sfx + "_fall";
-      utils::printLbl(fallSym_,file_name);
+      it->fallSym(fallSym());
+      auto fall_bb = fallThroughBB();
+      it->fallBBSym(fall_bb->label());
     }
+    it->print(file_name,ins_lbl_sfx);
+    //if(it->isCall()) {
+    //  fallSym_ = it->label() + ins_lbl_sfx + "_fall";
+    //  utils::printLbl(fallSym_,file_name);
+    //}
   }
   printFallThroughJmp(file_name);
   for(auto & bb: mergedBBs_)

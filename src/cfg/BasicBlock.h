@@ -97,7 +97,16 @@ public:
     belongsToJumpTable_.push_back(j); 
   }
   vector<uint64_t> belongsToJumpTable() { return belongsToJumpTable_; }
-  string fallSym() { return fallSym_; }
+  string fallSym() { 
+    if (fallSym_ == "") {
+      string ins_lbl_sfx = "_" + to_string(start_) + "_def_code";
+      if(isCode() == false) {
+        ins_lbl_sfx = "_" + to_string(start_) + "_unknown_code";
+      }
+      fallSym_ = lastIns()->label() + ins_lbl_sfx + "_fall"; 
+    }
+    return fallSym_;
+  }
   void addrTransMust(bool val) { lastIns()->atRequired(val); }
   bool addrTransMust() { return lastIns()->atRequired(); }
   void lockJump(bool val) { lockJump_ = val; }
