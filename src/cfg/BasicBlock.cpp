@@ -245,8 +245,10 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
       auto fall_bb = fallThroughBB();
       if(fall_bb != NULL)
         it->fallBBSym(fall_bb->label());
-      else
+      else {
+        DEF_LOG("Call missing fall through: "<<hex<<it->location());
         it->fallBBSym(fallSym());
+      }
     }
     it->print(file_name,ins_lbl_sfx);
     //if(it->isCall()) {
