@@ -397,6 +397,7 @@ BasicBlock::instrument() {
           ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
           ins->mnemonic("jmp");
           ins->asmIns(ins->mnemonic() + " " + ins->op1());
+          ins->fallSym(ins->label() + lblSuffix() + "_fall");
         }
         else if(ins->isPltJmp())
           ins->registerInstrumentation(p.first,p.second,allargs[p.second]);

@@ -345,10 +345,10 @@ Instruction::print(string file_name, string lbl_sfx) {
   if(isCode())
     b = SymBind::FORCEBIND;
   utils::printAsm(asm_ins,location(),label_ + lbl_sfx,b,file_name);
-  if(isCall()) {
-    utils::printLbl(label() + "_fall_" + to_string(fallctr_),file_name);
-    fallctr_++;
-  }
+  //if(isCall()) {
+  //  utils::printLbl(label() + "_fall_" + to_string(fallctr_),file_name);
+  //  fallctr_++;
+  //}
 }
 
 void
@@ -504,8 +504,8 @@ Instruction::instrument() {
     else if(tgt.first == InstPoint::RET_CHK) {
       //DEF_LOG("Instrumenting returns: "<<hex<<loc_);
       if(isCall()) {
-        string fall_sym = label() + "_fall_" + to_string(fallctr_);
-        instAsmPre_ = generate_hook(op1(),args,"call",HookType::RET_CHK,fall_sym);
+        //string fall_sym = label() + "_fall_" + to_string(fallctr_);
+        instAsmPre_ = generate_hook(op1(),args,"call",HookType::RET_CHK,fallSym());
       }
       else if(isPltJmp())
         instAsmPre_ = generate_hook(op1(),args,mnemonic_,HookType::RET_CHK);
