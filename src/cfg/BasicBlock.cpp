@@ -288,6 +288,13 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
     if(it->isRltvAccess() == 1 && it->rltvOfftAdjusted() == false) {
       uint64_t rip_rltv_offset = it->ripRltvOfft();
       //DEF_LOG("Relative Pointer: " <<hex <<rip_rltv_offset);
+
+      if(CFValidity::validPrfx(it) == false) {
+        it->isRltvAccess(false);
+        it->asmIns("");
+        continue;
+      }
+
       if(rip_rltv_offset >= data_segment_start) {
 
         string op = utils::symbolizeRltvAccess(it->op1(),

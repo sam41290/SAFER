@@ -910,7 +910,7 @@ Cfg::cnsrvtvDisasm() {
   disassembleGaps();
   possibleCodeDisasm();
   //phase1NonReturningCallResolution();
-  addHintBasedEntries();
+  //addHintBasedEntries();
   linkAllBBs();
 
 
