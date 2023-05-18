@@ -356,7 +356,7 @@ class GttAtt : public Encode {
       inst_code +=  "add $16,%rsp\n";
       inst_code +=  "jmp *%rax\n";
       inst_code += ".at_tramp:\n";
-      inst_code += "jmp GTF_reg\n";
+      inst_code += "jmp .GTF_reg\n";
       return inst_code;
     }
     EncType enctype() { return EncType::ENC_GTT_ATT; }
@@ -479,7 +479,7 @@ class MultInv : public Encode {
                  + "pop %rdx\n"
                  + "jmp *%rax\n";
       inst_code += ".at_tramp:\n";
-      inst_code += "jmp GTF_reg\n";
+      inst_code += "jmp .GTF_reg\n";
       return inst_code;
     }
     EncType enctype() { return EncType::ENC_MULT_INV; }
