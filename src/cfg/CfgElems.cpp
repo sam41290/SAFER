@@ -49,30 +49,34 @@ CfgElems::allReturnAddresses() {
 
 string
 CfgElems::shStkTramps() {
+  unordered_map <uint64_t, string> bb_tramp_map;
   string tramps = "";
   for(auto & fn : funcMap_) {
     auto bb_list = fn.second->getDefCode();
     for(auto & bb : bb_list) {
-      auto parents = bb->parents();
-      for(auto & p : parents) {
-        if(p->lastIns()->isCall() && p->target() == bb->start()) {
-          DEF_LOG("getting shadow tramp for: "<<hex<<bb->start());
-          tramps += bb->shStkTrampSym() + ":\n";
+      if(bb->lastIns()->isCall() && bb->targetBB() != NULL) {
+        auto tgt_bb = bb->targetBB();
+        if(bb_tramp_map.find(tgt_bb->start()) == bb_tramp_map.end() ||
+           bb_tramp_map[tgt_bb->start()] != tgt_bb->shStkTrampSym()) {
+          auto tramp_sym = tgt_bb->shStkTrampSym();
+          bb_tramp_map[tgt_bb->start()] = tramp_sym;
+          tramps += tgt_bb->shStkTrampSym() + ":\n";
           tramps += directCallShstkTramp();
-          tramps += "jmp " + bb->label() + "\n";
-          break;
+          tramps += "jmp " + tgt_bb->label() + "\n";
         }
       }
     }
     bb_list = fn.second->getUnknwnCode();
     for(auto & bb : bb_list) {
-      auto parents = bb->parents();
-      for(auto & p : parents) {
-        if(p->lastIns()->isCall() && p->target() == bb->start()) {
-          tramps += bb->shStkTrampSym() + ":\n";
+      if(bb->lastIns()->isCall() && bb->targetBB() != NULL) {
+        auto tgt_bb = bb->targetBB();
+        if(bb_tramp_map.find(tgt_bb->start()) == bb_tramp_map.end() ||
+           bb_tramp_map[tgt_bb->start()] != tgt_bb->shStkTrampSym()) {
+          auto tramp_sym = tgt_bb->shStkTrampSym();
+          bb_tramp_map[tgt_bb->start()] = tramp_sym;
+          tramps += tgt_bb->shStkTrampSym() + ":\n";
           tramps += directCallShstkTramp();
-          tramps += "jmp " + bb->label() + "\n";
-          break;
+          tramps += "jmp " + tgt_bb->label() + "\n";
         }
       }
     }
