@@ -1138,6 +1138,9 @@ Binary::genInstAsm() {
     ofile << shstk_line << endl;
   }
   ifile.close();
+  if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK)) {
+    ofile<<codeCFG_->shStkTramps();
+  }
   ofile<<".SYSCHK:\n";
   ofile<<"jmp *.syscall_checker(%rip)\n";
 

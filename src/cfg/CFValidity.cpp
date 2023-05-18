@@ -38,7 +38,7 @@ CFValidity::validOpCode(Instruction *ins) {
 
 bool
 CFValidity::validMem(Instruction *ins) {
-  if(ins->isRltvAccess()) {
+  if(ins->isRltvAccess() && ins->asmIns().find("lea") == string::npos) {
     uint64_t offt = ins->ripRltvOfft();
     if(offt >= memSpaceStart_ && offt <= memSpaceEnd_)
       return true;

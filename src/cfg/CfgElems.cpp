@@ -47,6 +47,39 @@ CfgElems::allReturnAddresses() {
   return ra_set;
 }
 
+string
+CfgElems::shStkTramps() {
+  string tramps = "";
+  for(auto & fn : funcMap_) {
+    auto bb_list = fn.second->getDefCode();
+    for(auto & bb : bb_list) {
+      auto parents = bb->parents();
+      for(auto & p : parents) {
+        if(p->lastIns()->isCall() && p->target() == bb->start()) {
+          DEF_LOG("getting shadow tramp for: "<<hex<<bb->start());
+          tramps += bb->shStkTrampSym() + ":\n";
+          tramps += directCallShstkTramp();
+          tramps += "jmp " + bb->label() + "\n";
+          break;
+        }
+      }
+    }
+    bb_list = fn.second->getUnknwnCode();
+    for(auto & bb : bb_list) {
+      auto parents = bb->parents();
+      for(auto & p : parents) {
+        if(p->lastIns()->isCall() && p->target() == bb->start()) {
+          tramps += bb->shStkTrampSym() + ":\n";
+          tramps += directCallShstkTramp();
+          tramps += "jmp " + bb->label() + "\n";
+          break;
+        }
+      }
+    }
+  }
+  return tramps;
+}
+
 bool
 CfgElems::sameLocDiffBase(uint64_t loc, uint64_t base) {
   for(auto & j : jmpTables_)

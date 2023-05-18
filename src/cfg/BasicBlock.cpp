@@ -234,6 +234,10 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
       if(targetBB_ != NULL) {
         it->asmIns(it->mnemonic() + " " + targetBB_->label());
         it->op1(targetBB_->label());
+        if(it->isCall() && it->alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK)) {
+          it->asmIns(it->mnemonic() + " " + targetBB_->shStkTrampSym());
+          it->op1(targetBB_->shStkTrampSym());
+        }
       }
       else if(it->isIndirectCf() == false && lockJump_ && fallThroughBB_ != NULL) {
         it->asmIns(it->mnemonic() + " " + fallThroughBB_->label() + " + 1");

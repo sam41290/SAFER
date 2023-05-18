@@ -144,6 +144,27 @@ Instrument::registerInstrumentation(uint64_t tgtAddrs,string
 }
 
 string
+Instrument::directCallShstkTramp() {
+  string inst_code = "";
+  static int counter;
+  inst_code += "cmpq $0,%fs:0x78\n";
+  inst_code += "jne .push_ra_" + to_string(counter) + "\n";
+  inst_code += "callq .init_shstk\n";
+  inst_code += ".push_ra_" + to_string(counter) + ":\n";
+  inst_code += "addq $16,%fs:0x78\n";
+  inst_code += "mov %rax,%fs:0x88\n";
+  inst_code += "mov %fs:0x78,%rax\n";
+  inst_code += "push %rbx\n";
+  inst_code += "mov 8(%rsp),%rbx\n";
+  inst_code += "mov %rbx,-8(%rax)\n";
+  inst_code += "pop %rbx\n";
+  inst_code += "mov %rsp,-16(%rax)\n";
+  inst_code += "mov %fs:0x88,%rax\n";
+  counter++;
+  return inst_code;
+}
+
+string
 Instrument::generate_hook(string hook_target, string args,
                           string mne,
                           HookType h,
@@ -169,24 +190,24 @@ Instrument::generate_hook(string hook_target, string args,
     inst_code += decodeIcf(hook_target,args,mne);
   }
   else if(h == HookType::LEGACY_SHADOW_CALL) {
-    inst_code += "call .shadow_inst_" + to_string(counter) + "\n";
+    inst_code += "call " + hook_target + "\n";
     inst_code += fall_sym + ":\n";
-    inst_code += "jmp " + hook_target + "\n";
-    inst_code += ".shadow_inst_" + to_string(counter) + ":\n";
-    inst_code += "cmpq $0,%fs:0x78\n";
-    inst_code += "jne .push_ra_" + to_string(counter) + "\n";
-    inst_code += "callq .init_shstk\n";
-    inst_code += ".push_ra_" + to_string(counter) + ":\n";
-    inst_code += "addq $16,%fs:0x78\n";
-    inst_code += "mov %rax,%fs:0x88\n";
-    inst_code += "mov %fs:0x78,%rax\n";
-    inst_code += "push %rbx\n";
-    inst_code += "mov 8(%rsp),%rbx\n";
-    inst_code += "mov %rbx,-8(%rax)\n";
-    inst_code += "pop %rbx\n";
-    inst_code += "mov %rsp,-16(%rax)\n";
-    inst_code += "mov %fs:0x88,%rax\n";
-    counter++;
+    //inst_code += "jmp " + hook_target + "\n";
+    //inst_code += ".shadow_inst_" + to_string(counter) + ":\n";
+    //inst_code += "cmpq $0,%fs:0x78\n";
+    //inst_code += "jne .push_ra_" + to_string(counter) + "\n";
+    //inst_code += "callq .init_shstk\n";
+    //inst_code += ".push_ra_" + to_string(counter) + ":\n";
+    //inst_code += "addq $16,%fs:0x78\n";
+    //inst_code += "mov %rax,%fs:0x88\n";
+    //inst_code += "mov %fs:0x78,%rax\n";
+    //inst_code += "push %rbx\n";
+    //inst_code += "mov 8(%rsp),%rbx\n";
+    //inst_code += "mov %rbx,-8(%rax)\n";
+    //inst_code += "pop %rbx\n";
+    //inst_code += "mov %rsp,-16(%rax)\n";
+    //inst_code += "mov %fs:0x88,%rax\n";
+    //counter++;
   }
   else if(h == HookType::LEGACY_SHADOW_INDRCT_CALL) {
       inst_code += "mov %rax,%fs:0x88\n";

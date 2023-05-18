@@ -282,6 +282,9 @@ public:
     else
       return insList_[0]->label() + "_" + to_string(start_) + "_def_code";
   }
+  string shStkTrampSym() {
+    return label() + "_shadow_tramp";
+  }
 
   string lblSuffix() {
     if(isCode())

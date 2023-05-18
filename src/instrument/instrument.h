@@ -135,6 +135,7 @@ public:
                           string fall = "",
                           uint64_t sigaction_addrs = 0);
   string getRegVal(string reg, HookType h);  
+  string directCallShstkTramp();
   virtual void instrument() = 0;
 
 private:

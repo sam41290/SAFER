@@ -520,7 +520,7 @@ Instruction::instrument() {
         if(isIndrctCf_)
           asmIns_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_INDRCT_CALL,fallSym());
         else
-          instAsmPre_ = generate_hook(fallBBSym(),args,"call",HookType::LEGACY_SHADOW_CALL,fallSym());
+          asmIns_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_CALL,fallSym());
       }
       else
         asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_RET);
