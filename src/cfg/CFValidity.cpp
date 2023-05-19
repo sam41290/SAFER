@@ -47,7 +47,7 @@ CFValidity::validMem(Instruction *ins) {
   else {
     int64_t offt = ins->constPtr();
     if(offt != 0 && offt > (int64_t)memSpaceEnd_) {
-      //DEF_LOG("invalid const mem access at: "<<hex<<ins->location()<<": "<<ins->asmIns()<<" const ptr: "<<offt);
+      DEF_LOG("invalid const mem access at: "<<hex<<ins->location()<<": "<<ins->asmIns()<<" const ptr: "<<offt);
       return false;
     }
   }
