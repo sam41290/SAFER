@@ -618,7 +618,7 @@ Binary::printOldCodeAndData(string file_name) {
   for(section & sec : rxSections_) {
     section new_sec = sec;
     new_sec.sec_type = section_types::RONLY;
-    if((RA_OPT || manager_->isEhSection(sec.vma) == false) && sec.sec_type != section_types::RX) { 
+    if((RA_OPT == false || manager_->isEhSection(sec.vma) == false) && sec.sec_type != section_types::RX) { 
       if(sec.name.rfind(".") == 0) {
         new_sec.start_sym = sec.name + "_dup";
         new_sec.end_sym = sec.name + "_dup_end";
