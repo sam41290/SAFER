@@ -609,6 +609,7 @@ BasicBlock::addTrampToTgt() {
   ins->label("." + to_string(target_) + "_" + to_string(start_));
   ins->isJump(true);
   ins->mnemonic("jmp");
+  ins->location(0);
   ins->asmIns("jmp " + targetBB_->label());
   bb->addIns(ins);
   targetBB(bb);

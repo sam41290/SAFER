@@ -342,7 +342,7 @@ Instruction::print(string file_name, string lbl_sfx) {
   }
   asm_ins += "\t" + instAsmPost_ + "\n";
   SymBind b = SymBind::NOBIND;
-  if(isCode())
+  if(location() != 0 && isCode())
     b = SymBind::FORCEBIND;
   utils::printAsm(asm_ins,location(),label_ + lbl_sfx,b,file_name);
   if(isCall() && asm_ins.find(fallSym()) == string::npos) {

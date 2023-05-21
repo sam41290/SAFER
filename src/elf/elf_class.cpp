@@ -1387,7 +1387,8 @@ ElfClass::updAllPHdrsV2(string bname) {
     //2. At memory offset = 0 or first file offset to be loaded onto memory.
     //   After the program is loaded, the program headers will be searched for
     //   at memory offset = 0
-    
+   
+    DEF_LOG("Writing new pheader at :"<<hex<<ph_off);
     utils::WRITE_TO_FILE (bname, p, ph_off, sizeof (Elf64_Phdr));
     ph_off += sizeof (Elf64_Phdr);
   }
@@ -1531,8 +1532,10 @@ ElfClass::updAllPHdrs (string bname) {
     //   After the program is loaded, the program headers will be searched for
     //   at memory offset = 0
     
+    DEF_LOG("Writing new pheader at :"<<hex<<new_pheader_location);
     utils::WRITE_TO_FILE (bname, phTable_[i], new_pheader_location,
   		    sizeof (Elf64_Phdr));
+    DEF_LOG("Writing new pheader at :"<<hex<<old_pheader_location);
     utils::WRITE_TO_FILE (bname, phTable_[i], old_pheader_location,
   		    sizeof (Elf64_Phdr));
     new_pheader_location += sizeof (Elf64_Phdr);
@@ -1549,7 +1552,7 @@ ElfClass::updAllPHdrs (string bname) {
 			sizeof (Elf64_Ehdr));
 
   elfHeader_->e_phoff = ph_offset;
-  LOG ("new code segment start: " << new_codesegment_start);
+  DEF_LOG ("new code segment start: " << new_codesegment_start);
   utils::WRITE_TO_FILE (bname, elfHeader_, new_codesegment_start,
 			sizeof (Elf64_Ehdr));
   elfHeader_->e_phoff = code_segment_offset + ph_offset;
@@ -1572,6 +1575,7 @@ ElfClass::updAllSecHdrsV2(string bname) {
   for(auto & sh : shTable_) {
     LOG ("section offset - " << hex << sh->sh_offset 
         << " addrs: " << hex << sh->sh_addr << " size: " << sh->sh_size);
+    DEF_LOG("Writing section header at :"<<hex<<new_sec_tab_offset);
     utils::WRITE_TO_FILE (bname, sh, new_sec_tab_offset,sizeof (Elf64_Shdr));
     new_sec_tab_offset += sizeof (Elf64_Shdr);
   }
@@ -1655,7 +1659,7 @@ ElfClass::insertDataSeg (string bname) {
       		 ph.mem_sz - 8);
 
     uint64_t offset = newSymOfft_[".datasegment_start"];
-    LOG ("writing data segment at: " << hex << offset);
+    DEF_LOG ("writing data segment at: " << hex << offset);
     utils::WRITE_TO_FILE (bname, (void *) segment_data, offset, ph.mem_sz - 8);
   }
 
@@ -1874,6 +1878,7 @@ ElfClass::changeEntryPnt (string bname) {
   uint64_t new_codesegment_start = newSymOfft_[".new_codesegment_start"];
 
   utils::WRITE_TO_FILE (bname, elfHeader_, 0, sizeof (Elf64_Ehdr));
+  DEF_LOG("Writing new elf header at :"<<hex<<code_segment_offset);
   utils::WRITE_TO_FILE (bname, elfHeader_, code_segment_offset,
 			sizeof (Elf64_Ehdr));
 
@@ -1918,7 +1923,9 @@ ElfClass::updDynSection (string bname) {
     dyn[i].d_tag == DT_SYMINFO || dyn[i].d_tag == DT_VERDEF ||
     dyn[i].d_tag == DT_VERNEED || dyn[i].d_tag ==
     0x000000006ffffff0 || dyn[i].d_tag == 0x000000006ffffef5) {
+      DEF_LOG("Changing dynamic entry: "<<hex<< dyn[i].d_un.d_ptr);
       dyn[i].d_un.d_ptr = newSymVal(dyn[i].d_un.d_ptr);
+      DEF_LOG("New val: "<<hex<< dyn[i].d_un.d_ptr);
         //encode(newSymVal(dyn[i].d_un.d_ptr),dyn[i].d_un.d_ptr);
     }
     else if (dyn[i].d_tag > DT_ENCODING && (dyn[i].d_tag < DT_HIOS ||
@@ -2051,15 +2058,20 @@ ElfClass::updRelaSections (string bname) {
 
 uint64_t
 ElfClass::newSymVal (uint64_t old_offset) {
+  DEF_LOG("Getting new sym val: "<<hex<<old_offset);
   if (old_offset == 0)
     return 0;
   if (old_offset >= oldDataSeg_)
     return newSymAddrs_[".datasegment_start"] + old_offset -
       oldDataSeg_;
-  else if(utils::sym_bindings.find(old_offset) != utils::sym_bindings.end())
+  else if(utils::sym_bindings.find(old_offset) != utils::sym_bindings.end()) {
+    DEF_LOG("Bounded sym: "<<utils::sym_bindings[old_offset]);
     return newSymAddrs_[utils::sym_bindings[old_offset]];
-  else
+  }
+  else {
+    DEF_LOG("No bounded sym...getting val for ."<<old_offset);
     return newSymAddrs_["." + to_string (old_offset)];	// - new_codesegment_offset;
+  }
 }
 
 void

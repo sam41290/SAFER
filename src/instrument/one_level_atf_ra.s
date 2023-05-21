@@ -46,6 +46,8 @@
   movslq 0x4(%rax),%rax
   lea    (%rax,%rax,4),%rax
   mov    (%r9,%rdx,8),%rdx
+  cmp    $0,%rdx
+  je     .rep_qprobe_ra
   lea    (%rdx,%rax,8),%rdx
   cmp    (%rdx),%rbx
   je     .jump_to_target_ra
