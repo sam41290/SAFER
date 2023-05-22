@@ -3,7 +3,6 @@
 cfgdir=$2
 disasm=$3
 
-jtabledir=$4
 #make
 
 rm -rf jmp_table log tmp *.o *.s text
@@ -14,6 +13,8 @@ mkdir tmp
 mkdir tmp/cfg
 
 file=`basename $1`
+file_dir=`dirname $1`
+jtable=${file_dir}/${file}.jtable
 
 if [ "${disasm}" = "symtabledisasm" ]; then
   objdump -W ${1} | grep "advance Address by" \
@@ -28,9 +29,9 @@ then
   cp -r ${cfgdir} tmp/
   echo "cfg present" > tmp/cfg.present
 fi
-if [ -d "${jtabledir}" ]
+if [ -f "${jtable}" ]
 then
-  cp -r ${jtabledir}/* jmp_table/
+  cp -r ${jtable} jmp_table/result.jtable
 fi
 
 exe=`basename $1`

@@ -54,6 +54,94 @@ JmpTblAnalysis::readTargets (JumpTable & jt, uint64_t jloc)
   LOG("jump table end: "<<hex<<jt.end());
 }
 
+void
+JmpTblAnalysis::preCachedJumpTables() {
+  string dir = get_current_dir_name();
+  ifstream ifile;
+  ifile.open(dir+"/jmp_table/result.jtable");
+  string line;
+  while(getline(ifile,line)) {
+    vector <string> words = utils::split_string(line,' ');
+    if(words.size() > 0) {
+      int type = stol(words[0],0,10);
+      if(type == 1) {
+        JumpTable j;
+        j.type(1);
+        uint64_t cf_loc = stoull(words[1],0,10);
+        j.cfLoc(cf_loc);
+        j.base(stoull(words[2],0,10));
+        j.location(stoull(words[3],0,10));
+        DEF_LOG("Pre cached Type 1 Location: "<<hex<<j.location()<<" base: "<<j.base());
+        j.entrySize(stoull(words[4],0,10));
+        cachedJTables_[cf_loc].push_back(j);
+        //jmp_tbls.push_back(j);
+      }
+      else if(type == 2) {
+        JumpTable j;
+        j.type(2);
+        uint64_t cf_loc = stoull(words[1],0,10);
+        j.cfLoc(cf_loc);
+        j.location(stoull(words[2],0,10));
+        j.base(j.location());
+        DEF_LOG("Pre cached Type 2 Location: "<<hex<<j.location());
+        j.entrySize(stoull(words[3],0,10));
+        cachedJTables_[cf_loc].push_back(j);
+        //jmp_tbls.push_back(j);
+      }
+      else if(type == 3) {
+        JumpTable j;
+        j.type(3);
+        uint64_t cf_loc = stoull(words[1],0,10);
+        j.cfLoc(cf_loc);
+        j.location(stoull(words[2],0,10));
+        j.base(j.location());
+        DEF_LOG("Pre cached Type 3 Location: "<<hex<<j.location());
+        j.entrySize(stoull(words[3],0,10));
+        cachedJTables_[cf_loc].push_back(j);
+        //jmp_tbls.push_back(j);
+      }
+    }
+  }
+  ifile.close();
+  /*
+  ifile.open(dir+"/jmp_table/result.njtable");
+  while(getline(ifile,line)) {
+    uint64_t no_jtable_cf = stoull(line,0,10);
+    noJTable_.insert(no_jtable_cf);
+  }
+  ifile.close();
+  */
+}
+
+void
+JmpTblAnalysis::processJTable(JumpTable &j) {
+  if (jmpTblExists(j) == false) {
+    map <uint64_t, Function *>funMap = funcMap();
+    if(CFValidity::validAddrs(j.base()) == false ||
+       isMetadata(j.base()))
+      return;
+    if(CFValidity::validAddrs(j.location()) == false ||
+       isMetadata(j.location()))
+      return;
+    j.end(dataSegmntEnd(j.location()));
+    if (j.end() == 0) {
+      LOG ("Unexpected end!!!");
+      return;
+    }
+    LOG("Decoding jump table: ");
+    DEF_LOG("Location: "<<hex<<j.location()<<" base: "<<j.base()<<" end: "<<hex<<j.end());
+    auto cf_loc = j.cfLoc();
+    auto fn = is_within(cf_loc[0],funMap);
+    j.function(fn->first);
+    readTargets(j,cf_loc[0]);
+    if(j.base() != 0) {
+      auto basebb = getBB(j.base());
+      if(basebb != NULL)
+        j.baseBB(basebb);
+    }
+    jumpTable(j);
+  }
+}
 
 void
 JmpTblAnalysis::decodeJmpTblTgts(analysis::JTable j_lst) {
@@ -157,6 +245,25 @@ JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
     }
   }
   if(hasIndJmp(fin_bb_list)) {
+    unordered_set <uint64_t> cache_checked;
+    bool all_cached = true;
+    for(auto & bb : fin_bb_list) {
+      if(bb->indirectCFWithReg()) {
+        auto last_ins = bb->lastIns();
+        auto cf = last_ins->location();
+        if(cache_checked.find(cf) == cache_checked.end()) {
+          cache_checked.insert(cf);
+          if(cachedJTables_.find(cf) != cachedJTables_.end()) {
+            for(auto & j : cachedJTables_[cf])
+              processJTable(j);
+          }
+          else
+            all_cached = false;
+        }
+      }
+    }
+    if(all_cached)
+      return;
     string dir = get_current_dir_name();
     string file_name = /*TOOL_PATH + exeName_*/ dir  + "/jmp_table/" + to_string(entries_to_analyze[0]) + ".s";
     unordered_map<int64_t, vector<int64_t>> ind_tgts;
