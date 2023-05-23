@@ -115,10 +115,15 @@ public:
       string enc_ptr_sym = "." + to_string(e.val_) + "_enc_ptr";
       string tramp_sym = "." + to_string(e.val_) + "_tramp_ptr";
       if(e.oldOrNew_ == 1) {
-        e.lookupEntrySym_ += "_new";
-        e.tgtEntrySym_ += "_new";
-        enc_ptr_sym += "_new";
-        tramp_sym += "_new";
+        e.lookupEntrySym_ = ".attentry_lookup_" + e.newPtrSym_;
+        e.tgtEntrySym_ = ".attentry_tgt_" + e.newPtrSym_;
+        enc_ptr_sym = "." + e.newPtrSym_ + "_enc_ptr";
+        tramp_sym = "." + e.newPtrSym_ + "_tramp_ptr";
+
+        //e.lookupEntrySym_ += "_new";
+        //e.tgtEntrySym_ += "_new";
+        //enc_ptr_sym += "_new";
+        //tramp_sym += "_new";
       }
       tbl += e.lookupEntrySym_ + ":\n"
           + e.oldPtr_ + "\n" + e.tgtEntrySym_ + ":\n"
