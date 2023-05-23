@@ -148,7 +148,7 @@ JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
   for(auto & entry : entries) {
     auto bb = getBB(entry);
     if(bb != NULL) {
-      LOG("Analyzing jump table for: "<<hex<<entry);
+      DEF_LOG("Analyzing jump table for: "<<hex<<entry);
       vector <BasicBlock *> bb_list = bbSeq(bb);
       if(validIns(bb_list)) {
         fin_bb_list.insert(fin_bb_list.end(),bb_list.begin(),bb_list.end());
@@ -169,7 +169,7 @@ JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
         + ".sz",ins_sz);
     //vector <int64_t> all_entries;
     //all_entries.push_back(entry);
-    LOG("indirect targets size: "<<ind_tgts.size());
+    DEF_LOG("indirect targets size: "<<ind_tgts.size());
     if(analysis::load(file_name,ins_sz,ind_tgts,entries_to_analyze)) {
       for (int func_index = 0; ; ++func_index) {
         bool valid_func = analysis::analyze(func_index);
