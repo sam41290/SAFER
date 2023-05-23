@@ -229,6 +229,7 @@ hasIndJmp(vector <BasicBlock *> & bb_list) {
   return false;
 }
 
+unordered_set <uint64_t> cache_checked;
 void
 JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
   vector <BasicBlock *> fin_bb_list;
@@ -245,7 +246,6 @@ JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
     }
   }
   if(hasIndJmp(fin_bb_list)) {
-    unordered_set <uint64_t> cache_checked;
     bool all_cached = true;
     for(auto & bb : fin_bb_list) {
       if(bb->indirectCFWithReg()) {
