@@ -908,6 +908,7 @@ Cfg::cnsrvtvDisasm() {
   classifyPtrs();
   DEF_LOG("Disassembling possible code");
   disassembleGaps();
+  preCachedJumpTables();
   possibleCodeDisasm();
   //phase1NonReturningCallResolution();
   //addHintBasedEntries();

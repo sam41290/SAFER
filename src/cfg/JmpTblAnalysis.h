@@ -30,11 +30,13 @@ namespace SBI {
   class JmpTblAnalysis : public virtual CFValidity, public virtual CfgElems,
   public virtual SaInput {
     set <string> leaToJmpPairs;
+    unordered_map<uint64_t,vector <JumpTable>> cachedJTables_;
   public:
     JmpTblAnalysis (uint64_t memstrt, uint64_t memend);
     void analyze();
     void jmpTblAnalysis();
     void analyzeAddress(vector <int64_t> &entries);
+    void preCachedJumpTables();
     virtual bool addToCfg(uint64_t addrs, PointerSource src) = 0;
     virtual void addToDisasmRoots (uint64_t address) = 0;
     virtual void rootSrc(PointerSource root) = 0;
@@ -56,6 +58,7 @@ namespace SBI {
     
     //---------------------------------------------------------
     void analyzeFn(Function *fn);
+    void processJTable(JumpTable &j);
     void decodeJmpTblTgts(analysis::JTable j_lst);
     void readTargets (JumpTable & jt, uint64_t jloc);
     //uint64_t dataSegmntEnd(uint64_t addrs);

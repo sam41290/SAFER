@@ -152,14 +152,15 @@ Instrument::directCallShstkTramp() {
   inst_code += "callq .init_shstk\n";
   inst_code += ".push_ra_" + to_string(counter) + ":\n";
   inst_code += "addq $16,%fs:0x78\n";
-  inst_code += "mov %rax,%fs:0x88\n";
+  inst_code += "push %rax\n";
   inst_code += "mov %fs:0x78,%rax\n";
   inst_code += "push %rbx\n";
-  inst_code += "mov 8(%rsp),%rbx\n";
+  inst_code += "mov 16(%rsp),%rbx\n";
   inst_code += "mov %rbx,-8(%rax)\n";
+  inst_code += "lea 16(%rsp),%rbx\n";
+  inst_code += "mov %rbx,-16(%rax)\n";
   inst_code += "pop %rbx\n";
-  inst_code += "mov %rsp,-16(%rax)\n";
-  inst_code += "mov %fs:0x88,%rax\n";
+  inst_code += "pop %rax\n";
   counter++;
   return inst_code;
 }
