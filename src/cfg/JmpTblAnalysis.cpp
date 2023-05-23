@@ -116,6 +116,8 @@ JmpTblAnalysis::preCachedJumpTables() {
 void
 JmpTblAnalysis::processJTable(JumpTable &j) {
   if (jmpTblExists(j) == false) {
+      if(j.entrySize() == 0)
+        return;
     map <uint64_t, Function *>funMap = funcMap();
     if(CFValidity::validAddrs(j.base()) == false ||
        isMetadata(j.base()))
@@ -187,6 +189,8 @@ JmpTblAnalysis::decodeJmpTblTgts(analysis::JTable j_lst) {
   }
   for(auto & j : jmp_tbls) {
     if (jmpTblExists(j) == false) {
+      if(j.entrySize() == 0)
+        continue;
       //auto h = (uint64_t)(j.location()+jtable.mem.addr.range.h);
       //j.end(std::min(h,dataSegmntEnd(j.location())));
       if(CFValidity::validAddrs(j.base()) == false ||
@@ -228,7 +232,7 @@ hasIndJmp(vector <BasicBlock *> & bb_list) {
       return true;
   return false;
 }
-
+unordered_set <uint64_t> cache_checked;
 void
 JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
   vector <BasicBlock *> fin_bb_list;
@@ -236,7 +240,7 @@ JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
   for(auto & entry : entries) {
     auto bb = getBB(entry);
     if(bb != NULL) {
-      LOG("Analyzing jump table for: "<<hex<<entry);
+      DEF_LOG("Analyzing jump table for: "<<hex<<entry);
       vector <BasicBlock *> bb_list = bbSeq(bb);
       if(validIns(bb_list)) {
         fin_bb_list.insert(fin_bb_list.end(),bb_list.begin(),bb_list.end());
@@ -245,13 +249,13 @@ JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
     }
   }
   if(hasIndJmp(fin_bb_list)) {
-    unordered_set <uint64_t> cache_checked;
     bool all_cached = true;
     for(auto & bb : fin_bb_list) {
       if(bb->indirectCFWithReg()) {
         auto last_ins = bb->lastIns();
         auto cf = last_ins->location();
         if(cache_checked.find(cf) == cache_checked.end()) {
+          DEF_LOG("Cached jump table for cf: "<<hex<<cf);
           cache_checked.insert(cf);
           if(cachedJTables_.find(cf) != cachedJTables_.end()) {
             for(auto & j : cachedJTables_[cf])
@@ -295,8 +299,11 @@ JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
 
 void
 JmpTblAnalysis::analyzeFn(Function * fn) {
+  DEF_LOG("Anayzing jump table for function body: "<<hex<<fn->start());
+  int ctr = 0;
   while(true) {
     unsigned int size = jumpTableCnt();
+    DEF_LOG("Iteration: "<<ctr<<" jump table cnt: "<<size);
     set <uint64_t> alreadyAnalyzed = fn->jmpTblAnalyzed();
     set <uint64_t> entries = fn->entryPoints();
     set <uint64_t> psbl_entries = fn->probableEntry();
@@ -331,6 +338,7 @@ JmpTblAnalysis::analyzeFn(Function * fn) {
         fn->jmpTblAnalyzed(lea_bb->start());
       break;
     }
+    ctr++;
   }
 }
 

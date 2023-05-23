@@ -409,7 +409,7 @@ namespace SBI {
     void shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x);
     void instrument(uint64_t hook_point,string code);
     vector <JumpTable> jumpTables() { return jmpTables_; }
-    void jumpTable(JumpTable j) { jmpTables_.push_back(j); }
+    void jumpTable(JumpTable &j) { jmpTables_.push_back(j); }
     bool rewritableJmpTblLoc(uint64_t addrs);
     bool rewritableJmpTblBase(uint64_t addrs);
     bool sameLocDiffBase(uint64_t loc, uint64_t base);
