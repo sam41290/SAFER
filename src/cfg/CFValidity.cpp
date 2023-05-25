@@ -46,7 +46,7 @@ CFValidity::validMem(Instruction *ins) {
   }
   else {
     int64_t offt = ins->constPtr();
-    if(offt != 0 && offt > (int64_t)memSpaceEnd_) {
+    if(offt != 0 && ins->asmIns().find("movabs") == string::npos && offt > (int64_t)memSpaceEnd_) {
       DEF_LOG("invalid const mem access at: "<<hex<<ins->location()<<": "<<ins->asmIns()<<" const ptr: "<<offt);
       return false;
     }
@@ -101,7 +101,7 @@ CFValidity::validCFTransfer(vector <BasicBlock *> &bbList) {
     if(bbList[i]->boundary() > bbList[i + 1]->start()) {
       auto ins = bbList[i]->getIns(bbList[i + 1]->start());
       if(ins == NULL) {
-        //DEF_LOG("Boundary exceeds: "<<hex<<bbList[i + 1]->start());
+        DEF_LOG("Boundary exceeds: "<<hex<<bbList[i + 1]->start());
         valid = false;
         break;
       }
@@ -116,22 +116,22 @@ CFValidity::validCFTransfer(vector <BasicBlock *> &bbList) {
     for(auto & bb : bbList) {
       auto last_ins = bb->lastIns();
       if(bb->isCall() && bb->target() == 0 && bb->fallThroughBB() == NULL) { //Indirect call but no fall through.
-        //DEF_LOG("Indirect call without fall through: "<<hex<<bb->start());
+        DEF_LOG("Indirect call without fall through: "<<hex<<bb->start());
         return false;
       }
       else if(last_ins->isJump() && last_ins->isUnconditionalJmp() == false && bb->fallThroughBB() == NULL) {//conditional jump without fall through
-        //DEF_LOG("Conditional jump without fall through: "<<hex<<bb->start());
+        DEF_LOG("Conditional jump without fall through: "<<hex<<bb->start());
         return false;
       }
       else if(last_ins->isJump() == false && last_ins->isCall() == false && bb->fallThroughBB() == NULL
               && last_ins->asmIns().find("ret") == string::npos 
               && last_ins->asmIns().find("ud2") == string::npos
               && last_ins->asmIns().find("hlt") == string::npos) {
-        //DEF_LOG("No CFT BB without fall through: "<<hex<<bb->start()<<": "<<last_ins->asmIns());
+        DEF_LOG("No CFT BB without fall through: "<<hex<<bb->start()<<": "<<last_ins->asmIns());
         return false;
       }
       else if(last_ins->isJump() && bb->target() != 0 && bb->targetBB() == NULL) {
-        //DEF_LOG("Jump without target: "<<hex<<bb->start());
+        DEF_LOG("Jump without target: "<<hex<<bb->start());
         return false;
       }
 
@@ -145,7 +145,7 @@ CFValidity::validCFTransfer(vector <BasicBlock *> &bbList) {
     if(exit_point)
       return valid;
     else {
-      //DEF_LOG("No exit point");
+      DEF_LOG("No exit point");
       return false;
     }
   }

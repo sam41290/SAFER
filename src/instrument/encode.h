@@ -317,12 +317,38 @@ class GttAtt : public Encode {
                  + "mov 0(%rsp),%rcx\n"
                  + "mov 8(%rsp),%rdx\n"
                  + "add $16,%rsp\n"
+                 + "mov %rax,0(%rsp)\n"
                  + "mov %fs:0x28,%rax\n"
                  + "ret\n";
       inst_code += ".at_" + to_string(decode_counter) + ":\n"
                  + mne + " ." + hook_target + "\n" + ".fall_" + to_string(decode_counter) +":\n";
 
       decode_counter++;
+      return inst_code;
+    }
+    string decodeRAX() {
+      string inst_code = "";
+      inst_code += ".decode_RAX:\n";
+      inst_code += "cmp $0,%rax\n"; 
+      inst_code += "jg .at_RAX\n";
+      inst_code += "sub $16,%rsp\n";
+      inst_code += "mov %rcx,0(%rsp)\n";
+      inst_code += "mov %rdx,8(%rsp)\n";
+      inst_code += "mov .att_arr(%rip),%rdx\n";
+      inst_code += "mov %rax,%rcx\n";
+      inst_code += "shr $4,%eax\n";
+      inst_code += "and $0xfffff,%rax\n";
+      inst_code += "shr $32,%rcx\n";
+      inst_code += "and $0xff,%rcx\n";
+      inst_code += "mov 0x0(%rdx,%rcx,8),%rdx\n";
+      inst_code += "lea 0x0(%rax,%rax,4),%rax\n";
+      inst_code += "lea 24(%rdx,%rax,8),%rax\n";
+      inst_code += "mov 0(%rsp),%rcx\n";
+      inst_code += "mov 8(%rsp),%rdx\n";
+      inst_code += "add $16,%rsp\n";
+      inst_code += "ret\n";
+      inst_code += ".at_RAX:\n"; 
+      inst_code += "jmp .GTF_translate\n";
       return inst_code;
     }
     string shadowTramp() {
@@ -454,6 +480,22 @@ class MultInv : public Encode {
                  + mne + " ." + hook_target + "\n" + ".fall_" + to_string(decode_counter) +":\n";
 
       decode_counter++;
+      return inst_code;
+    }
+    string decodeRAX() {
+      string inst_code = "";
+      inst_code += ".decode_RAX:\n";
+      inst_code += "cmp $0,%rax\n";
+      inst_code += "jg .at_RAX\n";
+      inst_code += "push %rdx\n";
+      inst_code += "movabs $" + to_string(ODD_A) + ",%rdx\n";
+      inst_code += "mulx %rax,%rax,%rdx\n";
+      inst_code += "movabs $0x7fffffffffffffff,%rdx\n";
+      inst_code += "and %rdx,%rax\n";
+      inst_code += "pop %rdx\n";
+      inst_code += "ret\n";
+      inst_code += ".at_RAX:\n";
+      inst_code += "jmp .GTF_translate\n";
       return inst_code;
     }
     string shadowTramp() {

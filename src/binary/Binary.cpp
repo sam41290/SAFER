@@ -1117,6 +1117,8 @@ Binary::genInstAsm() {
   }
   ifile.close();
   ofile<<".align 16\n";
+  ofile<<".GTF_decode_rax:\n";
+  ofile<<decodeRAX();
   ofile<<".GTF_translate:\n";
 #ifdef ONE_LEVEL_HASH
   string atf_file_tt(TOOL_PATH"src/instrument/one_level_atf_translate_ptr.s");
