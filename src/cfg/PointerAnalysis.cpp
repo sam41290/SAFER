@@ -1773,8 +1773,8 @@ PointerAnalysis::analyzeCandidates() {
     analysisQ_.pop();
     auto bb = getBB(candidate.address_);
     if(bb != NULL) {
-      if(candidate.score_ < REJECT_THRESHOLD ||
-         conflictsPriorityCode(bb)) {
+      if(bb->isCode() == false && (candidate.score_ < REJECT_THRESHOLD ||
+         conflictsPriorityCode(bb))) {
         Conflicts_.insert(bb->start());
         continue;
       }
