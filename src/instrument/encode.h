@@ -117,8 +117,8 @@ public:
       if(e.oldOrNew_ == 1) {
         e.lookupEntrySym_ = ".attentry_lookup_" + e.newPtrSym_;
         e.tgtEntrySym_ = ".attentry_tgt_" + e.newPtrSym_;
-        enc_ptr_sym = "." + e.newPtrSym_ + "_enc_ptr";
-        tramp_sym = "." + e.newPtrSym_ + "_tramp_ptr";
+        enc_ptr_sym = e.newPtrSym_ + "_enc_ptr";
+        tramp_sym = e.newPtrSym_ + "_tramp_ptr";
 
         //e.lookupEntrySym_ += "_new";
         //e.tgtEntrySym_ += "_new";

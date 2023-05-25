@@ -902,14 +902,16 @@ PointerAnalysis::analyzeEntries(vector <BasicBlock *> &entry_lst, bool force) {
   for(auto & entry : entry_lst) {
     vector <BasicBlock *> lst = bbSeq(entry, SEQTYPE::INTRAFN);
     DEF_LOG("Checking entry: "<<hex<<entry->start());
-    vector <BasicBlock *> next_entry;
-    next_entry.push_back(entry);
-    auto ind_set = allIndTgts(next_entry);
-    if(ind_set.size() > 0) {
-      auto first_tgt = ind_set[0];
-      auto ind_lst = bbSeq(first_tgt);
-      lst.insert(lst.end(), ind_lst.begin(), ind_lst.end());
-    }
+    //vector <BasicBlock *> next_entry;
+    //next_entry.push_back(entry);
+    //auto ind_set = allIndTgts(next_entry);
+    //if(ind_set.size() > 0) {
+    //  DEF_LOG("Ind tgt size: "<<ind_set.size());
+    //  auto first_tgt = ind_set[0];
+    //  DEF_LOG("First tgt: "<<hex<<first_tgt->start());
+    //  auto ind_lst = bbSeq(first_tgt);
+    //  lst.insert(lst.end(), ind_lst.begin(), ind_lst.end());
+    //}
     setProperty(lst, cfCheck(lst), entry->start());
     if(dataByProperty(entry) == false) {
       for(auto & bb : lst) {
@@ -954,14 +956,14 @@ PointerAnalysis::analyzeEntry(BasicBlock *entry, bool force) {
   vector <BasicBlock *> lst = bbSeq(entry, SEQTYPE::INTRAFN);
   vector <BasicBlock *> next_entry;
   next_entry.push_back(entry);
-  auto ind_set = allIndTgts(next_entry);
-  DEF_LOG("Checking property: "<<hex<<entry->start()<<" force: "<<force<<" ind tgt count: "<<dec<<ind_set.size());
+  //auto ind_set = allIndTgts(next_entry);
+  DEF_LOG("Checking property: "<<hex<<entry->start()<<" force: "<<force);//<<" ind tgt count: "<<dec<<ind_set.size());
   auto score = probScore(entry->start());
-  if(ind_set.size() > 0) {
-    auto first_tgt = ind_set[0];
-    auto ind_lst = bbSeq(first_tgt);
-    lst.insert(lst.end(), ind_lst.begin(), ind_lst.end());
-  }
+  //if(ind_set.size() > 0) {
+  //  auto first_tgt = ind_set[0];
+  //  auto ind_lst = bbSeq(first_tgt);
+  //  lst.insert(lst.end(), ind_lst.begin(), ind_lst.end());
+  //}
   setProperty(lst, cfCheck(lst), entry->start());
   if(dataByProperty(entry) == false) {
     for(auto & bb : lst) {
@@ -1773,8 +1775,8 @@ PointerAnalysis::analyzeCandidates() {
     analysisQ_.pop();
     auto bb = getBB(candidate.address_);
     if(bb != NULL) {
-      if(bb->isCode() == false && (candidate.score_ < REJECT_THRESHOLD ||
-         conflictsPriorityCode(bb))) {
+      if(candidate.score_ < REJECT_THRESHOLD ||
+         conflictsPriorityCode(bb)) {
         Conflicts_.insert(bb->start());
         continue;
       }

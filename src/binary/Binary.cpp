@@ -169,7 +169,7 @@ Binary::disassemble() {
       added.insert(ptr);
       string sym = codeCFG_->getSymbol(ptr);
       if(sym != "") {
-        manager_->addAttEntry(ptr,".8byte " + sym + "- .elf_header_start",
+        manager_->addAttEntry(ptr,".8byte " + sym + " - .elf_header_start",
                               ".8byte " + sym + " - " + ".elf_header_start",
                               sym, 1);
         //if(RA_OPT == false)

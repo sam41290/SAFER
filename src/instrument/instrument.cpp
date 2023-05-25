@@ -296,7 +296,7 @@ Instrument::generate_hook(string hook_target, string args,
     else if(mne.find("jmp") != string::npos) {
       inst_code += "mov %rax,%fs:0x88\n";
       inst_code += "mov 0(%rsp),%rax\n";
-      inst_code += "call .GTF_translate\n";
+      inst_code += "call .GTF_decode_rax\n";
       inst_code += "mov %rax,0(%rsp)\n";
       inst_code += ".continue_plt_" + to_string(counter) + ":\n";
       inst_code += "mov %fs:0x28,%rax\n";
