@@ -778,7 +778,10 @@ Binary::printOldCodeAndData(string file_name) {
           utils::printAsm("\t.skip " + to_string(byte_cnt - skipped) + "\n",addr + skipped,
                            "." + to_string(addr + skipped),b,file_name);
         }
-        i += sec_size;
+        if(sec_size == 0)
+          i++;
+        else
+          i += sec_size;
       }
       else if(interp_sec) {
         string interp((char *)(data + i));

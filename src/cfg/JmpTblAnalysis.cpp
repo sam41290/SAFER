@@ -266,6 +266,7 @@ JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
         }
       }
     }
+    
     if(all_cached)
       return;
     string dir = get_current_dir_name();
