@@ -216,9 +216,19 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
     ins_lbl_sfx = "_" + to_string(start_) + "_unknown_code";
   }
   bool call_fall_thru = false;
-  for(auto & p : parents_)
-    if(p->lastIns()->isCall() && p->lastIns()->fallThrough() == start())
+  for(auto & p : parents_) {
+    if(p->lastIns()->isCall() && p->lastIns()->fallThrough() == start()) {
       call_fall_thru = true;
+      break;
+    }
+  }
+  bool call_target = false;
+  for(auto & p : parents_) {
+    if(p->lastIns()->isCall() && p->target() == start()) {
+      call_target = true;
+      break;
+    }
+  }
   if(call_fall_thru == false && if_exists(start_, map_of_pointer)) {
     auto ptr = map_of_pointer[start_];
     if(ptr->source() != PointerSource::POSSIBLE_RA &&
@@ -227,7 +237,11 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
        ptr->symbolizable(SymbolizeIf::RLTV))) {
       utils::printAlgn(16,file_name);
     }
+    else if(call_target)
+      utils::printAlgn(16,file_name);
   }
+  else if(call_target)
+    utils::printAlgn(16,file_name);
   for(auto & it:insList_) {
     it->isCode(isCode());
     if((it->isJump() || it->isCall())) {
