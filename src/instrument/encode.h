@@ -62,6 +62,8 @@ class Encode {
 
     for(uint64_t i = 0; i < entry_cnt; i++) {
       uint64_t ptr = att_tbl[i].old_;
+      if(ptr == 0)
+        continue;
       ptr = getHash(ptr);
       //cout<<"hash: "<<hex<<att_tbl[i].old_<<"->"<<hex<<ptr<<endl;
       if(hash_map.find(ptr) == hash_map.end() ||
@@ -71,7 +73,15 @@ class Encode {
       }
       else {
         //cout<<"collision: "<<hex<<att_tbl[i].old_<<"->"<<hex<<hash_map[ptr]<<endl;
-        return false;
+        for(auto j = 1; j < hashTblSize_; j++) {
+          auto new_ind = (ptr + (j * j)) % hashTblSize_; 
+          if(hash_map.find(new_ind) == hash_map.end() ||
+             hash_map[new_ind] == att_tbl[i].old_) {
+            hash_map[new_ind] = att_tbl[i].old_;
+            att_tbl[i].hashInd_ = new_ind;
+            break;
+          }
+        }
       }
     }
     return true;
@@ -188,6 +198,37 @@ public:
     //Ignore first record and last record;
     att_tbl += (4 * 8);
     size -= (8 * 8);
+    auto entry_cnt = size/sizeof(AttRec);
+    auto hash_entry = entry_cnt + entry_cnt * 0.8;
+    double l = ceil(log2(hash_entry));
+    //l += 1;
+    hashTblBit_ = l;
+    hashTblSize_ = powl(2,hashTblBit_);
+    //bool repeat = true;
+    srand((unsigned) time(0));
+    uint64_t y  = rand() & 0xff;
+    y |= (uint64_t)(rand() & 0xff) << 8;
+    y |= (uint64_t)(rand() & 0xff) << 16;
+    y |= (uint64_t)(rand() & 0xff) << 24;
+    y |= (uint64_t)(rand() & 0xff) << 32;
+    y |= (uint64_t)(rand() & 0xff) << 40;
+    y |= (uint64_t)(rand() & 0xff) << 48;
+    y |= (uint64_t)(rand() & 0xff) << 56;
+    //y |= (uint64_t)(rand() & 0xff) << 64;
+    if(y % 2 == 0)
+      y++;
+    randKey_ = 0x9e3779b97f4a7c55;//y;
+    genAllHash((AttRec *)att_tbl, size/sizeof(AttRec));
+    tbl_start->old_ = randKey_;
+    tbl_start->new_ = hashTblBit_;
+    tbl_start->hashInd_ = hashTblSize_;
+  }
+  /*
+  void createHash(char *att_tbl, uint64_t size) {
+    AttRec *tbl_start = (AttRec *)att_tbl;
+    //Ignore first record and last record;
+    att_tbl += (4 * 8);
+    size -= (8 * 8);
     double l = log2(attTable_.size());
     l += 1;
     hashTblBit_ = l;
@@ -233,6 +274,7 @@ public:
     //cout<<"Hash tbl bit size: "<<hex<<hashTblBit_<<endl;
     //cout<<"Hash tbl entry cnt: "<<hex<<hashTblSize_<<endl;
   }
+  */
   virtual uint64_t encodePtr(uint64_t addrs,uint64_t new_ptr,uint64_t tramp_ptr) = 0;
   virtual string encodeLea(string op, uint64_t ptr) = 0;
   virtual string decodeIcf(string hook_target, string args, string mne) = 0;

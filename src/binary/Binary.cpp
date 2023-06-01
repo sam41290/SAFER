@@ -1097,7 +1097,7 @@ Binary::genInstAsm() {
 #ifdef ONE_LEVEL_HASH
   string ra_atf_file(TOOL_PATH"src/instrument/one_level_atf_ra.s");
 #else
-  string ra_atf_file(TOOL_PATH"src/instrument/atf.s");
+  string ra_atf_file(TOOL_PATH"src/instrument/two_level_atf_ra.s");
 #endif
   ifstream ifile;
   ifile.open(ra_atf_file);
@@ -1111,7 +1111,7 @@ Binary::genInstAsm() {
 #ifdef ONE_LEVEL_HASH
   string atf_file(TOOL_PATH"src/instrument/one_level_atf.s");
 #else
-  string atf_file(TOOL_PATH"src/instrument/atf.s");
+  string atf_file(TOOL_PATH"src/instrument/two_level_atf.s");
 #endif
   ifile.open(atf_file);
   string atf_line;
@@ -1126,7 +1126,7 @@ Binary::genInstAsm() {
 #ifdef ONE_LEVEL_HASH
   string atf_file_tt(TOOL_PATH"src/instrument/one_level_atf_translate_ptr.s");
 #else
-  string atf_file_tt(TOOL_PATH"src/instrument/atf.s");
+  string atf_file_tt(TOOL_PATH"src/instrument/two_level_atf_translate_ptr.s");
 #endif
   ifile.open(atf_file_tt);
   string atf_line_tt;
