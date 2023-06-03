@@ -35,7 +35,7 @@
   ja     .global_look_up_ra
   lea    .vdso_end(%rip),%rdx
   cmp    %rax,(%rdx)
-  jg     .copy_and_ret_Ra
+  jg     .copy_and_ret_ra
 .global_look_up_ra:
   mov    %rax,%rbx
   mov    .hash_tbl_bit_sz(%rip),%rdx
@@ -72,7 +72,7 @@
   mov   8(%rax),%rdi
   mov   %rbx,%rax
   sub   %rdi,%rax
-  jmp   .local_lookup_Ra
+  jmp   .local_lookup_ra
 .rep_qprobe_ra:
   add    $0x1,%rcx
   cmp    %rsi,%rcx

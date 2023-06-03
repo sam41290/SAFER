@@ -360,7 +360,7 @@ class GttAtt : public Encode {
                  + "mov 8(%rsp),%rdx\n"
                  + "add $16,%rsp\n"
                  + "mov %rax,0(%rsp)\n"
-                 + "mov %fs:0x28,%rax\n"
+                 + "mov %fs:0x88,%rax\n"
                  + "ret\n";
       inst_code += ".at_" + to_string(decode_counter) + ":\n"
                  + mne + " ." + hook_target + "\n" + ".fall_" + to_string(decode_counter) +":\n";
@@ -516,7 +516,7 @@ class MultInv : public Encode {
                  + "and %rdx,%rax\n"
                  + "pop %rdx\n"
                  + "push %rax\n"
-                 + "mov %fs:0x28,%rax\n"
+                 + "mov %fs:0x88,%rax\n"
                  + "ret\n";
       inst_code += ".at_" + to_string(decode_counter) + ":\n"
                  + mne + " ." + hook_target + "\n" + ".fall_" + to_string(decode_counter) +":\n";

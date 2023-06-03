@@ -271,7 +271,7 @@ Instrument::generate_hook(string hook_target, string args,
                   + "lea .vdso_start(%rip),%rdx\n" 
                   + "cmp (%rdx),%rax\n"
                   + "jl  .push_old_ra_" + to_string(counter) + "\n"
-                  + "lea .vdso_start(%rip),%rdx\n" 
+                  + "lea .vdso_end(%rip),%rdx\n" 
                   + "cmp (%rdx),%rax\n"
                   + "jl  .false_call_" + to_string(counter) + "\n";
         inst_code += ".push_old_ra_" + to_string(counter) + ":\n";
@@ -285,6 +285,20 @@ Instrument::generate_hook(string hook_target, string args,
         inst_code += "call " + hook_target + "\n";
         inst_code += "jmp " + fall_sym + "\n";
         inst_code += ".actual_ins_ret_chk_" + to_string(counter) + ":\n";
+        if (op.find ("rsp") != string::npos) {
+          int pos = op.find ("(");
+          uint64_t adjst = 0;
+          if (pos != 0)
+            {
+              string off = op.substr (0, pos);
+              adjst = stoi (off, 0, 16);
+            }
+          adjst += 8;
+          op = to_string (adjst) + "(%rsp)";
+          string icf_args = "mov " + op + ",%rax\n";
+          inst_code += decodeIcf("GTF_reg",icf_args,"jmp");
+
+        }
         counter++;
 
       }
@@ -299,7 +313,7 @@ Instrument::generate_hook(string hook_target, string args,
       inst_code += "call .GTF_decode_rax\n";
       inst_code += "mov %rax,0(%rsp)\n";
       inst_code += ".continue_plt_" + to_string(counter) + ":\n";
-      inst_code += "mov %fs:0x28,%rax\n";
+      inst_code += "mov %fs:0x88,%rax\n";
 
       counter++;
     }
