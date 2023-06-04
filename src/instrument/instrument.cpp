@@ -289,10 +289,10 @@ Instrument::generate_hook(string hook_target, string args,
           int pos = op.find ("(");
           uint64_t adjst = 0;
           if (pos != 0)
-            {
-              string off = op.substr (0, pos);
-              adjst = stoi (off, 0, 16);
-            }
+          {
+            string off = op.substr (0, pos);
+            adjst = stoi (off, 0, 16);
+          }
           adjst += 8;
           op = to_string (adjst) + "(%rsp)";
           string icf_args = "mov " + op + ",%rax\n";

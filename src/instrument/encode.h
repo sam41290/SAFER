@@ -515,6 +515,8 @@ class MultInv : public Encode {
                  + "movabs $0x7fffffffffffffff,%rdx\n"
                  + "and %rdx,%rax\n"
                  + "pop %rdx\n"
+                 + "sub $16,%rax\n"
+                 + "mov (%rax),%rax\n"
                  + "push %rax\n"
                  + "mov %fs:0x88,%rax\n"
                  + "ret\n";
@@ -534,6 +536,8 @@ class MultInv : public Encode {
       inst_code += "mulx %rax,%rax,%rdx\n";
       inst_code += "movabs $0x7fffffffffffffff,%rdx\n";
       inst_code += "and %rdx,%rax\n";
+      inst_code += "sub $16,%rax\n";
+      inst_code += "mov (%rax),%rax\n";
       inst_code += "pop %rdx\n";
       inst_code += "ret\n";
       inst_code += ".at_RAX:\n";
