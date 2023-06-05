@@ -308,11 +308,30 @@ Instrument::generate_hook(string hook_target, string args,
       }
     }
     else if(mne.find("jmp") != string::npos) {
+      string op = hook_target;
+      op.replace(0,1,"");
       inst_code += "mov %rax,%fs:0x88\n";
-      inst_code += "mov 0(%rsp),%rax\n";
+      inst_code += "mov " + op + ",%rax\n"
+                + "push %rdx\n"
+                + "lea .loader_map_start(%rip),%rdx\n" 
+                + "cmp (%rdx),%rax\n"
+                + "jl  .vdso_check_ret_check_" + to_string(counter) + "\n"
+                + "lea .loader_map_end(%rip),%rdx\n" 
+                + "cmp (%rdx),%rax\n"
+                + "jl  .false_call_" + to_string(counter) + "\n"
+                + ".vdso_check_ret_check_" + to_string(counter) + ":\n"
+                + "lea .vdso_start(%rip),%rdx\n" 
+                + "cmp (%rdx),%rax\n"
+                + "jl  .continue_plt_" + to_string(counter) + "\n"
+                + "lea .vdso_end(%rip),%rdx\n" 
+                + "cmp (%rdx),%rax\n"
+                + "jg  .continue_plt_" + to_string(counter) + "\n";
+      inst_code += ".false_call_" + to_string(counter) + ":\n";
+      inst_code += "mov 8(%rsp),%rax\n";
       inst_code += "call .GTF_decode_rax\n";
-      inst_code += "mov %rax,0(%rsp)\n";
+      inst_code += "mov %rax,8(%rsp)\n";
       inst_code += ".continue_plt_" + to_string(counter) + ":\n";
+      inst_code += "pop %rdx\n";
       inst_code += "mov %fs:0x88,%rax\n";
 
       counter++;
