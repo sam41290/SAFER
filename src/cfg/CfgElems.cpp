@@ -1958,7 +1958,9 @@ CfgElems::classifyPtrs() {
     if(ptr->type() == PointerType::UNKNOWN ||
        ptr->type() == PointerType::DEF_PTR) {
       if(isCodePtr(ptr)) {
-        ptr->type(PointerType::CP);
+        //auto bb = getBB(ptr_it->first);
+        //if(bb != NULL && fnSigScore(bb) > 0)
+          ptr->type(PointerType::CP);
       }
       else if(isDataPtr(ptr)) {
         ptr->type(PointerType::DP);
@@ -1998,9 +2000,7 @@ bool CfgElems::isCodePtr(Pointer * ptr) {
   auto fn = is_within(address,funcMap_);
   if(fn != funcMap_.end()) {
     if(fn->second->isValidIns(address)) {
-      auto bb = getBB(address);
-      if(bb != NULL && fnSigScore(bb) > 0)
-        return true;
+      return true;
     }
   }
   return false;
