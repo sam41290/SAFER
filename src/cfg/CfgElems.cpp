@@ -1996,8 +1996,13 @@ bool CfgElems::isCodePtr(Pointer * ptr) {
   uint64_t address = ptr->address();
   LOG("Checking if code ptr: "<<hex<<address);
   auto fn = is_within(address,funcMap_);
-  if(fn != funcMap_.end())
-    return fn->second->isValidIns(address);
+  if(fn != funcMap_.end()) {
+    if(fn->second->isValidIns(address)) {
+      auto bb = getBB(address);
+      if(bb != NULL && fnSigScore(bb) > 0)
+        return true;
+    }
+  }
   return false;
 }
 
