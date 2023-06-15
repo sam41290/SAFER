@@ -15,6 +15,7 @@ mkdir tmp/cfg
 file=`basename $1`
 file_dir=`dirname $1`
 jtable=${file_dir}/${file}.jtable
+sjtable=${file_dir}/${file}.sjtable
 
 if [ "${disasm}" = "symtabledisasm" ]; then
   objdump -W ${1} | grep "advance Address by" \
@@ -33,6 +34,12 @@ if [ -f "${jtable}" ]
 then
   cp -r ${jtable} jmp_table/result.jtable
 fi
+if [ -f "${sjtable}" ]
+then
+  cp -r ${sjtable} jmp_table/result.sjtable
+fi
+#export LD_LIBRARY_PATH=/usr/lib/ocaml:${HOME}/SBI/jtable_cache
+#${HOME}/SBI/jtable_cache/test_jtable $1 jmp_table/result.jtable ${HOME}/SBI/auto/output.auto  
 
 exe=`basename $1`
 

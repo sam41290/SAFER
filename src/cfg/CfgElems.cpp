@@ -134,8 +134,17 @@ CfgElems::otherUseOfJmpTbl(JumpTable &j) {
 
 void
 CfgElems::chkJmpTblRewritability() {
+  unordered_set <uint64_t> unsafe_jumps;
+  string dir = get_current_dir_name();
+  ifstream ifile;
+  ifile.open(dir+"/jmp_table/result.sjtable");
+  string line;
+  while(getline(ifile,line)) {
+    uint64_t loc = stoull(line);
+    unsafe_jumps.insert(loc);
+  }
   for(auto & j : jmpTables_) {
-    if(FULL_ADDR_TRANS || SAFE_JTABLE == false) {
+    if(/*FULL_ADDR_TRANS || */SAFE_JTABLE == false) {
       j.rewritable(false);
       auto cf_ins = j.cfIns();
       for(auto & ins : cf_ins) {
@@ -167,6 +176,16 @@ CfgElems::chkJmpTblRewritability() {
       //  DEF_LOG("Marking cf for addr trans: "<<hex<<bb->start());
       //  bb->addrTransMust(true);
       //}
+    }
+    if(j.rewritable()) {
+      auto cf_ins = j.cfIns();
+      for(auto & ins : cf_ins) {
+        if(unsafe_jumps.find(ins->location()) != unsafe_jumps.end()) {
+          DEF_LOG("Marking cf for addr trans: "<<hex<<ins->location());
+          ins->atRequired(true);
+          j.rewritable(false);
+        }
+      }
     }
   }
   bool repeat = true;

@@ -43,6 +43,7 @@ JumpTable::rewriteTgts() {
         lbl = bb->label();
       jmp_tbl += size + " " + lbl + " - " + baseLbl + "\n";
     }
+    /*
     else if(type_ == 2) {
       bb->addTramp(bb->start());
       auto tramp_bb = bb->tramp();
@@ -50,6 +51,7 @@ JumpTable::rewriteTgts() {
       jmp_tbl += tramp_bb->label() + ": " + ins_list[0]->asmIns() 
               + "\n.skip " + to_string(entrySize_ - 5) + "\n";
     }
+    */
   }
   return jmp_tbl;
 }
