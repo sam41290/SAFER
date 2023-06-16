@@ -26,6 +26,7 @@
 #define NO_ENCODE_LEAPTRS false
 
 //#define DISASMONLY
+#define SHSTK(b)
 
 #define CFGCONSISTENCYCHECK
 

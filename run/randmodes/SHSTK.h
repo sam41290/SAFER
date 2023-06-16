@@ -31,6 +31,11 @@
 
 #define INIT_TYPE 4 //With ABI
 
+#define SHSTK(b) {\
+  vector<InstArg> arglst5;\
+  b.registerInstrumentation(InstPoint::LEGACY_SHADOW_STACK,"GTF_stack",arglst5);\
+}
+
 #ifdef CFGCONSISTENCYCHECK
 
 #define SP_ANALYSIS

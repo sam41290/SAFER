@@ -19,25 +19,40 @@ then
     args=$2
 elif [ $# -eq 3 ]
 then
-    args=$2'\n'$3
+    args=$2' '$3
 elif [ $# -eq 4 ]
 then
-    args=$2'\n'$3'\n'$4;
+    args=$2' '$3' '$4;
 fi
 
-rand_mode=`echo $args | grep "rand_mode" | cut -d"=" -f2`
-
-len=`echo -n $rand_mode | wc -m`
-
-if [ $len -le 0 ]
-then
-    rand_mode="NoRand"
-fi
+#rand_mode=`echo $args | grep "config" | cut -d"=" -f2`
+#
+#len=`echo -n $rand_mode | wc -m`
+#
+#if [ $len -le 0 ]
+#then
+#    rand_mode="default"
+#fi
 
 export LD_LIBRARY_PATH=/usr/lib/ocaml
 
 
-REGEN_DIR="${HOME}/randomized_libs"
+REGEN_DIR="${HOME}/instrumented_libs"
+
+export LD_LIBRARY_PATH=/usr/lib/ocaml:${HOME}/SBI/jtable_cache
+
+while read line
+do
+  file=`readlink -f ${line}`
+  exe=`basename $file`
+  echo "Creating jump table cache: ${exe}"
+  if [ -f "${REGEN_DIR}/${exe}.jtable" ]
+  then
+    echo "Jump table cache exists!!"
+  else
+    ${HOME}/SBI/jtable_cache/test_jtable ${file} ${REGEN_DIR}/${exe}.jtable ${HOME}/SBI/auto/output.auto
+  fi
+done < ${TOOL_PATH}/testsuite/deps/${prog}_file_list.dat
 
 exe_cnt=`cat ${TOOL_PATH}/testsuite/deps/${prog}_file_list.dat | wc -l`
 max_batch_cnt=`expr $exe_cnt / 7`
@@ -64,7 +79,7 @@ do
 done < ${TOOL_PATH}/testsuite/deps/${prog}_file_list.dat 
 if [ $batch_cnt -lt $max_batch_cnt ]
 then
-  nohup ${TOOL_PATH}/testsuite/instrument_batch.sh ${batch_file} ${arg} &
+  nohup ${TOOL_PATH}/testsuite/instrument_batch.sh ${batch_file} ${args} &
 fi
 
 wait

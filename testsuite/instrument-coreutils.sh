@@ -37,7 +37,7 @@ i=0
 
 thisdir=`pwd`
 
-REGEN_DIR="${HOME}/randomized_libs"
+REGEN_DIR="${HOME}/instrumented_libs"
 
 #while [ $i -lt $seeds ]
 #do
@@ -62,9 +62,9 @@ REGEN_DIR="${HOME}/randomized_libs"
 
   mv ${TOOL_PATH}/testsuite/deps/tmp_file_list.dat ${TOOL_PATH}/testsuite/deps/coreutils_file_list.dat
 
-  ${TOOL_PATH}/testsuite/randomize_prog.sh coreutils
-  ${TOOL_PATH}/testsuite/randomize_prog.sh libnss_files.so.2
-  ${TOOL_PATH}/testsuite/randomize_prog.sh libnss_systemd.so.2
+  ${TOOL_PATH}/testsuite/instrument_prog.sh coreutils ${args}
+  ${TOOL_PATH}/testsuite/instrument_prog.sh libnss_files.so.2 ${args}
+  ${TOOL_PATH}/testsuite/instrument_prog.sh libnss_systemd.so.2 ${args}
   while read line
   do
     exe=`basename ${line}`
