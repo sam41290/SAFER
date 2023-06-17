@@ -67,6 +67,7 @@ change_config=`diff config.h randmodes/${rand_mode}.h | wc -w`
 if [ $change_config -gt 0 ]
 then
   cp randmodes/${rand_mode}.h config.h
+  make clean
 fi
 
 #make clean
