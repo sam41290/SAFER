@@ -75,7 +75,7 @@ then
 	  echo "processing ${filepath}"
       rm ${REGEN_DIR}/${file}_2
 	  cp ${filepath} ${REGEN_DIR}/
-	  ${TOOL_PATH}/instrument.sh ${REGEN_DIR}/${file} ${args}
+	  ${TOOL_PATH}/instrument.sh ${REGEN_DIR}/${file} config=${rand_mode}
 	  mode_len=`echo ${#mode}`
 
 	  if [ ${mode_len} -eq 0 ]

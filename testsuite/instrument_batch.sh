@@ -17,10 +17,10 @@ then
     args=$2
 elif [ $# -eq 3 ]
 then
-    args=$2'\n'$3
+    args=$2' '$3
 elif [ $# -eq 4 ]
 then
-    args=$2'\n'$3'\n'$4;
+    args=$2' '$3' '$4;
 fi
 
 rand_mode=`echo $args | grep "rand_mode" | cut -d"=" -f2`

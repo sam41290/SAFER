@@ -601,6 +601,7 @@ Cfg::processAllRoots() {
       disasmRoots_.pop();
       if(ptr(start) != NULL){
         auto p = ptr(start);
+	/*
         if(p->type() != PointerType::CP && p->source() != PointerSource::GAP_PTR) {
           auto gap_bb = withinBB(start);
           if(gap_bb == NULL) {
@@ -615,6 +616,7 @@ Cfg::processAllRoots() {
             }
           }
         }
+	*/
         if(ignoreRoots_.find(ptr(start)->source()) == ignoreRoots_.end()) {
           if(ptr(start)->rootSrc() != PointerSource::NONE)
             rootSrc_ = ptr(start)->rootSrc();
