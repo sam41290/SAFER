@@ -13,19 +13,20 @@
 
 #define KNOWN_CODE_POINTER_ROOT
 //FULL AT conf
-#define FULL_ADDR_TRANS true
-#define FULL_ENCODE false 
-#define RA_OPT true
-#define SAFE_JTABLE false 
-#define NO_ENCODE_LEAPTRS true
+//#define FULL_ADDR_TRANS true
+//#define FULL_ENCODE false 
+//#define RA_OPT false
+//#define SAFE_JTABLE false 
+//#define NO_ENCODE_LEAPTRS true
 //Full encode conf
-//#define FULL_ADDR_TRANS false
-//#define FULL_ENCODE true
-//#define RA_OPT true
-//#define SAFE_JTABLE true
-//#define NO_ENCODE_LEAPTRS false
+#define FULL_ADDR_TRANS false
+#define FULL_ENCODE true
+#define RA_OPT true
+#define SAFE_JTABLE true
+#define NO_ENCODE_LEAPTRS false
 
 //#define DISASMONLY
+#define SHSTK(b)
 
 #define CFGCONSISTENCYCHECK
 
@@ -143,4 +144,4 @@
 //#define ENCCLASS GttAtt
 //#define OPTIMIZED_EH_METADATA
 
-#define ONE_LEVEL_HASH
+//#define ONE_LEVEL_HASH
