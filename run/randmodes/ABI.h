@@ -1,4 +1,3 @@
-
 #pragma once
 
 #define ACCEPT_THRESHOLD 1.79769e+308//powl(2,50)
@@ -13,13 +12,21 @@
         //Any relocated pointers within EH frame body considered as valid code pointer.
 
 #define KNOWN_CODE_POINTER_ROOT
+//FULL AT conf
+//#define FULL_ADDR_TRANS true
+//#define FULL_ENCODE false 
+//#define RA_OPT false
+//#define SAFE_JTABLE false 
+//#define NO_ENCODE_LEAPTRS true
+//Full encode conf
 #define FULL_ADDR_TRANS false
 #define FULL_ENCODE true
-#define NO_RET_INST true
+#define RA_OPT true
 #define SAFE_JTABLE true
 #define NO_ENCODE_LEAPTRS false
 
 //#define DISASMONLY
+#define SHSTK(b)
 
 #define CFGCONSISTENCYCHECK
 
@@ -60,7 +67,6 @@
   }\
 }
 
-
 /*
 #define SYMBOLIZE(ptr) { \
   SYMBOLIZENONSTRING(ptr); \
@@ -82,6 +88,17 @@
   ((p == Property::ABI_REG_PRESERVE_AND_VALID_INIT) ? true :\
    (p == Property::VALIDINIT) ? true : false)
 
+/*
+#define PROPERTIES {Property::VALIDINS, Property::VALID_CF}
+#define DEFDATA(p) \
+  ((p == Property::VALIDINS) ? true :\
+   (p == Property::VALID_CF) ? true : false)
+
+#define DEFCODE(p) \
+  ((p == Property::ABI_REG_PRESERVE_AND_VALID_INIT) ? true :\
+   (p == Property::VALID_CF) ? true :\
+   (p == Property::VALIDINIT) ? true : false)
+*/
 #define TRANSITIVECF Update::LOCAL
 
 #define CFTODEFCODE 0
@@ -103,14 +120,15 @@
 
 
 #define TOOL_PATH "/home/safer/SBI/"
+
 #define INST_CODE_PATH TOOL_PATH"run/instrumentation_code_here/"
 #define INST_BINARY "tutorial"
 
-#define FUNCTION_RANDOMIZATION
+//#define FUNCTION_RANDOMIZATION
 
-//#define NO_BASIC_BLOCK_RANDOMIZATION
+#define NO_BASIC_BLOCK_RANDOMIZATION
 
-#define LLRK_BASIC_BLOCK_RANDOMIZATION
+//#define LLRK_BASIC_BLOCK_RANDOMIZATION
 #define LLRK_COMMON_CONSTANT_VALUE 16   //Average partition size
 
 //#define PBR_BASIC_BLOCK_RANDOMIZATION
@@ -120,8 +138,8 @@
 //#define ZJR_BASIC_BLOCK_RANDOMIZATION
 
 #define ENCODE 1
-#define ENCCLASS GttAtt
-
+#define ENCCLASS MultInv
+//#define ENCCLASS GttAtt
 //#define OPTIMIZED_EH_METADATA
 
-#define ONE_LEVEL_HASH
+//#define ONE_LEVEL_HASH

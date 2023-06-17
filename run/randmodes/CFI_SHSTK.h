@@ -130,7 +130,7 @@
 #endif
 
 
-#define TOOL_PATH "/home/soumyakant/SBI/"
+#define TOOL_PATH "/home/safer/SBI/"
 
 #define INST_CODE_PATH TOOL_PATH"run/instrumentation_code_here/"
 #define INST_BINARY "tutorial"
