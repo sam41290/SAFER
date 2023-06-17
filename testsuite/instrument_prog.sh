@@ -69,7 +69,7 @@ do
   batch_cnt=`expr $batch_cnt + 1`
   if [ $batch_cnt -ge $max_batch_cnt ]
   then
-    nohup ${TOOL_PATH}/testsuite/instrument_batch.sh ${batch_file} ${arg} &
+    nohup ${TOOL_PATH}/testsuite/instrument_batch.sh ${batch_file} ${args} &
     batch_cnt=0
     batch_num=`expr $batch_num + 1`
     batch_file="/tmp/${prog}_batch_${batch_num}"

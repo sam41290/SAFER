@@ -8,10 +8,10 @@
 #  exit
 #fi
 
-COREUTILS_SRC_DIR=${HOME}/coreutils-8.30/src
+COREUTILS_SRC_DIR=${HOME}/coreutils/coreutils-8.30/src
 
-COREUTILS_INSTALL=${HOME}/coreutils-install/bin
-COREUTILS_LIB=${HOME}/coreutils-install/libexec/coreutils
+COREUTILS_INSTALL=${HOME}/coreutils/coreutils-data/bin
+COREUTILS_LIB=${HOME}/coreutils/coreutils-data/libexec/coreutils
 
 TOOL_PATH=${HOME}/SBI
 
