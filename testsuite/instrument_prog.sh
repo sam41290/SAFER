@@ -62,7 +62,8 @@ batch_cnt=0
 batch_num=1
 batch_file="/tmp/${prog}_batch_${batch_num}"
 echo -n "" > ${batch_file}
-
+echo "instrument_prog args:"
+echo "$args"
 while read line
 do
   echo "${line}" >> ${batch_file}

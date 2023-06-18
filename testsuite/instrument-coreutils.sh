@@ -16,10 +16,11 @@ COREUTILS_LIB=${HOME}/coreutils/coreutils-data/libexec/coreutils
 TOOL_PATH=${HOME}/SBI
 
 seeds=$1
-
 args=""
-
-if [ $# -eq 2 ]
+if [ $# -eq 1 ]
+then
+	args=$1
+elif [ $# -eq 2 ]
 then
 	args=$2
 elif [ $# -eq 3 ]
@@ -37,6 +38,8 @@ i=0
 
 thisdir=`pwd`
 
+echo "instruemnt-coreutils args:"
+echo "$args"
 REGEN_DIR="${HOME}/instrumented_libs"
 
 #while [ $i -lt $seeds ]
