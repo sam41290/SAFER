@@ -13,17 +13,23 @@
 
 #define KNOWN_CODE_POINTER_ROOT
 //FULL AT conf
-#define FULL_ADDR_TRANS true
-#define FULL_ENCODE false 
-#define RA_OPT true
-#define SAFE_JTABLE false 
-#define NO_ENCODE_LEAPTRS true
-//Full encode conf
-//#define FULL_ADDR_TRANS false
-//#define FULL_ENCODE true
+//#define FULL_ADDR_TRANS true
+//#define FULL_ENCODE false 
+//#define RA_OPT false
+//#define SAFE_JTABLE false
+//#define NO_ENCODE_LEAPTRS true
+//CFI conf
+//#define FULL_ADDR_TRANS true
+//#define FULL_ENCODE false 
 //#define RA_OPT true
 //#define SAFE_JTABLE true
-//#define NO_ENCODE_LEAPTRS false
+//#define NO_ENCODE_LEAPTRS true
+//Full encode conf
+#define FULL_ADDR_TRANS false
+#define FULL_ENCODE true
+#define RA_OPT true
+#define SAFE_JTABLE true
+#define NO_ENCODE_LEAPTRS false
 
 //#define DISASMONLY
 
@@ -77,7 +83,6 @@
 #define SYMBOLIZABLE(BB) isSymbolizable(BB->start())
 
 #define INSVALIDITY vector <InsValidityRules> {InsValidityRules::VLD_OP,InsValidityRules::VLD_MEM,InsValidityRules::VLD_PRFX,InsValidityRules::VLD_USRMODE_INS}
-
 /*
 #define PROPERTIES {Property::VALIDINS, Property::VALID_CF, Property::ABI_REG_PRESERVE_AND_VALID_INIT}
 #define DEFDATA(p) \
@@ -87,9 +92,7 @@
 #define DEFCODE(p) \
   ((p == Property::ABI_REG_PRESERVE_AND_VALID_INIT) ? true :\
    (p == Property::VALIDINIT) ? true : false)
-
 */
-
 #define PROPERTIES {Property::VALIDINS, Property::VALID_CF}
 #define DEFDATA(p) \
   ((p == Property::VALIDINS) ? true :\
@@ -120,7 +123,7 @@
 #endif
 
 
-#define TOOL_PATH "/home/soumyakant/SBI/"
+#define TOOL_PATH "/home/spec/SBI/"
 
 #define INST_CODE_PATH TOOL_PATH"run/instrumentation_code_here/"
 #define INST_BINARY "tutorial"
@@ -143,4 +146,4 @@
 //#define ENCCLASS GttAtt
 //#define OPTIMIZED_EH_METADATA
 
-#define ONE_LEVEL_HASH
+//#define ONE_LEVEL_HASH
