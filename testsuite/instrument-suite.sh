@@ -39,6 +39,7 @@ REGEN_DIR="${HOME}/instrumented_libs"
 INST_DIR="${suite_path}/inst_bins"
 rm -rf ${INST_DIR}
 cp ${suite_path}/jtable/*.jtable ${REGEN_DIR}/
+cp ${suite_path}/jtable/*.sjtable ${REGEN_DIR}/
   
 ls -1 ${suite_path}/* | grep -v "jtable" | grep -v "_orig" | grep -v "\.intercepted" | \
 grep -v "_2" > all_bins.dat

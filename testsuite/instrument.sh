@@ -23,7 +23,13 @@ then
     args=$2'\n'$3'\n'$4;
 fi
 
+echo "instrument args"
+echo "$args"
+
 rand_mode=`echo $args | grep "config" | cut -d"=" -f2`
+
+echo "rand_mode:"
+echo "$rand_mode"
 
 len=`echo -n $rand_mode | wc -m`
 
