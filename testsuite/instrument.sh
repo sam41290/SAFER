@@ -23,31 +23,40 @@ then
     args=$2'\n'$3'\n'$4;
 fi
 
-rand_mode=`echo $args | grep "rand_mode" | cut -d"=" -f2`
+echo "instrument args"
+echo "$args"
+
+rand_mode=`echo $args | grep "config" | cut -d"=" -f2`
+
+echo "rand_mode:"
+echo "$rand_mode"
 
 len=`echo -n $rand_mode | wc -m`
 
 if [ $len -le 0 ]
 then
-    rand_mode="NoRand"
+    rand_mode="default"
 fi
 
 export LD_LIBRARY_PATH=/usr/lib/ocaml
 
-REGEN_DIR="${HOME}/randomized_libs"
+REGEN_DIR="${HOME}/instrumented_libs"
 
 linkdir=`dirname ${exe_path}`
+linkdir=`readlink -f ${linkdir}`
 #link=`find ${dir} -lname ${exe_path}`
 filepath=`readlink -f ${exe_path}` 
 echo "exe_path: ${exe_path} filepath: ${filepath}"
 file=`basename ${filepath}`
 link=($(find ${linkdir} -lname ${file}))
+echo "${filepath}->${link}"
 #len=`echo ${#link}`
 
 if [ ${#link[@]} -eq 0 ]
 then
   link=($(find ${linkdir} -lname ${filepath}))
   len=`echo ${#link}`
+  echo "re-checked: ${filepath}->${link}"
 fi
 
 readelf -d ${filepath}
@@ -64,6 +73,7 @@ then
           for l in "${link[@]}"
           do
     	    linkname=`basename ${l}`
+            echo "linking $linkname -> ${file}_2"
     	    ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
           done
         fi
@@ -71,7 +81,7 @@ then
 	  echo "processing ${filepath}"
       rm ${REGEN_DIR}/${file}_2
 	  cp ${filepath} ${REGEN_DIR}/
-	  ${TOOL_PATH}/randomize.sh ${REGEN_DIR}/${file} ${args}
+	  ${TOOL_PATH}/instrument.sh ${REGEN_DIR}/${file} config=${rand_mode}
 	  mode_len=`echo ${#mode}`
 
 	  if [ ${mode_len} -eq 0 ]
@@ -89,6 +99,7 @@ then
         for l in "${link[@]}"
         do
           linkname=`basename ${l}`
+          echo "linking $linkname -> ${file}_2"
           ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
         done
       fi

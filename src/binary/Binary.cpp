@@ -1035,6 +1035,7 @@ Binary::genInstAsm() {
 
   ofstream ofile;
   ofile.open("inst_text.s", ofstream::out | ofstream::app);
+  /*
   ofile<<exeNameLabel()<<":\n";
   for(unsigned int i = 0; i < exeName.length(); i++)
     ofile<<".byte "<<(uint32_t)exeName[i]<<"\n";
@@ -1091,6 +1092,7 @@ Binary::genInstAsm() {
     prev_sec = sec_start;
     free(section_data);
   }
+  */
   ofile<<".align 16\n";
   ofile<<".GTF_stack:\n";
   //ofile<<"jmp *.dispatcher_stack(%rip)\n";

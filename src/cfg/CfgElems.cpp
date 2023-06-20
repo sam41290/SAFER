@@ -1977,9 +1977,13 @@ CfgElems::classifyPtrs() {
     if(ptr->type() == PointerType::UNKNOWN ||
        ptr->type() == PointerType::DEF_PTR) {
       if(isCodePtr(ptr)) {
-        //auto bb = getBB(ptr_it->first);
-        //if(bb != NULL && fnSigScore(bb) > 0)
+#ifdef FN_PRLG_CHK
+        auto bb = getBB(ptr_it->first);
+        if(bb != NULL && fnSigScore(bb) > 0)
           ptr->type(PointerType::CP);
+#else
+          ptr->type(PointerType::CP);
+#endif
       }
       else if(isDataPtr(ptr)) {
         ptr->type(PointerType::DP);

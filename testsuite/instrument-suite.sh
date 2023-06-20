@@ -35,7 +35,7 @@ fi
 i=0
 
 thisdir=`pwd`
-REGEN_DIR="${HOME}/randomized_libs"
+REGEN_DIR="${HOME}/instrumented_libs"
 INST_DIR="${suite_path}/inst_bins"
 rm -rf ${INST_DIR}
 cp ${suite_path}/jtable/*.jtable ${REGEN_DIR}/
@@ -58,7 +58,7 @@ sort -u ${TOOL_PATH}/testsuite/deps/suite_file_list.dat \
 
 mv ${TOOL_PATH}/testsuite/deps/tmp_file_list.dat ${TOOL_PATH}/testsuite/deps/suite_file_list.dat
 
-${TOOL_PATH}/testsuite/randomize_prog.sh suite
+${TOOL_PATH}/testsuite/instrument_prog.sh suite
 mkdir ${INST_DIR}
 while read line
 do

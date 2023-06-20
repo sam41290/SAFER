@@ -116,7 +116,7 @@ JmpTblAnalysis::preCachedJumpTables() {
 void
 JmpTblAnalysis::processJTable(JumpTable &j) {
   if (jmpTblExists(j) == false) {
-      if(j.entrySize() == 0)
+      if(j.entrySize() == 0 || j.entrySize() > 8)
         return;
     map <uint64_t, Function *>funMap = funcMap();
     if(CFValidity::validAddrs(j.base()) == false ||

@@ -18,18 +18,27 @@
 //#define RA_OPT false
 //#define SAFE_JTABLE false 
 //#define NO_ENCODE_LEAPTRS true
-//Full encode conf
-#define FULL_ADDR_TRANS false
-#define FULL_ENCODE true
+//CFI
+#define FULL_ADDR_TRANS true
+#define FULL_ENCODE false 
 #define RA_OPT true
 #define SAFE_JTABLE true
-#define NO_ENCODE_LEAPTRS false
+#define NO_ENCODE_LEAPTRS true
+//Full encode conf
+//#define FULL_ADDR_TRANS false
+//#define FULL_ENCODE true
+//#define RA_OPT true
+//#define SAFE_JTABLE true
+//#define NO_ENCODE_LEAPTRS false
 
 //#define DISASMONLY
+
 #define SHSTK(b)
 
+//#define DISASMONLY
+
 #define CFGCONSISTENCYCHECK
-#define HINT_BASED_ENTRY
+
 #define INIT_TYPE 4 //With ABI
 
 #ifdef CFGCONSISTENCYCHECK
@@ -121,7 +130,7 @@
 #endif
 
 
-#define TOOL_PATH "/home/spec/SBI/"
+#define TOOL_PATH "/home/safer/SBI/"
 
 #define INST_CODE_PATH TOOL_PATH"run/instrumentation_code_here/"
 #define INST_BINARY "tutorial"

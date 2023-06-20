@@ -31,13 +31,15 @@ fi
 echo "parameters:"
 echo $args
 
-rand_mode=`echo $args | grep "rand_mode" | cut -d"=" -f2`
+rand_mode=`echo $args | grep "config" | cut -d"=" -f2`
+echo "rand_mode:"
+echo "$rand_mode"
 
 len=`echo -n $rand_mode | wc -m`
 
 if [ $len -le 0 ]
 then
-	rand_mode="NoRand"
+	rand_mode="default"
 fi
 
 ehopt=`echo $args | grep "eh_opt" | cut -d"=" -f2`
@@ -67,6 +69,7 @@ change_config=`diff config.h randmodes/${rand_mode}.h | wc -w`
 if [ $change_config -gt 0 ]
 then
   cp randmodes/${rand_mode}.h config.h
+  make clean
 fi
 
 #make clean

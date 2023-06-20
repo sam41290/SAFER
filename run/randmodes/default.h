@@ -29,7 +29,7 @@
 #define SHSTK(b)
 
 #define CFGCONSISTENCYCHECK
-#define HINT_BASED_ENTRY
+
 #define INIT_TYPE 4 //With ABI
 
 #ifdef CFGCONSISTENCYCHECK
@@ -121,7 +121,7 @@
 #endif
 
 
-#define TOOL_PATH "/home/spec/SBI/"
+#define TOOL_PATH "/home/safer/SBI/"
 
 #define INST_CODE_PATH TOOL_PATH"run/instrumentation_code_here/"
 #define INST_BINARY "tutorial"

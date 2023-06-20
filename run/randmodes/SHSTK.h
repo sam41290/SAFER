@@ -26,11 +26,15 @@
 #define NO_ENCODE_LEAPTRS false
 
 //#define DISASMONLY
-#define SHSTK(b)
 
 #define CFGCONSISTENCYCHECK
-#define HINT_BASED_ENTRY
+
 #define INIT_TYPE 4 //With ABI
+
+#define SHSTK(b) {\
+  vector<InstArg> arglst5;\
+  b.registerInstrumentation(InstPoint::LEGACY_SHADOW_STACK,"GTF_stack",arglst5);\
+}
 
 #ifdef CFGCONSISTENCYCHECK
 
@@ -121,7 +125,7 @@
 #endif
 
 
-#define TOOL_PATH "/home/spec/SBI/"
+#define TOOL_PATH "/home/safer/SBI/"
 
 #define INST_CODE_PATH TOOL_PATH"run/instrumentation_code_here/"
 #define INST_BINARY "tutorial"

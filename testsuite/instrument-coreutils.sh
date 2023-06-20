@@ -8,18 +8,19 @@
 #  exit
 #fi
 
-COREUTILS_SRC_DIR=${HOME}/coreutils-8.30/src
+COREUTILS_SRC_DIR=${HOME}/coreutils/coreutils-8.30/src
 
-COREUTILS_INSTALL=${HOME}/coreutils-install/bin
-COREUTILS_LIB=${HOME}/coreutils-install/libexec/coreutils
+COREUTILS_INSTALL=${HOME}/coreutils/coreutils-data/bin
+COREUTILS_LIB=${HOME}/coreutils/coreutils-data/libexec/coreutils
 
 TOOL_PATH=${HOME}/SBI
 
 seeds=$1
-
 args=""
-
-if [ $# -eq 2 ]
+if [ $# -eq 1 ]
+then
+	args=$1
+elif [ $# -eq 2 ]
 then
 	args=$2
 elif [ $# -eq 3 ]
@@ -37,7 +38,9 @@ i=0
 
 thisdir=`pwd`
 
-REGEN_DIR="${HOME}/randomized_libs"
+echo "instruemnt-coreutils args:"
+echo "$args"
+REGEN_DIR="${HOME}/instrumented_libs"
 
 #while [ $i -lt $seeds ]
 #do
@@ -62,9 +65,9 @@ REGEN_DIR="${HOME}/randomized_libs"
 
   mv ${TOOL_PATH}/testsuite/deps/tmp_file_list.dat ${TOOL_PATH}/testsuite/deps/coreutils_file_list.dat
 
-  ${TOOL_PATH}/testsuite/randomize_prog.sh coreutils
-  ${TOOL_PATH}/testsuite/randomize_prog.sh libnss_files.so.2
-  ${TOOL_PATH}/testsuite/randomize_prog.sh libnss_systemd.so.2
+  ${TOOL_PATH}/testsuite/instrument_prog.sh coreutils ${args}
+  ${TOOL_PATH}/testsuite/instrument_prog.sh libnss_files.so.2 ${args}
+  ${TOOL_PATH}/testsuite/instrument_prog.sh libnss_systemd.so.2 ${args}
   while read line
   do
     exe=`basename ${line}`
