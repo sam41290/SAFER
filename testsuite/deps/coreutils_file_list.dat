@@ -104,11 +104,6 @@
 /home/soumyakant/coreutils-install/bin/whoami
 /home/soumyakant/coreutils-install/bin/yes
 /home/soumyakant/coreutils-install/libexec/coreutils/libstdbuf.so
-/lib/x86_64-linux-gnu/libattr.so.1
 /lib/x86_64-linux-gnu/libc.so.6
-/lib/x86_64-linux-gnu/libdl.so.2
-/lib/x86_64-linux-gnu/libgmp.so.10
-/lib/x86_64-linux-gnu/libpcre2-8.so.0
 /lib/x86_64-linux-gnu/libpthread.so.0
 /lib/x86_64-linux-gnu/librt.so.1
-/lib/x86_64-linux-gnu/libselinux.so.1

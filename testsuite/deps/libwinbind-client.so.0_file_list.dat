@@ -1,0 +1,4 @@
+/lib/x86_64-linux-gnu/libbsd.so.0
+/lib/x86_64-linux-gnu/libc.so.6
+/usr/lib/x86_64-linux-gnu/samba/libreplace.so.0
+/usr/lib/x86_64-linux-gnu/samba/libwinbind-client.so.0

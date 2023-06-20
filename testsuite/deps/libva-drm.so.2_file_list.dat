@@ -1,0 +1,5 @@
+/lib/x86_64-linux-gnu/libc.so.6
+/lib/x86_64-linux-gnu/libdl.so.2
+/lib/x86_64-linux-gnu/libdrm.so.2
+/lib/x86_64-linux-gnu/libva-drm.so.2
+/lib/x86_64-linux-gnu/libva.so.2

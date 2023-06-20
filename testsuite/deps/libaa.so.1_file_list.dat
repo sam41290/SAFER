@@ -1,0 +1,13 @@
+/lib/x86_64-linux-gnu/libaa.so.1
+/lib/x86_64-linux-gnu/libbsd.so.0
+/lib/x86_64-linux-gnu/libc.so.6
+/lib/x86_64-linux-gnu/libdl.so.2
+/lib/x86_64-linux-gnu/libgpm.so.2
+/lib/x86_64-linux-gnu/libm.so.6
+/lib/x86_64-linux-gnu/libncurses.so.6
+/lib/x86_64-linux-gnu/libslang.so.2
+/lib/x86_64-linux-gnu/libtinfo.so.6
+/lib/x86_64-linux-gnu/libX11.so.6
+/lib/x86_64-linux-gnu/libXau.so.6
+/lib/x86_64-linux-gnu/libxcb.so.1
+/lib/x86_64-linux-gnu/libXdmcp.so.6

@@ -1,0 +1,12 @@
+/lib/x86_64-linux-gnu/libc.so.6
+/lib/x86_64-linux-gnu/libdl.so.2
+/lib/x86_64-linux-gnu/libffi.so.7
+/lib/x86_64-linux-gnu/libgmp.so.10
+/lib/x86_64-linux-gnu/libgnutls.so.30
+/lib/x86_64-linux-gnu/libhogweed.so.5
+/lib/x86_64-linux-gnu/libidn2.so.0
+/lib/x86_64-linux-gnu/libnettle.so.7
+/lib/x86_64-linux-gnu/libp11-kit.so.0
+/lib/x86_64-linux-gnu/libpthread.so.0
+/lib/x86_64-linux-gnu/libtasn1.so.6
+/lib/x86_64-linux-gnu/libunistring.so.2

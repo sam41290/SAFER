@@ -1,0 +1,7 @@
+/lib/x86_64-linux-gnu/libcom_err.so.2
+/lib/x86_64-linux-gnu/libcrypt.so.1
+/lib/x86_64-linux-gnu/libc.so.6
+/lib/x86_64-linux-gnu/libpthread.so.0
+/lib/x86_64-linux-gnu/libresolv.so.2
+/lib/x86_64-linux-gnu/libroken.so.18
+/lib/x86_64-linux-gnu/libwind.so.0

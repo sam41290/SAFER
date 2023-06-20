@@ -1,0 +1,15 @@
+/lib/x86_64-linux-gnu/libbsd.so.0
+/lib/x86_64-linux-gnu/libc.so.6
+/lib/x86_64-linux-gnu/libdl.so.2
+/lib/x86_64-linux-gnu/libgcrypt.so.20
+/lib/x86_64-linux-gnu/libgpg-error.so.0
+/lib/x86_64-linux-gnu/liblz4.so.1
+/lib/x86_64-linux-gnu/liblzma.so.5
+/lib/x86_64-linux-gnu/libpthread.so.0
+/lib/x86_64-linux-gnu/librt.so.1
+/lib/x86_64-linux-gnu/libsamba-errors.so.1
+/lib/x86_64-linux-gnu/libsystemd.so.0
+/lib/x86_64-linux-gnu/libtalloc.so.2
+/usr/lib/x86_64-linux-gnu/samba/libsamba-debug.so.0
+/usr/lib/x86_64-linux-gnu/samba/libsocket-blocking.so.0
+/usr/lib/x86_64-linux-gnu/samba/libtime-basic.so.0

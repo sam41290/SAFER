@@ -1,0 +1,5 @@
+/lib/x86_64-linux-gnu/libc.so.6
+/lib/x86_64-linux-gnu/libdl.so.2
+/lib/x86_64-linux-gnu/libffi.so.7
+/lib/x86_64-linux-gnu/libp11-kit.so.0
+/lib/x86_64-linux-gnu/libpthread.so.0
