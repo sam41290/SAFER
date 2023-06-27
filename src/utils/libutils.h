@@ -92,6 +92,7 @@ eh_log(const LogData <List> &data) {
 
 //#define DEBUG 0
 
+
 #ifdef DEBUG
 #define LOG(x)(log(__FILE__,__LINE__,LogData<None>() <<x))
 #define EH_LOG(x)(eh_log(LogData<None>() <<x))
@@ -318,22 +319,29 @@ public:
     return byte_array;
   }
 
-  static std::vector<std::string> split_string(std::string& s, char delimiter)
+  static std::vector<std::string> split_string(std::string& s, const char *delimiter)
   {
      std::vector<std::string> tokens;
-     std::string token;
-     std::istringstream tokenStream(s);
-     while (std::getline(tokenStream, token, delimiter))
-     {
-        tokens.push_back(token);
-     }
+
+     std::string word;
+
+	 std::istringstream iss(s);
+	 while (std::getline(iss, word, delimiter[0])) {
+       tokens.push_back(word);
+	 }
+     //char *token = strtok(const_cast<char*>(s.c_str()), delimiter);
+     //while (token != nullptr)
+     //{
+     //    tokens.push_back(std::string(token));
+     //    token = strtok(nullptr, delimiter);
+     //}
+
      return tokens;
   }
 
   static vector <string> split_string(const char *data) {
     string str(data);
-    return split_string(str,' ');
-    /*
+    //return split_string(str," ");
     vector <string> results;
     string word = "";
 
@@ -349,7 +357,6 @@ public:
 	  results.push_back(word);
     }
     return results;
-    */
   }
 
 
@@ -509,7 +516,7 @@ public:
     return false;
   }
   static bool is_priviledged_ins(string ins) {
-    vector <string> words = utils::split_string(ins,' ');
+    vector <string> words = utils::split_string(ins," ");
     bool mov_found = false;
     for(auto & s : words)
       if(priviledge_ins.find(s) != priviledge_ins.end())
