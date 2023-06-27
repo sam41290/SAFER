@@ -13,7 +13,7 @@ DisasmEngn::createInsCache(uint64_t code_start, uint64_t code_end) {
   //DEF_LOG("Creating ins cache: "<<hex<<code_start<<" - "<<hex<<code_end);
   vector <Instruction *> ins_list = readIns(code_start,code_end);
 
-  uint64_t ins_cnt = ins_list.size();
+  //uint64_t ins_cnt = ins_list.size();
   //LOG("Last ins: "<<hex<<ins_list[ins_cnt-1]->location());
 
   //uint64_t ctr = 0;
@@ -40,7 +40,7 @@ DisasmEngn::createInsCache(uint64_t code_start, uint64_t code_end) {
 
 vector <Instruction *>
 DisasmEngn::getIns(uint64_t start, int limit) {
-  //DEF_LOG("Getting instructions for address: "<<hex<<start);
+  DEF_LOG("Getting instructions for address: "<<hex<<start);
   vector <Instruction *> ins_list;
   uint64_t ins_start = start;
   auto it = insCache_.find(ins_start); 
@@ -252,18 +252,21 @@ DisasmEngn::disassembleObj (uint8_t bytes[], int size, uint64_t start,
   ifstream ifile;
   ifile.open (dump_name);
   int file_ctr = -1;
-  char line[1000];
+  //char line[1000];
+  string line;
   uint64_t prev_loc = start;
   vector < string > results;
   regex bin ("[0-9a-f][0-9a-f]");
-  while (ifile.getline (line, 1000)) {
+  while (getline (ifile,line)) {
     //DEF_LOG(line);
     results.clear ();
     if (file_ctr < 0) {
-      if (strncmp (line, "Disassembly", 11) == 0) {
+      if (strncmp (line.c_str(), "Disassembly", 11) == 0) {
         //Beginning of the dump file. Save the file name.
         file_ctr++;
       }
+      else
+        LOG("File ctr not found yet");
       continue;
     }
     if (file_ctr >= 0) {
@@ -271,12 +274,20 @@ DisasmEngn::disassembleObj (uint8_t bytes[], int size, uint64_t start,
       unsigned int l = 1;
 
       //int bin_count = 0;
-      results = util.split_string (line);
+      results = util.split_string (line.c_str());
       if (results.size () <= 2)
         continue;
+      //LOG("Size > 2 "<<results[0]<<":"<<results[1]);
+      //while(l < results.size() && results[l].size() <= 0) {
+      //  DEF_LOG(results[l]);
+      //  l++;
+      //}
+      //if(l >= results.size())
+      //  continue;
       int colon_pos = results[0].find (":");
       if (colon_pos == string::npos)
         continue;
+      //LOG("colon found");
       loc = stoi (results[0].replace (colon_pos, 1, ""), 0, 16);// + start;
       if (prev_loc < loc) {
         LOG ("Objdump Gap found at: " <<hex<< prev_loc<<"-"<<hex<<loc);
@@ -291,10 +302,9 @@ DisasmEngn::disassembleObj (uint8_t bytes[], int size, uint64_t start,
       }
       uint8_t opcodes[50];
       int ins_size = 0;
-
       while (l < results.size() && regex_match (results[l], bin)) {
         opcodes[ins_size] = stoi (results[l], 0, 16);
-        //LOG("opcode "<<hex<<opcodes[ins_size]);
+        //LOG("opcode "<<hex<<(uint32_t)opcodes[ins_size]);
         l++;
         ins_size++;
       }
@@ -329,7 +339,7 @@ DisasmEngn::disassembleObj (uint8_t bytes[], int size, uint64_t start,
       }
       char *operand = "";
       //if(loc == 0x405d86)
-      //  DEF_LOG(loc<<": "<<line<<" mne: "<<mne);
+        //DEF_LOG(hex<<loc<<":  mne: "<<mne);
       mnemonic = (char *) mne.c_str ();
       if (l < results.size ()) {
         INVALIDINS(results[l],bytes, loc, loc - start, ins_size,

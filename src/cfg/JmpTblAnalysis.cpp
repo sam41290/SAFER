@@ -16,7 +16,7 @@ JmpTblAnalysis::readTargets (JumpTable & jt, uint64_t jloc)
       <<" type: "<<jt.type()<<" entry size: "<<entry_size);
 
   while (start < jt.end()) {
-    //LOG("Decoding at: "<<hex<<start);
+    //DEF_LOG("Decoding at: "<<hex<<start);
     int64_t offt = 0;
     if(jt.type() != 2) {
       uint64_t file_offt = utils::GET_OFFSET(binary_path,start);
@@ -25,10 +25,11 @@ JmpTblAnalysis::readTargets (JumpTable & jt, uint64_t jloc)
     }
     uint64_t tgt = TARGET(offt,start,jt.type(),jt.base(),entry_size);
     if (tgt != 0) {
-      LOG("Target = "<<hex<<tgt);
+      //DEF_LOG("Target = "<<hex<<tgt);
       //Jump table target conflicts with previously determined definite code.
       auto bb = withinBB(jloc);
       rootSrc(bb->rootSrc());
+      //addToCfg(tgt, PointerSource::JUMPTABLE);
       if (addToCfg(tgt, PointerSource::JUMPTABLE) == false)
         break;
       uint64_t end = dataSegmntEnd(jt.location ());
@@ -61,7 +62,7 @@ JmpTblAnalysis::preCachedJumpTables() {
   ifile.open(dir+"/jmp_table/result.jtable");
   string line;
   while(getline(ifile,line)) {
-    vector <string> words = utils::split_string(line,' ');
+    vector <string> words = utils::split_string(line," ");
     if(words.size() > 0) {
       int type = stol(words[0],0,10);
       if(type == 1) {
@@ -69,8 +70,14 @@ JmpTblAnalysis::preCachedJumpTables() {
         j.type(1);
         uint64_t cf_loc = stoull(words[1],0,10);
         j.cfLoc(cf_loc);
-        j.base(stoull(words[2],0,10));
-        j.location(stoull(words[3],0,10));
+        int64_t b = stol(words[2],0,10);
+        if(b <= 0)
+          continue;
+        j.base(b);
+        int64_t l = stol(words[3],0,10);
+        if(l <= 0)
+          continue;
+        j.location(l);
         DEF_LOG("Pre cached Type 1 Location: "<<hex<<j.location()<<" base: "<<j.base());
         j.entrySize(stoull(words[4],0,10));
         cachedJTables_[cf_loc].push_back(j);
@@ -81,8 +88,11 @@ JmpTblAnalysis::preCachedJumpTables() {
         j.type(2);
         uint64_t cf_loc = stoull(words[1],0,10);
         j.cfLoc(cf_loc);
-        j.location(stoull(words[2],0,10));
-        j.base(j.location());
+        int64_t b = stol(words[2],0,10);
+        if(b <= 0)
+          continue;
+        j.base(b);
+        j.location(b);
         DEF_LOG("Pre cached Type 2 Location: "<<hex<<j.location());
         j.entrySize(stoull(words[3],0,10));
         cachedJTables_[cf_loc].push_back(j);
@@ -93,8 +103,11 @@ JmpTblAnalysis::preCachedJumpTables() {
         j.type(3);
         uint64_t cf_loc = stoull(words[1],0,10);
         j.cfLoc(cf_loc);
-        j.location(stoull(words[2],0,10));
-        j.base(j.location());
+        int64_t b = stol(words[2],0,10);
+        if(b <= 0)
+          continue;
+        j.base(b);
+        j.location(b);
         DEF_LOG("Pre cached Type 3 Location: "<<hex<<j.location());
         j.entrySize(stoull(words[3],0,10));
         cachedJTables_[cf_loc].push_back(j);
@@ -116,7 +129,7 @@ JmpTblAnalysis::preCachedJumpTables() {
 void
 JmpTblAnalysis::processJTable(JumpTable &j) {
   if (jmpTblExists(j) == false) {
-      if(j.entrySize() == 0 || j.entrySize() > 8)
+      if(j.entrySize() <= 0 || j.entrySize() > 8)
         return;
     map <uint64_t, Function *>funMap = funcMap();
     if(CFValidity::validAddrs(j.base()) == false ||
@@ -678,7 +691,7 @@ JmpTblAnalysis::genFile(vector <BasicBlock *> &basic_block_path,
   for(auto bb:basic_block_path) {
     vector <string> all_ins = bb->allAsm();
     for (string str:all_ins) {
-      vector <string> words = utils::split_string(str,' ');
+      vector <string> words = utils::split_string(str," ");
       for(auto & w : words) {
         if(w == "lea")
           w = "leaq";

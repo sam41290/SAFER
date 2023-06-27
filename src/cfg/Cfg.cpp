@@ -79,6 +79,45 @@ Cfg::disassemble() {
       }
     }
   }
+  DEF_LOG("Checking cached jump tables to guess more targets");
+  auto jtables = cachedJTables();
+  for (auto & j_rec : jtables) {
+    auto j_vec = j_rec.second;
+    for(auto & j : j_vec) {
+      auto start = j.location();
+      auto base = j.base();
+      if(jmpTblExists(j)) {
+        auto j_prev = jmpTbl(start, base);
+        if(j_prev.targets().size() > 0)
+          continue;
+      }
+      auto stride = j.entrySize();
+      if(CFValidity::validAddrs(j.base()) == false ||
+         isMetadata(j.base()))
+        continue;
+      if(CFValidity::validAddrs(j.location()) == false ||
+         isMetadata(j.location()))
+        continue;
+      if(stride <= 0 || stride > 8)
+        continue;
+      uint64_t end = dataSegmntEnd(start);
+      if(end == 0)
+        continue;
+      for(uint64_t i = start; i < end; i+=stride) {
+        int64_t offt64 = 0;
+        uint64_t file_offt = utils::GET_OFFSET(exePath_,i);
+        utils::READ_FROM_FILE(exePath_, (void *) &offt64, file_offt,stride);
+        if(isValidIns(offt64)) {
+          DEF_LOG("Potential target: "<<hex<<offt64);
+          newPointer(offt64,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt64);
+        }
+        else if(isValidIns(offt64 + base)) {
+          DEF_LOG("Potential target: "<<hex<<offt64 + base);
+          newPointer(offt64 + base,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt64 + base);
+        }
+      }
+    }
+  }
   DEF_LOG("Guessing jump tables complete");
   //classifyPtrs();
   populateRltvTgts();

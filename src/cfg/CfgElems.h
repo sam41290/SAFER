@@ -414,6 +414,7 @@ namespace SBI {
     bool rewritableJmpTblBase(uint64_t addrs);
     bool sameLocDiffBase(uint64_t loc, uint64_t base);
     bool jmpTblExists(JumpTable &j);
+    JumpTable jmpTbl(uint64_t loc, uint64_t base);
     bool isJmpTblLoc(uint64_t addrs);
     bool isJmpTbl(uint64_t addrs);
     bool isJmpTblBase(uint64_t addrs);

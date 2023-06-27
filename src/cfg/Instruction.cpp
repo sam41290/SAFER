@@ -38,12 +38,12 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
   insBinary(bytes, size);
   string asm_opcode = prefixChk(mne);
   string operand(op_str);
-  //if(address == 0x405d86)
-  //  DEF_LOG(hex<<address<<": "<<asm_opcode<<" "<<operand);
+  if(address == 0x139517)
+    DEF_LOG(hex<<address<<": "<<asm_opcode<<" "<<operand);
   set <string> cf_ins_set = utils::get_cf_ins_set();
   set <string> uncond_cf_ins_set = utils::get_uncond_cf_ins_set();
   if(asm_opcode.find(",") != string::npos) {
-    vector <string> oplst = utils::split_string(asm_opcode,',');
+    vector <string> oplst = utils::split_string(asm_opcode,",");
     if(cf_ins_set.find(oplst[0]) != cf_ins_set.end())
       asm_opcode = oplst[0];
   }
@@ -132,7 +132,7 @@ bool isHexNumber(string str)
 void
 Instruction::chkConstOp() {
 
-  vector <string> oplst = utils::split_string(op1_,',');
+  vector <string> oplst = utils::split_string(op1_,",");
   if(mnemonic_.find(".byte") != string::npos)
     return;
   for(auto & s : oplst) {
@@ -167,7 +167,7 @@ Instruction::chkConstPtr() {
   if(mnemonic_.find("lea") == string::npos && 
      op1_.find("(,") != string::npos) {
     //DEF_LOG("Checking for mem access: "<<hex<<location()<<":"<<mnemonic_<<" "<<op1_);
-    vector <string> words =  utils::split_string(op1_,',');
+    vector <string> words =  utils::split_string(op1_,",");
     for(auto & w : words) {
       if(w.find("(") != string::npos) {
         if(w.find("%") == string::npos) {

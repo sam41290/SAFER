@@ -4,7 +4,7 @@ using namespace SBI;
 
 void addIns(map <uint64_t,string> &all_ins,vector <string> &allstr) {
   for(auto & str : allstr) {
-    vector <string> words = utils::split_string(str,' ');
+    vector <string> words = utils::split_string(str," ");
     string loc = words[0];
     loc.replace(0,1,"");
     loc.replace(loc.find(":"),1,"");
@@ -88,7 +88,7 @@ SaInput::genFnFile(string file_name,uint64_t entry,vector<BasicBlock *> &bbList)
       vector <string> all_asm = bb->allAsm();
       if(bb->isCall() && bb->callType() == BBType::NON_RETURNING) {
         string last_ins = all_asm[all_asm.size() - 1];
-        vector <string> words = utils::split_string(last_ins,' ');
+        vector <string> words = utils::split_string(last_ins," ");
         string loc = words[0];
         last_ins = loc + " hlt";
         //LOG("Replacing not returning call with hlt: "<<hex<<bb->start());
@@ -132,7 +132,7 @@ SaInput::genFnFile(string file_name,uint64_t entry,vector<BasicBlock *> &bbList)
   ofstream ofile;
   ofile.open(file_name);
   for (auto & ins : all_ins) {
-    vector <string> words = utils::split_string(ins.second,' ');
+    vector <string> words = utils::split_string(ins.second," ");
     for(auto & w : words) {
       if(w == "lea")
         w = "leaq";

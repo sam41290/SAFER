@@ -1469,7 +1469,7 @@ CfgElems::readBB(ifstream & ifile) {
   vector <uint64_t> ind_tgts;
   vector<uint64_t> jtable ;
   while(getline(ifile,str)) {
-    vector<string> words = utils::split_string(str,' ');
+    vector<string> words = utils::split_string(str," ");
     if(words[0] == "start") {
       start = stoll(words[1]);
       end = stoll(words[2]);
@@ -1616,7 +1616,7 @@ CfgElems::readCfg() {
     fnfile.open("tmp/cfg/" + str + ".fn");
     string fndata;
     while(getline(fnfile,fndata)) {
-      vector<string> words = utils::split_string(fndata,' ');
+      vector<string> words = utils::split_string(fndata," ");
       if(words[0] == "start") {
         uint64_t start = stoll(words[1]);
         uint64_t end = stoll(words[2]);
@@ -1672,7 +1672,7 @@ CfgElems::readCfg() {
   PointerType type = PointerType::UNKNOWN;
   ifile.open("tmp/cfg/pointers.lst");
   while(getline(ifile,str)) {
-    vector<string> words = utils::split_string(str,' ');
+    vector<string> words = utils::split_string(str," ");
     if(words[0] == "pointer") {
       LOG("Pointer: "<<str);
       val = stoull(words[1]);
@@ -2536,6 +2536,17 @@ CfgElems::rewritableJmpTblLoc(uint64_t addrs) {
   return false;
 }
 
+
+JumpTable
+CfgElems::jmpTbl(uint64_t loc, uint64_t base) {
+  for(auto & j : jmpTables_) {
+    if(j.location() == loc && j.base() == base) { 
+      return j;
+    }
+  }
+  JumpTable j;
+  return j;
+}
 
 bool
 CfgElems::jmpTblExists(JumpTable &new_j) {

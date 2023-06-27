@@ -37,6 +37,7 @@ namespace SBI {
     void jmpTblAnalysis();
     void analyzeAddress(vector <int64_t> &entries);
     void preCachedJumpTables();
+    unordered_map<uint64_t,vector <JumpTable>> cachedJTables() { return cachedJTables_; }
     virtual bool addToCfg(uint64_t addrs, PointerSource src) = 0;
     virtual void addToDisasmRoots (uint64_t address) = 0;
     virtual void rootSrc(PointerSource root) = 0;

@@ -12,6 +12,7 @@ using namespace SBI;
 #define CAPSTONE disassembleCaps
 
 #define DISASENGN CAPSTONE
+//#define DISASENGN OBJDUMP
 
 #define INVALIDINS(str,bytes,loc,ind,size,inslst) \
   if(str.find("(bad)") != string::npos || \
