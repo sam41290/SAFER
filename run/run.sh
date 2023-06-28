@@ -18,11 +18,16 @@ jtable=${file_dir}/${file}.jtable
 sjtable=${file_dir}/${file}.sjtable
 
 if [ "${disasm}" = "symtabledisasm" ]; then
-  objdump -W ${1} | grep "advance Address by" \
-      | gawk --non-decimal-data '{printf("%d\n",$10)}' \
-      > tmp/${file}.ptrlst
+  objcopy --dump-section .rand=tmp/${file}.gt.gz $1 && yes | gzip -d tmp/${file}.gt.gz
+  python3 ~/x86-sok/extract_gt/extractBB.py -b $1 -m tmp/${file}.gt -o tmp/${file}.pb 1> tmp/${file}.raw_gt 2> /dev/null
+  grep "Soumya BB" tmp/${file}.raw_gt | awk '{print $NF}' | sort -u > tmp/${file}.ptrlst
+  #objdump -W ${1} | grep "advance Address by" \
+  #    | gawk --non-decimal-data '{printf("%d\n",$10)}' \
+  #    > tmp/${file}.ptrlst
 #  readelf --debug-dump=decodedline ${1} | grep -v "name\|section\|CU:" \
  #   | gawk --non-decimal-data '{if (NF >= 3) printf("%d\n",$3)}' | sort -u >> tmp/${file}.ptrlst
+  #dwarfdump -l ${1} | grep "^0x" | grep -v "ET" | \
+  #  gawk --non-decimal-data '{printf("%d\n",$1)}' | sort -u > tmp/${file}.ptrlst
 fi
 
 if [ -d "${cfgdir}" ]

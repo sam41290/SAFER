@@ -46,7 +46,9 @@ CFValidity::validMem(Instruction *ins) {
   }
   else {
     int64_t offt = ins->constPtr();
-    if(offt != 0 && ins->asmIns().find("movabs") == string::npos && offt > (int64_t)memSpaceEnd_) {
+    if(offt != 0 && 
+      ((ins->asmIns().find("movabs") == string::npos && offt > (int64_t)memSpaceEnd_) ||
+        ins->asmIns().find("movabsb") != string::npos) && offt > 256) {
       DEF_LOG("invalid const mem access at: "<<hex<<ins->location()<<": "<<ins->asmIns()<<" const ptr: "<<offt);
       return false;
     }

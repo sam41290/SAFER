@@ -56,7 +56,9 @@ namespace SBI {
         if(utils::invalid_prefixes.find(w) != utils::invalid_prefixes.end())
           return false;
       }
-      if(ins->asmIns().find("lock lea") != string::npos/* ||
+      if(ins->asmIns().find("lock lea") != string::npos ||
+        ((ins->isJump() || ins->isCall() || ins->asmIns().find("ret") != string::npos) && 
+          ins->asmIns().find("lock") != string::npos)/* ||
          ins->asmIns().find("lock add") != string::npos*/)
         return false;
       /*

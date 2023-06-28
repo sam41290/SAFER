@@ -110,6 +110,8 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
 
 bool isNumber(const string& str)
 {
+    if(str.length() <= 0)
+      return false;
     for (char const &c : str) {
         if (std::isdigit(c) == 0) return false;
     }
@@ -118,6 +120,8 @@ bool isNumber(const string& str)
 
 bool isHexNumber(string str)
 {
+  if(str.length() <= 0)
+    return false;
   if(str.find("0x") == 0)
     str.replace(0,2,"");
   for (int i=0; i<str.length(); i++)

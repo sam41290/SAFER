@@ -952,7 +952,7 @@ Cfg::cnsrvtvDisasm() {
   preCachedJumpTables();
   possibleCodeDisasm();
   //phase1NonReturningCallResolution();
-  //addHintBasedEntries();
+  addHintBasedEntries();
   linkAllBBs();
 
 
@@ -1035,7 +1035,8 @@ Cfg::addHintBasedEntries() {
           continue;
         auto gap_end = ptr_bb->boundary();
         auto bb = ptr_bb;
-        while(bb->fallThrough() != 0) {
+        int ctr = 0;
+        while(bb->fallThrough() != 0 && ctr <= 10) {
           bb = getBB(bb->fallThrough());
           if(bb == NULL)
             break;
@@ -1050,6 +1051,7 @@ Cfg::addHintBasedEntries() {
              || last_ins->asmIns().find("ud2") != string::npos
              || last_ins->asmIns().find("hlt") != string::npos)
             break;
+          ctr++;
         }
         checkPsblEntries(ptr.first, gap_end);
       }
@@ -1088,22 +1090,32 @@ Cfg::checkPsblEntries(uint64_t psbl_fn_start, uint64_t gap_end) {
     }
   }
   for(auto start = psbl_fn_start - 17; start < gap_end; start++) {
-    auto ins_lst = disassembler_->getIns(start, 20);
-    if(ins_lst.size() > 0) {
-      auto fn_sig = fnSigScore(ins_lst);
-      DEF_LOG("Fn sig score: "<<hex<<start<<"->"<<dec<<fn_sig);
-      if(fn_sig >= powl(2,21)) {
-        newPointer(start, PointerType::UNKNOWN, PointerSource::GAP_PTR,PointerSource::GAP_PTR,0);
-        createFn(true, start, start,code_type::UNKNOWN);
-        addToCfg(start, PointerSource::GAP_PTR);
-        //sig_found = true;
-        break;
-      }
-      if(start % 8 == 0) {
-        DEF_LOG("Adding possible entry: "<<hex<<start);
-        newPointer(start, PointerType::UNKNOWN, PointerSource::GAP_PTR,PointerSource::GAP_PTR,0);
-        createFn(true, start, start,code_type::UNKNOWN);
-        addToCfg(start, PointerSource::GAP_PTR);
+    if(start % 8 == 0) {
+      DEF_LOG("Adding possible entry: "<<hex<<start);
+      newPointer(start, PointerType::UNKNOWN, PointerSource::GAP_PTR,PointerSource::GAP_PTR,0);
+      createFn(true, start, start,code_type::UNKNOWN);
+      addToCfg(start, PointerSource::GAP_PTR);
+    }
+    uint8_t *bytes = (uint8_t *)malloc(20);
+    uint64_t start_offt = utils::GET_OFFSET(exePath_,start);
+    utils::READ_FROM_FILE(exePath_,(void *) bytes, start_offt, 20);
+    if(*(bytes) == 0x41 ||
+       *(bytes) == 0x55 ||
+       *(bytes) == 0x53 ||
+       *(bytes) == 0x54 ||
+       (*(bytes) == 0x48 &&
+        *(bytes + 1) == 0x83 && *(bytes + 2) == 0xec)) {
+      auto ins_lst = disassembler_->getIns(start, 20);
+      if(ins_lst.size() > 0) {
+        auto fn_sig = fnSigScore(ins_lst);
+        DEF_LOG("Fn sig score: "<<hex<<start<<"->"<<dec<<fn_sig);
+        if(fn_sig >= powl(2,21)) {
+          newPointer(start, PointerType::UNKNOWN, PointerSource::GAP_PTR,PointerSource::GAP_PTR,0);
+          createFn(true, start, start,code_type::UNKNOWN);
+          addToCfg(start, PointerSource::GAP_PTR);
+          //sig_found = true;
+          break;
+        }
       }
     }
   }

@@ -45,7 +45,7 @@ PointerAnalysis::PointerAnalysis (uint64_t memstrt, uint64_t memend,string exepa
   //allConstRelocs_.insert(allConstRelocs_.end(), xtraConstReloc().begin(),xtraConstReloc().end());
   analysis::setup(TOOL_PATH"auto/output.auto");
   DEF_LOG("Exe path: "<<exepath);
-  analysis::lifter_cache(exepath);
+  //analysis::lifter_cache(exepath);
   analysis::set_init(INIT_TYPE);
 }
 

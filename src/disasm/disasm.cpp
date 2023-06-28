@@ -40,7 +40,7 @@ DisasmEngn::createInsCache(uint64_t code_start, uint64_t code_end) {
 
 vector <Instruction *>
 DisasmEngn::getIns(uint64_t start, int limit) {
-  DEF_LOG("Getting instructions for address: "<<hex<<start);
+  //DEF_LOG("Getting instructions for address: "<<hex<<start);
   vector <Instruction *> ins_list;
   uint64_t ins_start = start;
   auto it = insCache_.find(ins_start); 
