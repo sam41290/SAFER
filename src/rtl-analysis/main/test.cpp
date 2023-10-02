@@ -14,8 +14,8 @@ using namespace analysis;
 
 int main(int argc, char **argv) {
    /* load automaton */
-   setup(TOOL_PATH"/auto/output.auto");
-   lifter_cache("/home/soumyakant/exports/analysis_sample_2/gcc_base.amd64-m64-ccr-O2/tmp/gcc_base.amd64-m64-ccr-O2");
+   setup("/home/nhuhuan/SBI/auto/output.auto");
+   lifter_cache("/home/nhuhuan/openssl-1.0.1f/openssl-1.0.1f");
 
    string s;
    vector<int64_t> validEntry;
@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
       cout << "processing " << s << endl;
 
       /* get entry */
-      auto entryStr = s.substr(s.find_last_of("/")+1);
+      auto entryStr = s.substr(s.find_last_of("/")+1, 7);
       auto entry = stoll(entryStr, nullptr, 10);
 
       /* get insn size */

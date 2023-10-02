@@ -345,11 +345,14 @@ Frame::misaligned(uint64_t start) {
         LOG("Misaligned with possible code: "<<bb->start());
         return true;
       }
-      else {
-        bb->split(start);
-        bb->fallThroughBB(getBB(start));
-        //return false;
-      }
+      //else {
+      //  if(bb->start() == 0x40f856) {
+      //    DEF_LOG("Splitting due to misalignment!!");
+      //  }
+      //  bb->split(start);
+      //  bb->fallThroughBB(getBB(start));
+      //  //return false;
+      //}
     }
   }
   return false;
@@ -386,6 +389,9 @@ Frame::markAsDefCode(BasicBlock *bb) {
         return;
       if(bb->isValidIns(bb2->start())) {
         //DEF_LOG("Splitting bb: "<<hex<<bb->start()<<" at "<<hex<<bb2->start());
+        if(bb2->start() == 0x40f856) {
+          DEF_LOG("Splitting while marking as def code");
+        }
         auto newbb = bb->split(bb2->start());
         bb->fallThroughBB(bb2);
         delete(newbb);

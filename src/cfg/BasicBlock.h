@@ -266,9 +266,12 @@ public:
   vector <BasicBlock *> &indirectTgts() { return indirectTgts_;}
   void indirectTgts(vector <BasicBlock *> &lst) { indirectTgts_ = lst; }
   void addIndrctTgt(BasicBlock *bb) { 
-    for(auto & b : indirectTgts_)
-      if(b->start() == bb->start())
+    for(auto & b : indirectTgts_) {
+      if(b->start() == bb->start()) {
         return;
+      }
+    }
+    //DEF_LOG("Adding indirect target: "<<hex<<start()<<"->"<<bb->start());
     indirectTgts_.push_back(bb);
   }
   void end(uint64_t p_end) { end_ = p_end;}

@@ -1,0 +1,276 @@
+   0  $accept : %entry% $end
+
+   1  rtlinsn : expr DONE
+   2          | DONE
+
+   3  expr : LPAREN expr_body RPAREN
+
+   4  expr_body : ID COLON TI_EQ_MODE args
+   5            | ID COLON DI_EQ_MODE args
+   6            | ID optMode args
+
+   7  optMode :
+   8          | COLON ID
+
+   9  args :
+  10       | arg args
+
+  11  arg : expr
+  12      | INT
+  13      | FLOAT
+  14      | ID
+  15      | LBRACK args RBRACK
+
+  16  %entry% : '\001' rtlinsn
+
+state 0
+	$accept : . %entry% $end  (0)
+
+	'\001'  shift 1
+	.  error
+
+	%entry%  goto 2
+
+
+state 1
+	%entry% : '\001' . rtlinsn  (16)
+
+	LPAREN  shift 3
+	DONE  shift 4
+	.  error
+
+	rtlinsn  goto 5
+	expr  goto 6
+
+
+state 2
+	$accept : %entry% . $end  (0)
+
+	$end  accept
+
+
+state 3
+	expr : LPAREN . expr_body RPAREN  (3)
+
+	ID  shift 7
+	.  error
+
+	expr_body  goto 8
+
+
+state 4
+	rtlinsn : DONE .  (2)
+
+	.  reduce 2
+
+
+state 5
+	%entry% : '\001' rtlinsn .  (16)
+
+	.  reduce 16
+
+
+state 6
+	rtlinsn : expr . DONE  (1)
+
+	DONE  shift 9
+	.  error
+
+
+state 7
+	expr_body : ID . COLON TI_EQ_MODE args  (4)
+	expr_body : ID . COLON DI_EQ_MODE args  (5)
+	expr_body : ID . optMode args  (6)
+	optMode : .  (7)
+
+	COLON  shift 10
+	INT  reduce 7
+	ID  reduce 7
+	FLOAT  reduce 7
+	LPAREN  reduce 7
+	RPAREN  reduce 7
+	LBRACK  reduce 7
+
+	optMode  goto 11
+
+
+state 8
+	expr : LPAREN expr_body . RPAREN  (3)
+
+	RPAREN  shift 12
+	.  error
+
+
+state 9
+	rtlinsn : expr DONE .  (1)
+
+	.  reduce 1
+
+
+state 10
+	expr_body : ID COLON . TI_EQ_MODE args  (4)
+	expr_body : ID COLON . DI_EQ_MODE args  (5)
+	optMode : COLON . ID  (8)
+
+	ID  shift 13
+	TI_EQ_MODE  shift 14
+	DI_EQ_MODE  shift 15
+	.  error
+
+
+state 11
+	expr_body : ID optMode . args  (6)
+	args : .  (9)
+
+	INT  shift 16
+	ID  shift 17
+	FLOAT  shift 18
+	LPAREN  shift 3
+	LBRACK  shift 19
+	RPAREN  reduce 9
+
+	arg  goto 20
+	expr  goto 21
+	args  goto 22
+
+
+state 12
+	expr : LPAREN expr_body RPAREN .  (3)
+
+	.  reduce 3
+
+
+state 13
+	optMode : COLON ID .  (8)
+
+	.  reduce 8
+
+
+state 14
+	expr_body : ID COLON TI_EQ_MODE . args  (4)
+	args : .  (9)
+
+	INT  shift 16
+	ID  shift 17
+	FLOAT  shift 18
+	LPAREN  shift 3
+	LBRACK  shift 19
+	RPAREN  reduce 9
+
+	arg  goto 20
+	expr  goto 21
+	args  goto 23
+
+
+state 15
+	expr_body : ID COLON DI_EQ_MODE . args  (5)
+	args : .  (9)
+
+	INT  shift 16
+	ID  shift 17
+	FLOAT  shift 18
+	LPAREN  shift 3
+	LBRACK  shift 19
+	RPAREN  reduce 9
+
+	arg  goto 20
+	expr  goto 21
+	args  goto 24
+
+
+state 16
+	arg : INT .  (12)
+
+	.  reduce 12
+
+
+state 17
+	arg : ID .  (14)
+
+	.  reduce 14
+
+
+state 18
+	arg : FLOAT .  (13)
+
+	.  reduce 13
+
+
+state 19
+	arg : LBRACK . args RBRACK  (15)
+	args : .  (9)
+
+	INT  shift 16
+	ID  shift 17
+	FLOAT  shift 18
+	LPAREN  shift 3
+	LBRACK  shift 19
+	RBRACK  reduce 9
+
+	arg  goto 20
+	expr  goto 21
+	args  goto 25
+
+
+state 20
+	args : arg . args  (10)
+	args : .  (9)
+
+	INT  shift 16
+	ID  shift 17
+	FLOAT  shift 18
+	LPAREN  shift 3
+	LBRACK  shift 19
+	RPAREN  reduce 9
+	RBRACK  reduce 9
+
+	arg  goto 20
+	expr  goto 21
+	args  goto 26
+
+
+state 21
+	arg : expr .  (11)
+
+	.  reduce 11
+
+
+state 22
+	expr_body : ID optMode args .  (6)
+
+	.  reduce 6
+
+
+state 23
+	expr_body : ID COLON TI_EQ_MODE args .  (4)
+
+	.  reduce 4
+
+
+state 24
+	expr_body : ID COLON DI_EQ_MODE args .  (5)
+
+	.  reduce 5
+
+
+state 25
+	arg : LBRACK args . RBRACK  (15)
+
+	RBRACK  shift 27
+	.  error
+
+
+state 26
+	args : arg args .  (10)
+
+	.  reduce 10
+
+
+state 27
+	arg : LBRACK args RBRACK .  (15)
+
+	.  reduce 15
+
+
+16 terminals, 8 nonterminals
+17 grammar rules, 28 states

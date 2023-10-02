@@ -99,6 +99,7 @@ eh_log(const LogData <List> &data) {
 #else
 #define LOG(x)
 #define EH_LOG(x)
+//#define DEF_LOG(x)
 #endif
 
 #define DEF_LOG(x)(log(__FILE__,__LINE__,LogData<None>() <<x))

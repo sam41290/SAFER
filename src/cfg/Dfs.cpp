@@ -216,7 +216,12 @@ Dfs::indTgtsDfs(BasicBlock *entry, unordered_set <uint64_t> &passed) {
   passed.insert(entry->start());
   for(auto & bb : bb_list) {
     auto inds = bb->indirectTgts();
+    //if(entry->start() == 0x40f830)
+    //  DEF_LOG("BB: "<<hex<<bb->start()<<" - "<<bb->end()<<" ind: "<<inds.size());
     if(inds.size() > 0) {
+      //DEF_LOG("Entry: "<<hex<<entry->start()<<" cf bb: "<<hex<<bb->start()<<" ind tgt count: "<<inds.size());
+      //for(auto & ind_bb : inds)
+      //  DEF_LOG(hex<<ind_bb->start());
       indbbList_.insert(indbbList_.end(),inds.begin(),inds.end());
       //for(auto & ind_bb : inds) {
       //  if(passed.find(ind_bb->start()) == passed.end()) {
@@ -237,14 +242,6 @@ Dfs::allIndTgts(vector <BasicBlock *> &entry) {
   indbbList_.clear();
   for(auto & e : entry) {
     indTgtsDfs(e,passed);
-    //DEF_LOG("Entry: "<<hex<<e->start()<<" ind tgt count: "<<lst.size());
-    //all_inds.insert(all_inds.end(),lst.begin(), lst.end());
-    /*
-    if(e->start() == 0x413a60) {
-    for(auto & ind_bb : all_inds)
-      DEF_LOG(hex<<ind_bb->start());
-    }
-    */
     
   }
   LOG("Total inds: "<<bbList_.size());
@@ -271,12 +268,15 @@ Dfs::allRouteDfs(BasicBlock *through,
     BfsQ_.pop();
 
     if(passed.find(entry->start()) == passed.end()) {
-      //LOG("ind path: "<<hex<<entry->start());
+      passed.insert(entry->start());
+      //if(through->start() == 0x41af01)
+      //  DEF_LOG("ind path: "<<hex<<entry->start());
       if(entry->start() == through->start() ||
          valid_ind_path.find(entry->start()) != valid_ind_path.end()) {
         auto bb_list = bbSeq(entry);
         if(bbInList(through, bb_list)) {
-          //LOG("reachable from: "<<hex<<entry->start());
+          //if(through->start() == 0x41af01)
+          //  DEF_LOG("reachable from: "<<hex<<entry->start());
           path.insert(bb_list.begin(), bb_list.end());
           
           auto root = root_.find(entry->start());
@@ -293,16 +293,19 @@ Dfs::allRouteDfs(BasicBlock *through,
         }
         else {
           for(auto & bb : bb_list) {
-            if(passed.find(bb->start()) == passed.end()) {
-              passed.insert(bb->start());
+            //if(through->start() == 0x41af01)
+            //  DEF_LOG("Checking bb for ind tgts: "<<hex<<bb->start());
+            if(bb->lastIns()->isIndirectCf() /*&& passed.find(bb->start()) == passed.end()*/) {
+              //if(through->start() == 0x41af01)
+              //  DEF_LOG("Ind cf: "<<hex<<bb->start());
               auto inds = bb->indirectTgts();
-              if(inds.size() > 0) {    
-                //LOG("Ind cf: "<<hex<<bb->start());
-                for(auto & ind_bb : inds) {
+              for(auto & ind_bb : inds) {
+                if(passed.find(ind_bb->start()) == passed.end()) {
                   BfsQ_.push(ind_bb);
                   if(root_.find(ind_bb->start()) == root_.end()) {
                     root_[ind_bb->start()] = entry;
-                    //LOG("Adding root: "<<hex<<ind_bb->start()<<"->"<<hex<<entry->start());
+                    //if(through->start() == 0x41af01)
+                    //  DEF_LOG("Adding root: "<<hex<<ind_bb->start()<<"->"<<hex<<entry->start());
                   }
                 }
               }

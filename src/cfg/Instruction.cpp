@@ -317,12 +317,13 @@ Instruction::isRltvAccess(int RIP) {
 
 bool
 Instruction::indirectCFWithReg() {
+  //DEF_LOG("Checking if indirect CF: "<<hex<<location());
   if(isIndrctCf_ == true && asmIns_.find("ret") == string::npos &&
       asmIns_.find("%rip") == string::npos && asmIns_.find("call") ==
       string::npos) {
       return true;
     }
-
+  //DEF_LOG("Not an indirect CF");
   return false;
 }
 

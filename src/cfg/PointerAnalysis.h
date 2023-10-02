@@ -8,7 +8,8 @@
 #include "Pointer.h"
 #include "Function.h"
 #include "libutils.h"
-#include "libanalysis.h"
+//#include "libanalysis.h"
+#include "../src/SBD/includes/libanalysis.h"
 #include "CFValidity.h"
 #include "Dfs.h"
 #include "SaInput.h"
@@ -73,12 +74,15 @@ class PointerAnalysis : public virtual SaInput, public virtual CFValidity,
 {
   vector <Reloc> allConstRelocs_;
   vector <Property> propList_;
+  unordered_set <uint64_t> postQAnalysis_;
   unordered_set <uint64_t> possiblePtrs_;
+  unordered_set <uint64_t> additionalPtrs_;
   unordered_set <uint64_t> Conflicts_;
   unordered_set <uint64_t> passed_;
   unordered_set <uint64_t> checked_;
   unordered_set <uint64_t> validInsAndCF_;
   unordered_set <uint64_t> FNCorrectionDone_;
+  unordered_map <uint64_t, unordered_set<uint64_t>> IndTgtValidationMap_;
   priority_queue<AnalysisCandidate, vector<AnalysisCandidate>, CompareCandidate> analysisQ_;
 public:
   PointerAnalysis (uint64_t memstrt, uint64_t memend, string exepath);
@@ -89,7 +93,8 @@ public:
   bool conflictingSeqs(vector <BasicBlock *> &seq1,
                        vector <BasicBlock *> &seq2);
   void checkIndTgts(unordered_map<int64_t, vector<int64_t>> & ind_tgts,
-                    vector <BasicBlock *> & fin_bb_list);
+                    vector <BasicBlock *> & fin_bb_list,
+                    unordered_set <uint64_t> &present);
   virtual bool addToCfg(uint64_t addrs, PointerSource src) = 0;
   virtual void addToDisasmRoots (uint64_t address) = 0;
   virtual void rootSrc(PointerSource root) = 0;
@@ -97,6 +102,7 @@ public:
   static bool dataByProperty(BasicBlock *bb);
 private:
   void symbolizeIfValidAccess(Pointer *ptr);
+  bool sameFunctionBody(uint64_t addr1, uint64_t addr2);
   double CFTransferDensity(vector <BasicBlock *> &bbList);
   bool callsDefCode(vector <BasicBlock *> &bbList);
   void classifyPsblFn(Function *fn);
@@ -180,6 +186,18 @@ private:
   bool callTargetRoot(BasicBlock *bb);
   bool likelyTrueJmpTblTgt(BasicBlock *bb);
   bool likelyTrueFunction(BasicBlock *bb);
+  void entryValidation(BasicBlock *entry);
+  void binarySearchValidation(BasicBlock *entry,
+                                        vector <BasicBlock *> &parent_path,
+                                        vector <BasicBlock *> &ind_set);
+  void indTgtValidation(BasicBlock *entry,
+                                  vector <BasicBlock *> &parent_path,
+                                  vector <BasicBlock *> &ind_set);
+  void recursiveIndTgtValidation(BasicBlock *entry,
+                                 BasicBlock *intermediate_ind,
+                                 vector <BasicBlock *> &parent_path,
+                                 unordered_set <uint64_t> &passed);
+
 };
 }
 #endif

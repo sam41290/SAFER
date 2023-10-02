@@ -30,9 +30,13 @@ JmpTblAnalysis::readTargets (JumpTable & jt, uint64_t jloc)
       auto bb = withinBB(jloc);
       rootSrc(bb->rootSrc());
       //addToCfg(tgt, PointerSource::JUMPTABLE);
-      if (addToCfg(tgt, PointerSource::JUMPTABLE) == false)
+      if (addToCfg(tgt, PointerSource::JUMPTABLE) == false) {
+        DEF_LOG("Invalid jump table target found: "<<hex<<tgt);
         break;
+      }
       uint64_t end = dataSegmntEnd(jt.location ());
+      if(end != jt.end())
+        DEF_LOG("New end: "<<hex<<end);
       jt.end(min(jt.end(),end));
       //linkAllBBs();
       //bb = withinBB(jloc);
@@ -78,7 +82,7 @@ JmpTblAnalysis::preCachedJumpTables() {
         if(l <= 0)
           continue;
         j.location(l);
-        DEF_LOG("Pre cached Type 1 Location: "<<hex<<j.location()<<" base: "<<j.base());
+        DEF_LOG("Pre cached Type 1 Location: "<<hex<<j.location()<<" base: "<<j.base()<<" cf loc: "<<hex<<cf_loc);
         j.entrySize(stoull(words[4],0,10));
         cachedJTables_[cf_loc].push_back(j);
         //jmp_tbls.push_back(j);
@@ -93,7 +97,7 @@ JmpTblAnalysis::preCachedJumpTables() {
           continue;
         j.base(b);
         j.location(b);
-        DEF_LOG("Pre cached Type 2 Location: "<<hex<<j.location());
+        DEF_LOG("Pre cached Type 2 Location: "<<hex<<j.location()<<" at: "<<hex<<cf_loc);
         j.entrySize(stoull(words[3],0,10));
         cachedJTables_[cf_loc].push_back(j);
         //jmp_tbls.push_back(j);
@@ -108,7 +112,7 @@ JmpTblAnalysis::preCachedJumpTables() {
           continue;
         j.base(b);
         j.location(b);
-        DEF_LOG("Pre cached Type 3 Location: "<<hex<<j.location());
+        DEF_LOG("Pre cached Type 3 Location: "<<hex<<j.location()<<" at: "<<hex<<cf_loc);
         j.entrySize(stoull(words[3],0,10));
         cachedJTables_[cf_loc].push_back(j);
         //jmp_tbls.push_back(j);
@@ -159,7 +163,7 @@ JmpTblAnalysis::processJTable(JumpTable &j) {
 }
 
 void
-JmpTblAnalysis::decodeJmpTblTgts(analysis::JTable j_lst) {
+JmpTblAnalysis::decodeJmpTblTgts(analysis_new::JTable j_lst) {
   map <uint64_t, Function *>funMap = funcMap();
   vector <JumpTable> jmp_tbls;
   for (auto& [jloc, jtable]: j_lst.type1()) {
@@ -169,6 +173,8 @@ JmpTblAnalysis::decodeJmpTblTgts(analysis::JTable j_lst) {
     j.base(jtable.offset.val);
 
     j.location(jtable.mem.addr.base.val);
+    if((int64_t)j.location() <= 0 || (int64_t)j.base() <= 0)
+      continue;
     DEF_LOG("Type 1 Location: "<<hex<<j.location()<<" base: "<<j.base()<<" end: "<<hex<<j.end());
     if (definiteCode(j.location()))
       continue;
@@ -240,76 +246,151 @@ JmpTblAnalysis::decodeJmpTblTgts(analysis::JTable j_lst) {
 
 bool
 hasIndJmp(vector <BasicBlock *> & bb_list) {
-  for(auto & bb : bb_list)
-    if(bb->indirectCFWithReg())
+  for(auto & bb : bb_list) {
+    if(bb->indirectCFWithReg()) {
+      //DEF_LOG("Indirect CF at: "<<hex<<bb->lastIns()->location());
       return true;
+    }
+  }
   return false;
 }
 unordered_set <uint64_t> cache_checked;
+
 void
 JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
-  vector <BasicBlock *> fin_bb_list;
-  vector <int64_t> entries_to_analyze;
   for(auto & entry : entries) {
     auto bb = getBB(entry);
     if(bb != NULL) {
       DEF_LOG("Analyzing jump table for: "<<hex<<entry);
       vector <BasicBlock *> bb_list = bbSeq(bb);
       if(validIns(bb_list)) {
-        fin_bb_list.insert(fin_bb_list.end(),bb_list.begin(),bb_list.end());
-        entries_to_analyze.push_back(entry);
-      }
-    }
-  }
-  if(hasIndJmp(fin_bb_list)) {
-    bool all_cached = true;
-    for(auto & bb : fin_bb_list) {
-      if(bb->indirectCFWithReg()) {
-        auto last_ins = bb->lastIns();
-        auto cf = last_ins->location();
-        if(cache_checked.find(cf) == cache_checked.end()) {
-          DEF_LOG("Cached jump table for cf: "<<hex<<cf);
-          cache_checked.insert(cf);
-          if(cachedJTables_.find(cf) != cachedJTables_.end()) {
-            for(auto & j : cachedJTables_[cf])
-              processJTable(j);
+        unordered_map<int64_t, vector<int64_t>> ind_tgts;
+        indTgts(bb_list,ind_tgts);
+        vector <uint64_t> cf_list;
+        for(auto & bb : bb_list)
+          if(bb->indirectCFWithReg())
+            cf_list.push_back(bb->lastIns()->location());
+
+       // if(hasIndJmp(bb_list)) {
+          bool all_cached = true;
+          bool ind_jmp = false;
+          for(auto & cf : cf_list) {
+            ind_jmp = true;
+            DEF_LOG("Indirect CF: "<<hex<<cf);
+            if(cache_checked.find(cf) == cache_checked.end()) {
+              cache_checked.insert(cf);
+              if(cachedJTables_.find(cf) != cachedJTables_.end()) {
+                DEF_LOG("Cached jump table for cf: "<<hex<<cf);
+                for(auto & j : cachedJTables_[cf]) {
+                  processJTable(j);
+                  linkAllBBs();
+                }
+              }
+              else
+                all_cached = false;
+            }
+            else
+              DEF_LOG("Cache pre-checked for: "<<hex<<cf);
           }
-          else
-            all_cached = false;
-        }
+          if(all_cached)
+            return;
+          if(ind_jmp) {
+            vector <BasicBlock *> bb_list = bbSeq(bb);
+            unordered_map<int64_t, vector<int64_t>> ind_tgts;
+            indTgts(bb_list,ind_tgts);
+            string dir = get_current_dir_name();
+            string jtableFile = dir + "/jmp_table/" + to_string(entry) + ".ind";
+            dumpIndrctTgt(jtableFile,ind_tgts);
+            string file_name =  dir + "/jmp_table/" + to_string(entry) + ".s";
+            genFnFile(file_name,entry,bb_list);
+            unordered_map<int64_t,int64_t> ins_sz = insSizes(bb_list);
+            string sizeFile = dir + "/jmp_table/" + to_string(entry) + ".sz";
+            dumpInsSizes(sizeFile,ins_sz);
+
+            analysis_new::load(entry, file_name, sizeFile, jtableFile);
+            analysis_new::analyse();
+            decodeJmpTblTgts(analysis_new::jump_table());
+            linkAllBBs();
+          }
+       // }
       }
-    }
-    
-    if(all_cached)
-      return;
-    string dir = get_current_dir_name();
-    string file_name = /*TOOL_PATH + exeName_*/ dir  + "/jmp_table/" + to_string(entries_to_analyze[0]) + ".s";
-    unordered_map<int64_t, vector<int64_t>> ind_tgts;
-    indTgts(fin_bb_list,ind_tgts);
-    dumpIndrctTgt(/*TOOL_PATH + exeName_*/ dir  + "/jmp_table/" + to_string(entries_to_analyze[0])
-        + ".ind",ind_tgts);
-    genFnFile(file_name,entries_to_analyze[0],fin_bb_list);
-    unordered_map<int64_t,int64_t> ins_sz = insSizes(fin_bb_list);
-    dumpInsSizes(/*TOOL_PATH + exeName_*/ dir  + "/jmp_table/" + to_string(entries_to_analyze[0])
-        + ".sz",ins_sz);
-    //vector <int64_t> all_entries;
-    //all_entries.push_back(entry);
-    DEF_LOG("indirect targets size: "<<ind_tgts.size());
-    if(analysis::load(file_name,ins_sz,ind_tgts,entries_to_analyze)) {
-      for (int func_index = 0; ; ++func_index) {
-        bool valid_func = analysis::analyze(func_index);
-        if (valid_func) {
-          DEF_LOG("Analyzing jump table for: "<<hex<<entries_to_analyze[func_index]);
-           decodeJmpTblTgts(analysis::jump_table_analysis());
-           linkAllBBs();
-        }
-        else
-           break;
-      }
-      //analysis::reset();
+      else
+        DEF_LOG("Invalid ins: "<<hex<<entry);
     }
   }
+
 }
+
+//void
+//JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
+//  vector <BasicBlock *> fin_bb_list;
+//  vector <int64_t> entries_to_analyze;
+//  for(auto & entry : entries) {
+//    auto bb = getBB(entry);
+//    if(bb != NULL) {
+//      DEF_LOG("Analyzing jump table for: "<<hex<<entry);
+//      vector <BasicBlock *> bb_list = bbSeq(bb);
+//      if(validIns(bb_list)) {
+//        fin_bb_list.insert(fin_bb_list.end(),bb_list.begin(),bb_list.end());
+//        entries_to_analyze.push_back(entry);
+//      }
+//      else
+//        DEF_LOG("Invalid ins: "<<hex<<entry);
+//    }
+//  }
+//  if(hasIndJmp(fin_bb_list)) {
+//    bool all_cached = true;
+//    for(auto & bb : fin_bb_list) {
+//      if(bb->indirectCFWithReg()) {
+//        auto last_ins = bb->lastIns();
+//        auto cf = last_ins->location();
+//        if(cache_checked.find(cf) == cache_checked.end()) {
+//          cache_checked.insert(cf);
+//          if(cachedJTables_.find(cf) != cachedJTables_.end()) {
+//            DEF_LOG("Cached jump table for cf: "<<hex<<cf);
+//            for(auto & j : cachedJTables_[cf]) {
+//              processJTable(j);
+//              linkAllBBs();
+//            }
+//          }
+//          else
+//            all_cached = false;
+//        }
+//        else
+//          DEF_LOG("Cache pre-checked for: "<<hex<<cf);
+//      }
+//    }
+//    
+//    if(all_cached)
+//      return;
+//    string dir = get_current_dir_name();
+//    string file_name = /*TOOL_PATH + exeName_*/ dir  + "/jmp_table/" + to_string(entries_to_analyze[0]) + ".s";
+//    unordered_map<int64_t, vector<int64_t>> ind_tgts;
+//    indTgts(fin_bb_list,ind_tgts);
+//    dumpIndrctTgt(/*TOOL_PATH + exeName_*/ dir  + "/jmp_table/" + to_string(entries_to_analyze[0])
+//        + ".ind",ind_tgts);
+//    genFnFile(file_name,entries_to_analyze[0],fin_bb_list);
+//    unordered_map<int64_t,int64_t> ins_sz = insSizes(fin_bb_list);
+//    dumpInsSizes(/*TOOL_PATH + exeName_*/ dir  + "/jmp_table/" + to_string(entries_to_analyze[0])
+//        + ".sz",ins_sz);
+//    //vector <int64_t> all_entries;
+//    //all_entries.push_back(entry);
+//    DEF_LOG("indirect targets size: "<<ind_tgts.size());
+//    if(analysis::load(file_name,ins_sz,ind_tgts,entries_to_analyze)) {
+//      for (int func_index = 0; ; ++func_index) {
+//        bool valid_func = analysis::analyze(func_index);
+//        if (valid_func) {
+//          DEF_LOG("Analyzing jump table for: "<<hex<<entries_to_analyze[func_index]);
+//           decodeJmpTblTgts(analysis::jump_table_analysis());
+//           linkAllBBs();
+//        }
+//        else
+//           break;
+//      }
+//      //analysis::reset();
+//    }
+//  }
+//}
 
 void
 JmpTblAnalysis::analyzeFn(Function * fn) {
