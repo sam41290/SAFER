@@ -29,7 +29,7 @@
 #define SHSTK(b)
 
 #define CFGCONSISTENCYCHECK
-#define HINT_BASED_ENTRY
+
 #define INIT_TYPE 4 //With ABI
 
 #ifdef CFGCONSISTENCYCHECK
