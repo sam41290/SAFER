@@ -68,9 +68,16 @@ SaInput::indTgts(vector <BasicBlock *> & bb_list,
       for(auto & ind_bb : ind_bbs) {
         vector <BasicBlock *> lst = bbSeq(ind_bb);
         if(CFValidity::validIns(lst)) {
+          //DEF_LOG("Adding indrect tgt to bb list: "<<hex<<ind_bb->start());
           ind_tgts[bb->end()].push_back(ind_bb->start());
           indTgts(lst, ind_tgts);
           all_ind_tgts.insert(all_ind_tgts.end(),lst.begin(),lst.end());
+          //if(ind_bb->start() == 0x41b060) {
+          //  for(auto & bb : all_ind_tgts) {
+          //    if(bb->lastIns()->isIndirectCf())
+          //      DEF_LOG("BB: "<<hex<<bb->start()<<"-"<<hex<<bb->lastIns()->location());
+          //  }
+          //}
         }
       }
     }

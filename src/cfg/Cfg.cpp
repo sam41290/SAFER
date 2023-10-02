@@ -640,9 +640,12 @@ Cfg::processAllRoots() {
       disasmRoots_.pop();
       if(ptr(start) != NULL){
         auto p = ptr(start);
-	/*
-        if(p->type() != PointerType::CP && p->source() != PointerSource::GAP_PTR) {
+        if(p->type() != PointerType::CP && 
+           p->source() != PointerSource::GAP_PTR &&
+           p->source() != PointerSource::PIC_RELOC &&
+           p->source() != PointerSource::RIP_RLTV) {
           auto gap_bb = withinBB(start);
+          DEF_LOG("Checking if pointer has linear scanned bb: "<<hex<<start);
           if(gap_bb == NULL) {
             for(auto i = start + 1; i < start + 17; i++) {
               gap_bb = getBB(i);
@@ -654,8 +657,8 @@ Cfg::processAllRoots() {
               continue;
             }
           }
+          DEF_LOG("Gap bb found: "<<hex<<gap_bb->start());
         }
-	*/
         if(ignoreRoots_.find(ptr(start)->source()) == ignoreRoots_.end()) {
           if(ptr(start)->rootSrc() != PointerSource::NONE)
             rootSrc_ = ptr(start)->rootSrc();
@@ -979,79 +982,105 @@ Cfg::cnsrvtvDisasm() {
   //analyze();
 }
 
-void
-Cfg::checkFirstUseDef(vector <uint64_t> &psbl_entries) {
-  if(psbl_entries.size() > 0) {
-    vector <int64_t> all_entries;
-    vector <BasicBlock *> fin_bb_list;
-    for(auto & start : psbl_entries) {
-      auto bb = getBB(start);
-      if(bb != NULL) {
-        auto bb_list = bbSeq(bb);
-        if(validIns(bb_list) && validCF(bb_list)) {
-          all_entries.push_back(start);
-          fin_bb_list.insert(fin_bb_list.end(), bb_list.begin(), bb_list.end());
-        }
-      }
-    }
-    unordered_map<int64_t, vector<int64_t>> ind_tgts;
-    checkIndTgts(ind_tgts,fin_bb_list);
-    string dir = get_current_dir_name();
-    dumpIndrctTgt(/*TOOL_PATH + exeName_*/ dir + "/tmp/" + to_string(psbl_entries[0])
-        + ".ind",ind_tgts);
-    string file_name = /*TOOL_PATH + exeName_*/ dir + "/tmp/" + to_string(psbl_entries[0]) + ".s";
-    genFnFile(file_name,psbl_entries[0],fin_bb_list);
-    unordered_map<int64_t,int64_t> ins_sz = insSizes(fin_bb_list);
-    dumpInsSizes(/*TOOL_PATH + exeName_*/ dir + "/tmp/" + to_string(psbl_entries[0]) + ".sz",ins_sz);
-    bool valid_prog = analysis::load(file_name,ins_sz,ind_tgts,all_entries);
-    if (valid_prog) {
-       /* analyze one function at a time */
-       for (int func_index = 0; ; ++func_index) {
-          bool valid_func = analysis::analyze(func_index);
-          if (valid_func) {
-             auto psbl_entry = analysis::first_used_redef();
-             if(psbl_entry > 0) {
-               newPointer(psbl_entry, PointerType::UNKNOWN, PointerSource::GAP_PTR,PointerSource::GAP_PTR,0);
-               createFn(true, psbl_entry, psbl_entry,code_type::UNKNOWN);
-               addToCfg(psbl_entry, PointerSource::GAP_PTR);
-             }
-          }
-          else
-             break;
-       }
-    }
-  }
-}
+//void
+//Cfg::checkFirstUseDef(vector <uint64_t> &psbl_entries) {
+//  if(psbl_entries.size() > 0) {
+//    vector <int64_t> all_entries;
+//    vector <BasicBlock *> fin_bb_list;
+//    for(auto & start : psbl_entries) {
+//      auto bb = getBB(start);
+//      if(bb != NULL) {
+//        auto bb_list = bbSeq(bb);
+//        if(validIns(bb_list) && validCF(bb_list)) {
+//          all_entries.push_back(start);
+//          fin_bb_list.insert(fin_bb_list.end(), bb_list.begin(), bb_list.end());
+//        }
+//      }
+//    }
+//    unordered_map<int64_t, vector<int64_t>> ind_tgts;
+//    checkIndTgts(ind_tgts,fin_bb_list);
+//    string dir = get_current_dir_name();
+//    dumpIndrctTgt(/*TOOL_PATH + exeName_*/ dir + "/tmp/" + to_string(psbl_entries[0])
+//        + ".ind",ind_tgts);
+//    string file_name = /*TOOL_PATH + exeName_*/ dir + "/tmp/" + to_string(psbl_entries[0]) + ".s";
+//    genFnFile(file_name,psbl_entries[0],fin_bb_list);
+//    unordered_map<int64_t,int64_t> ins_sz = insSizes(fin_bb_list);
+//    dumpInsSizes(/*TOOL_PATH + exeName_*/ dir + "/tmp/" + to_string(psbl_entries[0]) + ".sz",ins_sz);
+//    bool valid_prog = analysis::load(file_name,ins_sz,ind_tgts,all_entries);
+//    if (valid_prog) {
+//       /* analyze one function at a time */
+//       for (int func_index = 0; ; ++func_index) {
+//          bool valid_func = analysis::analyze(func_index);
+//          if (valid_func) {
+//             auto psbl_entry = analysis::first_used_redef();
+//             if(psbl_entry > 0) {
+//               newPointer(psbl_entry, PointerType::UNKNOWN, PointerSource::GAP_PTR,PointerSource::GAP_PTR,0);
+//               createFn(true, psbl_entry, psbl_entry,code_type::UNKNOWN);
+//               addToCfg(psbl_entry, PointerSource::GAP_PTR);
+//             }
+//          }
+//          else
+//             break;
+//       }
+//    }
+//  }
+//}
 
 void
 Cfg::addHintBasedEntries() {
   auto all_ptrs = pointers();
   for(auto & ptr : all_ptrs) {
     if(ptr.second->source() == PointerSource::GAP_PTR) {
+    //if(ptr.second->source() != PointerSource::JUMPTABLE) {
       auto ptr_bb = getBB(ptr.first);
       if(ptr_bb != NULL) {
         auto ins_list = ptr_bb->insList();
-        if(ins_list[0]->asmIns().find("nop") != string::npos)
+        //DEF_LOG("Gap start: "<<hex<<ptr.first<<":"<<ins_list[0]->asmIns());
+        if(ins_list[0]->asmIns().find("nop") != string::npos ||
+           ins_list[0]->asmIns().find("xchg %ax,%ax") != string::npos ||
+           ins_list[0]->asmIns().find("xchgw %ax,%ax") != string::npos)
           continue;
+        auto parents = ptr_bb->parents();
+        bool call_fall = false;
+        for(auto & p : parents) {
+          if(p->isCall() && p->fallThrough() == ptr_bb->start()) {
+            call_fall = true;
+            break;
+          }
+        }
+        if(call_fall)
+          continue;
+        auto last_ins = ptr_bb->lastIns();
         auto gap_end = ptr_bb->boundary();
-        auto bb = ptr_bb;
-        int ctr = 0;
-        while(bb->fallThrough() != 0 && ctr <= 10) {
-          bb = getBB(bb->fallThrough());
-          if(bb == NULL)
-            break;
-          auto p = all_ptrs.find(bb->start());
-          if(p != all_ptrs.end() && (p->second->source() == PointerSource::JUMPTABLE
-             || p->second->source() == PointerSource::GAP_PTR))
-            break;
-          auto last_ins = bb->lastIns();
-          gap_end = last_ins->location() + last_ins->insSize();
-          if(last_ins->isUnconditionalJmp() ||
-             last_ins->isCall() || last_ins->asmIns().find("ret") != string::npos
-             || last_ins->asmIns().find("ud2") != string::npos
-             || last_ins->asmIns().find("hlt") != string::npos)
-            break;
-          ctr++;
+        DEF_LOG("Finding gap end: "<<hex<<ptr.first<<" - "<<gap_end);
+        if((last_ins->isCall() || last_ins->isJump()) && last_ins->insSize() >= 5) {
+          DEF_LOG("Call or jump found: "<<last_ins->location()<<": "<<last_ins->asmIns());
+          gap_end = last_ins->location();
+        }
+        else {
+          auto bb = ptr_bb;
+          while(bb->fallThrough() != 0/* && ctr <= 3*/) {
+            bb = getBB(bb->fallThrough());
+            if(bb == NULL)
+              break;
+            auto p = all_ptrs.find(bb->start());
+            if(p != all_ptrs.end() && (p->second->source() == PointerSource::JUMPTABLE
+               || p->second->source() == PointerSource::GAP_PTR)) {
+              DEF_LOG("Jump table target or gap ptr found:"<<hex<<p->first);
+              break;
+            }
+            auto last_ins = bb->lastIns();
+            gap_end = last_ins->location() + last_ins->insSize();
+            if(last_ins->isUnconditionalJmp() ||
+               last_ins->isCall() || last_ins->asmIns().find("ret") != string::npos
+               || last_ins->asmIns().find("ud2") != string::npos
+               || last_ins->asmIns().find("hlt") != string::npos) {
+              gap_end = last_ins->location();
+              DEF_LOG("Call or jump found: "<<last_ins->location()<<": "<<last_ins->asmIns());
+              break;
+            }
+            DEF_LOG("Finding gap end: "<<hex<<ptr.first<<" - "<<gap_end);
+          }
         }
         checkPsblEntries(ptr.first, gap_end);
       }
@@ -1061,50 +1090,52 @@ Cfg::addHintBasedEntries() {
 
 void
 Cfg::checkPsblEntries(uint64_t psbl_fn_start, uint64_t gap_end) {
-  auto new_bb = getBB(psbl_fn_start);
-  vector <Instruction *> ins_list;
-  //bool sig_found = false;
-  if(new_bb != NULL) {
-    ins_list = new_bb->insList();
-    while(new_bb->fallThrough() != 0 && new_bb->fallThrough() < gap_end) {
-      new_bb = getBB(new_bb->fallThrough());
-      if(new_bb == NULL)
-        break;
-      auto fall_lst = new_bb->insList();
-      ins_list.insert(ins_list.end(),fall_lst.begin(),fall_lst.end());
+  //auto new_bb = getBB(psbl_fn_start);
+  //vector <Instruction *> ins_list;
+  bool sig_found = false;
+  DEF_LOG("Checking possible entries: "<<hex<<psbl_fn_start<<" - "<<gap_end);
+  //if(new_bb != NULL) {
+  //  ins_list = new_bb->insList();
+  //  while(new_bb->fallThrough() != 0 && new_bb->fallThrough() < gap_end) {
+  //    new_bb = getBB(new_bb->fallThrough());
+  //    if(new_bb == NULL)
+  //      break;
+  //    auto fall_lst = new_bb->insList();
+  //    ins_list.insert(ins_list.end(),fall_lst.begin(),fall_lst.end());
+  //  }
+  //  DEF_LOG("Checking fall through addresses for possible entry: "<<hex<<psbl_fn_start<<" ins count: "<<ins_list.size());
+  //  for(auto ins_it = ins_list.begin(); ins_it != ins_list.end(); ins_it++) {
+  //    vector <Instruction *> sub_lst;
+  //    sub_lst.insert(sub_lst.end(), ins_it, ins_list.end());
+  //    auto fn_sig = fnSigScore(sub_lst);
+  //    auto loc = (*ins_it)->location();
+  //    DEF_LOG("Fn sig score: "<<hex<<loc<<"->"<<dec<<fn_sig);
+  //    if(fn_sig > 0) {
+  //      newPointer(loc, PointerType::UNKNOWN, PointerSource::GAP_PTR,PointerSource::GAP_PTR,0);
+  //      createFn(true, loc, loc,code_type::UNKNOWN);
+  //      addToCfg(loc, PointerSource::GAP_PTR);
+  //      //sig_found = true;
+  //      break;
+  //    }
+  //  }
+  //}
+  uint64_t size = gap_end - (psbl_fn_start - 17);
+  uint8_t *bytes = (uint8_t *)malloc(size);
+  uint64_t start_offt = utils::GET_OFFSET(exePath_,psbl_fn_start - 17);
+  utils::READ_FROM_FILE(exePath_,(void *) bytes, start_offt, size);
+  int i = 0;
+  for(auto start = psbl_fn_start - 17; start < gap_end; start++,i++) {
+    if(*(bytes + i) == 0xe9 || *(bytes + i) == 0xe8) {
+      start+=4;
+      i+=4;
+      continue;
     }
-    DEF_LOG("Checking fall through addresses for possible entry: "<<hex<<psbl_fn_start<<" ins count: "<<ins_list.size());
-    for(auto ins_it = ins_list.begin(); ins_it != ins_list.end(); ins_it++) {
-      vector <Instruction *> sub_lst;
-      sub_lst.insert(sub_lst.end(), ins_it, ins_list.end());
-      auto fn_sig = fnSigScore(sub_lst);
-      auto loc = (*ins_it)->location();
-      DEF_LOG("Fn sig score: "<<hex<<loc<<"->"<<dec<<fn_sig);
-      if(fn_sig > 0) {
-        newPointer(loc, PointerType::UNKNOWN, PointerSource::GAP_PTR,PointerSource::GAP_PTR,0);
-        createFn(true, loc, loc,code_type::UNKNOWN);
-        addToCfg(loc, PointerSource::GAP_PTR);
-        //sig_found = true;
-        break;
-      }
-    }
-  }
-  for(auto start = psbl_fn_start - 17; start < gap_end; start++) {
-    if(start % 8 == 0) {
-      DEF_LOG("Adding possible entry: "<<hex<<start);
-      newPointer(start, PointerType::UNKNOWN, PointerSource::GAP_PTR,PointerSource::GAP_PTR,0);
-      createFn(true, start, start,code_type::UNKNOWN);
-      addToCfg(start, PointerSource::GAP_PTR);
-    }
-    uint8_t *bytes = (uint8_t *)malloc(20);
-    uint64_t start_offt = utils::GET_OFFSET(exePath_,start);
-    utils::READ_FROM_FILE(exePath_,(void *) bytes, start_offt, 20);
-    if(*(bytes) == 0x41 ||
-       *(bytes) == 0x55 ||
-       *(bytes) == 0x53 ||
-       *(bytes) == 0x54 ||
-       (*(bytes) == 0x48 &&
-        *(bytes + 1) == 0x83 && *(bytes + 2) == 0xec)) {
+    if(*(bytes + i) == 0x41 ||
+       *(bytes + i) == 0x55 ||
+       *(bytes + i) == 0x53 ||
+       *(bytes + i) == 0x54 ||
+       (i < (size - 3) && *(bytes + i) == 0x48 &&
+        *(bytes + i + 1) == 0x83 && *(bytes + i + 2) == 0xec)) {
       auto ins_lst = disassembler_->getIns(start, 20);
       if(ins_lst.size() > 0) {
         auto fn_sig = fnSigScore(ins_lst);
@@ -1113,16 +1144,49 @@ Cfg::checkPsblEntries(uint64_t psbl_fn_start, uint64_t gap_end) {
           newPointer(start, PointerType::UNKNOWN, PointerSource::GAP_PTR,PointerSource::GAP_PTR,0);
           createFn(true, start, start,code_type::UNKNOWN);
           addToCfg(start, PointerSource::GAP_PTR);
-          //sig_found = true;
+          sig_found = true;
           break;
         }
       }
     }
+    //if(start % 8 == 0) {
+    //  DEF_LOG("Adding possible entry: "<<hex<<start);
+    //  newPointer(start, PointerType::UNKNOWN, PointerSource::GAP_PTR,PointerSource::GAP_PTR,0);
+    //  createFn(true, start, start,code_type::UNKNOWN);
+    //  addToCfg(start, PointerSource::GAP_PTR);
+    //}
   }
-  /*
-  if(sig_found == false && new_bb != NULL) {
+  if(sig_found == false /*&& new_bb != NULL*/) {
     DEF_LOG("Signature not found..adding aligned locations");
-    for(auto start = psbl_fn_start - 17; start < gap_end; start++) {
+    i = 0;
+    auto chk_start = psbl_fn_start - 17;
+    while(chk_start < gap_end) {
+      auto bb = withinBB(chk_start);
+      if(bb != NULL) {
+        auto parents = bb->parents();
+        bool call_fall = false;
+        for(auto & p : parents) {
+          if(p->isCall() && p->fallThrough() == bb->start()) {
+            call_fall = true;
+            break;
+          }
+        }
+        if(call_fall) {
+          i += (bb->boundary() - chk_start);
+          chk_start = bb->boundary();
+        }
+        else
+          break;
+      }
+      else
+        break;
+    }
+    for(auto start = chk_start; start < gap_end; start++,i++) {
+      if(*(bytes + i) == 0xe9 || *(bytes + i) == 0xe8) {
+        start+=4;
+        i+=4;
+        continue;
+      }
       DEF_LOG("Checking address: "<<hex<<start);
       if(start % 8 == 0) {
         DEF_LOG("Adding possible entry: "<<hex<<start);
@@ -1132,7 +1196,7 @@ Cfg::checkPsblEntries(uint64_t psbl_fn_start, uint64_t gap_end) {
       }
     }
   }
-  */
+  free(bytes);
 }
 
 void
@@ -1177,7 +1241,9 @@ Cfg::disassembleGaps() {
           for(auto & ins : ins_list) {
             linear_scan.push_back(ins);
             last_ins = ins;
-            if(last_ins->isUnconditionalJmp() || last_ins->asmIns().find("ret") != string::npos) {
+            if((last_ins->isUnconditionalJmp() && last_ins->isCall() == false) ||
+               (last_ins->isCall() && last_ins->insSize() >= 5) ||
+               last_ins->asmIns().find("ret") != string::npos) {
               cf_found = true;
               DEF_LOG("CF found at: "<<hex<<last_ins->location()<<" breaking");
               break;
@@ -1221,10 +1287,12 @@ Cfg::disassembleGaps() {
         continue;
       }
       */
-      if(ins->isUnconditionalJmp() || ins->asmIns().find("ret") != string::npos
+      if((ins->isUnconditionalJmp() && ins->isCall() == false) ||
+         (ins->isCall() && ins->insSize() >= 5)
+         || ins->asmIns().find("ret") != string::npos
          || ins->asmIns().find("hlt") != string::npos
          || ins->asmIns().find("ud2") != string::npos) {
-        DEF_LOG("potential function exit: "<<hex<<ins->location()<<": "<<ins->asmIns());
+        DEF_LOG("potential function exit: "<<hex<<ins->location()<<": "<<ins->asmIns()<<" psbl fn start: "<<hex<<psbl_fn_start);
         if(ins->location() - psbl_fn_start >= 0) {
           auto bb = getBB(psbl_fn_start);
           if(bb == NULL) {

@@ -8,7 +8,7 @@
 #include "Pointer.h"
 #include "Function.h"
 #include "libutils.h"
-#include "libanalysis.h"
+//#include "libanalysis.h"
 #include "CfgElems.h"
 
 using namespace std;

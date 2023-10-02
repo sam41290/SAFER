@@ -37,16 +37,17 @@ long double propScore(vector <Property> &p_list) {
   return score;
 }
 
-PointerAnalysis::PointerAnalysis (uint64_t memstrt, uint64_t memend,string exepath) :
+PointerAnalysis::PointerAnalysis (uint64_t memstrt, uint64_t memend, string exepath) :
                  CFValidity(memstrt,memend,INSVALIDITY),
                  JmpTblAnalysis(memstrt,memend) {
   propList_ = PROPERTIES;
   //allConstRelocs_.insert(allConstRelocs_.end(), picConstReloc().begin(), picConstReloc().end());
   //allConstRelocs_.insert(allConstRelocs_.end(), xtraConstReloc().begin(),xtraConstReloc().end());
-  analysis::setup(TOOL_PATH"auto/output.auto");
+  //analysis::setup(TOOL_PATH"auto/output.auto");
   DEF_LOG("Exe path: "<<exepath);
   //analysis::lifter_cache(exepath);
-  analysis::set_init(INIT_TYPE);
+  //analysis::set_init(INIT_TYPE);
+  analysis_new::start(1, TOOL_PATH"auto/output.auto");
 }
 
 void
@@ -238,7 +239,7 @@ PointerAnalysis::jmpTblTgt(Pointer *ptr) {
 
 void
 PointerAnalysis::symbolizeRltvPtr(Pointer *ptr) {
-  DEF_LOG("Symbolizing rltv access: "<<hex<<ptr->address());
+  //DEF_LOG("Symbolizing rltv access: "<<hex<<ptr->address());
   return ptr->symbolize(SymbolizeIf::RLTV);
 }
 
@@ -358,11 +359,12 @@ bbInList(BasicBlock *bb, vector <BasicBlock *> &bb_list) {
 */
 void
 PointerAnalysis::checkIndTgts(unordered_map<int64_t, vector<int64_t>> & ind_tgts,
-                              vector <BasicBlock *> & fin_bb_list) {
+                              vector <BasicBlock *> & fin_bb_list,
+                              unordered_set <uint64_t> &present) {
   for(auto & bb : fin_bb_list) {
     auto ind_tgt_set = bb->indirectTgts();
     for(auto & ind_bb : ind_tgt_set) {
-      if(bbInList(ind_bb,fin_bb_list))
+      if(present.find(ind_bb->start()) != present.end())
         ind_tgts[bb->end()].push_back(ind_bb->start());
     }
   }
@@ -375,25 +377,34 @@ PointerAnalysis::regPreserved(vector <BasicBlock *> &entry_lst,
   uint64_t entry = entry_lst[0]->start();
   unordered_map <uint64_t, int> valid;
   unordered_map<int64_t, vector<int64_t>> ind_tgts;
-  checkIndTgts(ind_tgts,fin_bb_list);
+  unordered_set <uint64_t> present;
+  for(auto & bb : fin_bb_list)
+    present.insert(bb->start());
+  checkIndTgts(ind_tgts,fin_bb_list,present);
   string dir = get_current_dir_name();
-  dumpIndrctTgt(dir + "/tmp/" + to_string(entry)
-      + ".ind",ind_tgts);
+  string jtableFile = dir + "/tmp/" + to_string(entry) + ".ind";
+  dumpIndrctTgt(jtableFile,ind_tgts);
   string file_name =  dir + "/tmp/" + to_string(entry) + ".s";
   genFnFile(file_name,entry,fin_bb_list);
   unordered_map<int64_t,int64_t> ins_sz = insSizes(fin_bb_list);
-  dumpInsSizes(dir + "/tmp/" + to_string(entry) + ".sz",ins_sz);
-  /*
-  vector <int64_t> all_entries;
-  auto entry_bb = getBB(entry);
-  auto bb = entry_bb;
-  while (bb != NULL) {
-    all_entries.push_back(bb->start());
-    if(bb->fallThrough() == 0 || bb->isCall())
-      break;
-    bb = bb->fallThroughBB();
+  string sizeFile = dir + "/tmp/" + to_string(entry) + ".sz";
+  dumpInsSizes(sizeFile,ins_sz);
+
+  for(auto & bb : entry_lst) {
+    analysis_new::load(bb->start(), file_name, sizeFile, jtableFile);
+    analysis_new::analyse();
+    int score = 0;
+    if(analysis_new::preserved(reg_list))
+      score += 2;
+    else
+      score = 0;
+    valid[bb->start()] = score;
+    auto bb_lst = bbSeq(bb);
+    setProperty(bb_lst, score, bb->start());
   }
-  */
+
+  /*OLD CODE
+   *
   vector <int64_t> all_entries;
   for(auto & bb : entry_lst)
     all_entries.push_back(bb->start());
@@ -403,12 +414,6 @@ PointerAnalysis::regPreserved(vector <BasicBlock *> &entry_lst,
        auto bb = getBB(all_entries[func_index]);
        if(bb != NULL) {
          auto bb_lst = bbSeq(bb);
-         /*
-         if(codeByProperty(bb)) {
-           valid[all_entries[func_index]] = nonCodeScore(all_entries[func_index]);
-           continue;
-         }
-         */
          bool valid_func = analysis::analyze(func_index);
          if (valid_func) {
            if(analysis::preserved(reg_list)) {
@@ -426,6 +431,7 @@ PointerAnalysis::regPreserved(vector <BasicBlock *> &entry_lst,
        }
     }
   }
+  */
   return valid;
 }
 
@@ -435,25 +441,34 @@ PointerAnalysis::validInit(vector <BasicBlock *> &entry_lst,
   uint64_t entry = entry_lst[0]->start();
   unordered_map <uint64_t, int> valid;
   unordered_map<int64_t, vector<int64_t>> ind_tgts;
-  checkIndTgts(ind_tgts,fin_bb_list);
+  unordered_set <uint64_t> present;
+  for(auto & bb : fin_bb_list)
+    present.insert(bb->start());
+  checkIndTgts(ind_tgts,fin_bb_list,present);
   string dir = get_current_dir_name();
-  dumpIndrctTgt(dir + "/tmp/" + to_string(entry)
-      + ".ind",ind_tgts);
+  string jtableFile = dir + "/tmp/" + to_string(entry) + ".ind";
+  dumpIndrctTgt(jtableFile,ind_tgts);
   string file_name =  dir + "/tmp/" + to_string(entry) + ".s";
   genFnFile(file_name,entry,fin_bb_list);
   unordered_map<int64_t,int64_t> ins_sz = insSizes(fin_bb_list);
-  dumpInsSizes(dir + "/tmp/" + to_string(entry) + ".sz",ins_sz);
-  /*
-  vector <int64_t> all_entries;
-  auto entry_bb = getBB(entry);
-  auto bb = entry_bb;
-  while (bb != NULL) {
-    all_entries.push_back(bb->start());
-    if(bb->fallThrough() == 0 || bb->isCall())
-      break;
-    bb = bb->fallThroughBB();
+  string sizeFile = dir + "/tmp/" + to_string(entry) + ".sz";
+  dumpInsSizes(sizeFile,ins_sz);
+
+  for(auto & bb : entry_lst) {
+    analysis_new::load(bb->start(), file_name, sizeFile, jtableFile);
+    analysis_new::analyse();
+    int score = 0;
+    if(analysis_new::uninit() == 0)
+      score = 4;
+    else
+      score = 0;
+    valid[bb->start()] = score;
+    auto bb_lst = bbSeq(bb);
+    setProperty(bb_lst, score, bb->start());
   }
-  */
+
+  /* OLD ANALYSIS CODE
+   *
   vector <int64_t> all_entries;
   for(auto & bb : entry_lst)
     all_entries.push_back(bb->start());
@@ -463,12 +478,6 @@ PointerAnalysis::validInit(vector <BasicBlock *> &entry_lst,
        auto bb = getBB(all_entries[func_index]);
        if(bb != NULL) {
          auto bb_lst = bbSeq(bb);
-         /*
-         if(codeByProperty(bb)) {
-           valid[all_entries[func_index]] = nonCodeScore(all_entries[func_index]);
-           continue;
-         }
-         */
          bool valid_func = analysis::analyze(func_index);
          if (valid_func) {
            int score = 0;
@@ -485,6 +494,7 @@ PointerAnalysis::validInit(vector <BasicBlock *> &entry_lst,
        }
     }
   }
+  */
   return valid;
 }
 
@@ -495,43 +505,59 @@ PointerAnalysis::validInitAndRegPreserve(vector <BasicBlock *> &entry_lst,
   uint64_t entry = entry_lst[0]->start();
   unordered_map <uint64_t, int> valid;
   unordered_map<int64_t, vector<int64_t>> ind_tgts;
-  checkIndTgts(ind_tgts,fin_bb_list);
+  unordered_set <uint64_t> present;
+  for(auto & bb : fin_bb_list)
+    present.insert(bb->start());
+  checkIndTgts(ind_tgts,fin_bb_list,present);
   string dir = get_current_dir_name();
-  dumpIndrctTgt(dir + "/tmp/" + to_string(entry)
-      + ".ind",ind_tgts);
+  string jtableFile = dir + "/tmp/" + to_string(entry) + ".ind";
+  dumpIndrctTgt(jtableFile,ind_tgts);
   string file_name =  dir + "/tmp/" + to_string(entry) + ".s";
   genFnFile(file_name,entry,fin_bb_list);
   unordered_map<int64_t,int64_t> ins_sz = insSizes(fin_bb_list);
-  dumpInsSizes(dir + "/tmp/" + to_string(entry) + ".sz",ins_sz);
-  /*
-  vector <int64_t> all_entries;
-  auto entry_bb = getBB(entry);
-  auto bb = entry_bb;
-  while (bb != NULL) {
-    all_entries.push_back(bb->start());
-    if(bb->fallThrough() == 0 || bb->isCall())
-      break;
-    bb = bb->fallThroughBB();
+  string sizeFile = dir + "/tmp/" + to_string(entry) + ".sz";
+  dumpInsSizes(sizeFile,ins_sz);
+
+  //if(present.find(0x4c4758) != present.end()) {
+  //  dumpIndrctTgt(jtableFile + ".chk",ind_tgts);
+  //  genFnFile(file_name + ".chk",entry,fin_bb_list);
+  //  dumpInsSizes(sizeFile + ".chk",ins_sz);
+  //}
+
+  for(auto & bb : entry_lst) {
+    analysis_new::load(bb->start(), file_name, sizeFile, jtableFile);
+    analysis_new::analyse();
+    int score = 0;
+    if(analysis_new::preserved(reg_list)) {
+      score += 2;
+      int init = analysis_new::uninit();
+      DEF_LOG("Init val: "<<init);
+      if(init == 0)
+        score += 4;
+    }
+    else
+      score = 0;
+    valid[bb->start()] = score;
+    auto bb_lst = bbSeq(bb);
+    setProperty(bb_lst, score, bb->start());
   }
-  */
+  /* OLD ANALYSIS CODE
+   *
+  ofstream ofile;
+  ofile.open(entry_file_name);
   vector <int64_t> all_entries;
   for(auto & bb : entry_lst) {
     all_entries.push_back(bb->start());
     valid[bb->start()] = 0;
+    ofile<<bb->start()<<endl;
   }
+  ofile.close();
   int e_cnt = all_entries.size();
   if(analysis::load(file_name,ins_sz,ind_tgts,all_entries)) {
     for (int func_index = 0; func_index < e_cnt; ++func_index) {
        auto bb = getBB(all_entries[func_index]);
        if(bb != NULL) {
          auto bb_lst = bbSeq(bb);
-         /*
-         if(codeByProperty(bb)) {
-           valid[all_entries[func_index]] = nonCodeScore(all_entries[func_index]);
-           continue;
-         }
-         */
-         bool valid_func = analysis::analyze(func_index);
          if (valid_func) {
            DEF_LOG("Analyzing entry: "<<hex<<all_entries[func_index]);
            if(analysis::preserved(reg_list)) {
@@ -547,6 +573,7 @@ PointerAnalysis::validInitAndRegPreserve(vector <BasicBlock *> &entry_lst,
        }
     }
   }
+  */
   return valid;
 }
 
@@ -649,6 +676,15 @@ PointerAnalysis::propertyCheck(vector <BasicBlock *> &entry_lst,
 
 unordered_set <uint64_t> resolving_done;
 
+bool
+noRet(vector <BasicBlock *> &bb_list) {
+  for(auto & bb : bb_list) {
+    if(bb->lastIns()->asmIns().find("ret") != string::npos)
+      return false;
+  }
+  return true;
+}
+
 void
 PointerAnalysis::resolveNoRetCall(BasicBlock *entry) {
   DEF_LOG("Resolving psbly exit calls for entry: "<<hex<<entry->start());
@@ -662,138 +698,146 @@ PointerAnalysis::resolveNoRetCall(BasicBlock *entry) {
   while(exitCalls.empty() == false) {
     BasicBlock *call_bb = exitCalls.top();
     exitCalls.pop();
+    auto fall_seq = bbSeq(call_bb);
     if(resolved) {
       call_bb->callType(BBType::RETURNING);
       LOG("Marking returning as child resolved: "<<hex<<call_bb->start());
     }
+    else if(noRet(bb_lst)) {
+      DEF_LOG("No return in fall through..Marking returning: "<<hex<<call_bb->start());
+      call_bb->callType(BBType::RETURNING);
+      resolving_done.insert(call_bb->start());
+    }
     else if(call_bb->callType() == BBType::MAY_BE_RETURNING &&
        resolving_done.find(call_bb->start()) == resolving_done.end()) {
       DEF_LOG("Resolving possible exit call: "<<hex<<call_bb->start());
-      analyzeEntry(call_bb->fallThroughBB(), true);
-      if(call_bb->fallThroughBB()->isCode() || 
-         dataByProperty(call_bb->fallThroughBB()) || 
-         contextPassed(call_bb->fallThroughBB(), call_bb->fallThroughBB())) {
-        DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
-        possiblePtrs_.insert(call_bb->fallThrough());
-        call_bb->callType(BBType::NON_RETURNING);
-        call_bb->fallThrough(0);
-        call_bb->fallThroughBB(NULL);
+      auto fall_bb = call_bb->fallThroughBB();
+      auto ins_list = fall_bb->insList();
+      if(ins_list[0]->asmIns().find("nop") != string::npos ||
+         ins_list[0]->asmIns().find("xchg") != string::npos) {
+        fall_bb = fall_bb->fallThroughBB();
       }
-      else {
-        LOG("Marking returning: "<<hex<<call_bb->start());
-        call_bb->callType(BBType::RETURNING);
-        resolving_done.insert(call_bb->start());
-        if(entry->isCode()) {
-          entry->clearProps();
-          analyzeEntry(entry, true);
-          if(codeByProperty(entry)/* && indTgtConsistency(entry)*/) {
-            resolved = true;
+      bool call_target = false;
+      if(fall_bb != NULL) {
+        auto parents = fall_bb->parents();
+        for(auto & p : parents) {
+          if(p->isCall() && p->target() == fall_bb->start()) {
+            DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
+            possiblePtrs_.insert(call_bb->fallThrough());
+            passAllProps(fall_bb);
+            call_bb->callType(BBType::NON_RETURNING);
+            call_bb->fallThrough(0);
+            call_bb->fallThroughBB(NULL);
+            call_target = true;
+            break;
           }
         }
+      }
+      if(call_target)
+        continue;
+      if(entry->isCode()) {
+        entry->clearProps();
+        analyzeEntry(entry, true);
+        if(codeByProperty(entry)/* && indTgtConsistency(entry)*/) {
+          call_bb->callType(BBType::RETURNING);
+          resolving_done.insert(call_bb->start());
+          LOG("Code entry passed..Marking returning: "<<hex<<call_bb->start());
+          resolved = true;
+        }
+        else if(call_bb->fallThroughBB()->isCode()) {
+          DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
+          possiblePtrs_.insert(call_bb->fallThrough());
+          call_bb->callType(BBType::NON_RETURNING);
+          call_bb->fallThrough(0);
+          call_bb->fallThroughBB(NULL);
+        }
+        else {
+          LOG("Checking if fall through is a valid function: "<<hex<<call_bb->fallThroughBB()->start());
+          analyzeEntry(call_bb->fallThroughBB(), true);
+          if(dataByProperty(call_bb->fallThroughBB()) || 
+             /*contextPreservesABI(call_bb->fallThroughBB()) ||*/
+             contextPassed(call_bb->fallThroughBB(), call_bb->fallThroughBB())) {
+            DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
+            possiblePtrs_.insert(call_bb->fallThrough());
+            call_bb->callType(BBType::NON_RETURNING);
+            call_bb->fallThrough(0);
+            call_bb->fallThroughBB(NULL);
+          }
+          else {
+            LOG("Marking returning: "<<hex<<call_bb->start());
+            call_bb->callType(BBType::RETURNING);
+            resolving_done.insert(call_bb->start());
+          }
+        }
+        resolving_done.insert(call_bb->start());
+      }
+      else {
+        bool check_pass = false;
+        auto all_entries = call_bb->entries();
+        BasicBlock * entry_to_check = NULL;
+        if(all_entries.size() == 1) {
+          auto e = all_entries[0];
+          if(likelyTrueJmpTblTgt(e) == false ||
+             likelyTrueFunction(e))
+            entry_to_check = all_entries[0];
+        }
+        else {
+          for(auto & e : all_entries) {
+            if(likelyTrueFunction(e)) {
+              entry_to_check = e;
+              break;
+            }
+          }
+        }
+        if(entry_to_check != NULL) {
+          if(contextPassed(entry_to_check, call_bb->fallThroughBB()))
+            check_pass = true;
+          else {
+            analyzeEntry(entry_to_check, true);
+            if(codeByProperty(entry_to_check))
+              check_pass = true;
+          }
+        }
+        /*
+        for(auto & e : all_entries) {
+          if((ptr(e->start()) == NULL ||
+             (ptr(e->start()) != NULL && 
+              ptr(e->start())->source() != PointerSource::JUMPTABLE)) && 
+             codeByProperty(e) == false) {
+            analyzeEntry(e, true);
+            if(codeByProperty(e) == false) {
+              check_pass = false;
+              break;
+            }
+          }
+        }
+        */
+        if(check_pass == false) {
+          analyzeEntry(call_bb->fallThroughBB(), true);
+          if(dataByProperty(call_bb->fallThroughBB()) ||
+             /*contextPreservesABI(call_bb->fallThroughBB()) ||*/
+             contextPassed(call_bb->fallThroughBB(), call_bb->fallThroughBB())) {
+            DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
+            possiblePtrs_.insert(call_bb->fallThrough());
+            call_bb->callType(BBType::NON_RETURNING);
+            call_bb->fallThrough(0);
+            call_bb->fallThroughBB(NULL);
+          }
+          else {
+            DEF_LOG("Marking returning: "<<hex<<call_bb->start());
+            call_bb->callType(BBType::RETURNING);
+          }
+        }
+        else {
+          DEF_LOG("All entries passed..Marking returning: "<<hex<<call_bb->start());
+          call_bb->callType(BBType::RETURNING);
+          //resolved = true;
+        }
+        resolving_done.insert(call_bb->start());
       }
     }
   }
 }
-
-//void
-//PointerAnalysis::resolveNoRetCall_old(BasicBlock *entry) {
-//  DEF_LOG("Resolving psbly exit calls for entry: "<<hex<<entry->start());
-//  auto bb_lst = bbSeq(entry);
-//  if(hasPossibleCode(bb_lst) == false) {
-//    //DEF_LOG("Entry doesn't have possible code...avoiding resolution");
-//    return;
-//  }
-//  auto exitCalls = psblExitCalls(entry);
-//  bool resolved = false;
-//  while(exitCalls.empty() == false) {
-//    BasicBlock *call_bb = exitCalls.top();
-//    exitCalls.pop();
-//    if(resolved) {
-//      call_bb->callType(BBType::RETURNING);
-//      LOG("Marking returning as child resolved: "<<hex<<call_bb->start());
-//    }
-//    else if(call_bb->callType() == BBType::MAY_BE_RETURNING &&
-//       resolving_done.find(call_bb->start()) == resolving_done.end()) {
-//      DEF_LOG("Resolving possible exit call: "<<hex<<call_bb->start());
-//      if(entry->isCode()) {
-//        vector <BasicBlock *> entry_lst{entry};
-//        entry_lst.push_back(call_bb->fallThroughBB());
-//        entry->clearProps();
-//        analyzeEntries(entry_lst, true);
-//        if(codeByProperty(entry)/* && indTgtConsistency(entry)*/) {
-//          call_bb->callType(BBType::RETURNING);
-//          resolving_done.insert(call_bb->start());
-//          LOG("Code entry passed..Marking returning: "<<hex<<call_bb->start());
-//          resolved = true;
-//        }
-//        else if(call_bb->fallThroughBB()->isCode()) {
-//          DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
-//          possiblePtrs_.insert(call_bb->fallThrough());
-//          call_bb->callType(BBType::NON_RETURNING);
-//          call_bb->fallThrough(0);
-//          call_bb->fallThroughBB(NULL);
-//        }
-//        else {
-//          LOG("Checking if fall through is a valid function: "<<hex<<call_bb->fallThroughBB()->start());
-//          //analyzeEntry(call_bb->fallThroughBB(), true);
-//          if(dataByProperty(call_bb->fallThroughBB()) || 
-//             /*contextPreservesABI(call_bb->fallThroughBB()) ||*/
-//             contextPassed(call_bb->fallThroughBB(), call_bb->fallThroughBB())) {
-//            DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
-//            possiblePtrs_.insert(call_bb->fallThrough());
-//            call_bb->callType(BBType::NON_RETURNING);
-//            call_bb->fallThrough(0);
-//            call_bb->fallThroughBB(NULL);
-//          }
-//          else {
-//            LOG("Marking returning: "<<hex<<call_bb->start());
-//            call_bb->callType(BBType::RETURNING);
-//            resolving_done.insert(call_bb->start());
-//          }
-//        }
-//        resolving_done.insert(call_bb->start());
-//      }
-//      else {
-//        bool check_pass = true;
-//        auto all_entries = call_bb->entries();
-//        for(auto & e : all_entries) {
-//          if((ptr(e->start()) == NULL ||
-//             (ptr(e->start()) != NULL && 
-//              ptr(e->start())->source() != PointerSource::JUMPTABLE)) && 
-//             codeByProperty(e) == false) {
-//            analyzeEntry(e, true);
-//            if(codeByProperty(e) == false) {
-//              check_pass = false;
-//              break;
-//            }
-//          }
-//        }
-//        if(check_pass == false) {
-//          analyzeEntry(call_bb->fallThroughBB(), true);
-//          if(dataByProperty(call_bb->fallThroughBB()) ||
-//             /*contextPreservesABI(call_bb->fallThroughBB()) ||*/
-//             contextPassed(call_bb->fallThroughBB(), call_bb->fallThroughBB())) {
-//            DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
-//            possiblePtrs_.insert(call_bb->fallThrough());
-//            call_bb->callType(BBType::NON_RETURNING);
-//            call_bb->fallThrough(0);
-//            call_bb->fallThroughBB(NULL);
-//          }
-//          else {
-//            LOG("Marking returning: "<<hex<<call_bb->start());
-//            call_bb->callType(BBType::RETURNING);
-//          }
-//        }
-//        else {
-//          LOG("All entries passed..Marking returning: "<<hex<<call_bb->start());
-//          call_bb->callType(BBType::RETURNING);
-//          resolved = true;
-//        }
-//        resolving_done.insert(call_bb->start());
-//      }
-//    }
-//  }
-//}
 /*
 
 void
@@ -902,22 +946,23 @@ PointerAnalysis::analyzeEntries(vector <BasicBlock *> &entry_lst, bool force) {
   for(auto & entry : entry_lst) {
     vector <BasicBlock *> lst = bbSeq(entry, SEQTYPE::INTRAFN);
     DEF_LOG("Checking entry: "<<hex<<entry->start());
-    //vector <BasicBlock *> next_entry;
-    //next_entry.push_back(entry);
-    //auto ind_set = allIndTgts(next_entry);
-    //if(ind_set.size() > 0) {
-    //  DEF_LOG("Ind tgt size: "<<ind_set.size());
-    //  auto first_tgt = ind_set[0];
-    //  DEF_LOG("First tgt: "<<hex<<first_tgt->start());
-    //  auto ind_lst = bbSeq(first_tgt);
-    //  lst.insert(lst.end(), ind_lst.begin(), ind_lst.end());
-    //}
+    vector <BasicBlock *> next_entry;
+    next_entry.push_back(entry);
+    auto ind_set = allIndTgts(next_entry);
+    if(ind_set.size() > 0) {
+      auto first_tgt = ind_set[0];
+      auto ind_lst = bbSeq(first_tgt);
+      lst.insert(lst.end(), ind_lst.begin(), ind_lst.end());
+    }
     setProperty(lst, cfCheck(lst), entry->start());
     if(dataByProperty(entry) == false) {
+      long ins_cnt = 0;
       for(auto & bb : lst) {
         auto ins_list = bb->insList();
-        candidate_count += ins_list.size();
+        ins_cnt += ins_list.size();
       }
+      candidate_count+=ins_cnt;
+      //DEF_LOG("Entry validation candidate count: "<<hex<<entry->start()<<"-"<<dec<<ins_cnt);
       if(force) {
         fin_bb_lst.insert(fin_bb_lst.end(), lst.begin(), lst.end());
         fin_entry_lst.push_back(entry);
@@ -958,7 +1003,6 @@ PointerAnalysis::analyzeEntry(BasicBlock *entry, bool force) {
   next_entry.push_back(entry);
   //auto ind_set = allIndTgts(next_entry);
   DEF_LOG("Checking property: "<<hex<<entry->start()<<" force: "<<force);//<<" ind tgt count: "<<dec<<ind_set.size());
-  auto score = probScore(entry->start());
   //if(ind_set.size() > 0) {
   //  auto first_tgt = ind_set[0];
   //  auto ind_lst = bbSeq(first_tgt);
@@ -966,14 +1010,18 @@ PointerAnalysis::analyzeEntry(BasicBlock *entry, bool force) {
   //}
   setProperty(lst, cfCheck(lst), entry->start());
   if(dataByProperty(entry) == false) {
-    for(auto & bb : lst) {
-      auto ins_list = bb->insList();
-      candidate_count += ins_list.size();
-    }
+    //long ins_cnt = 0;
+    //for(auto & bb : lst) {
+    //  auto ins_list = bb->insList();
+    //  ins_cnt += ins_list.size();
+    //}
+    //candidate_count+=ins_cnt;
+    //DEF_LOG("Entry validation candidate count: "<<hex<<entry->start()<<"-"<<dec<<ins_cnt);
     if(force) {
       propertyCheck(next_entry,lst);
     }
     else if(hasPossibleCode(lst)) {
+      auto score = probScore(entry->start());
       if(score >= ACCEPT_THRESHOLD) {
         DEF_LOG("Avoiding analysis for: "<<hex<<entry->start()<<" score: "<<dec<<score);
         auto bb_lst = bbSeq(entry);
@@ -1006,6 +1054,312 @@ PointerAnalysis::analyzeEntry(BasicBlock *entry, bool force) {
 }
 
 void
+PointerAnalysis::binarySearchValidation(BasicBlock *entry,
+                                        vector <BasicBlock *> &parent_path,
+                                        vector <BasicBlock *> &ind_set) {
+  vector <BasicBlock *> entry_lst;
+  entry_lst.push_back(entry);
+  int size = ind_set.size();
+  int lower_bound = 0;
+  int upper_bound = size;
+  while(lower_bound < upper_bound) {
+    vector <BasicBlock *> bb_list;
+    bb_list.insert(bb_list.end(), parent_path.begin(), parent_path.end());
+    //Check all valid tgts first
+    int mid = (lower_bound + upper_bound)/2;
+    long ins_cnt = 0;
+    for(int i = lower_bound; i <= mid ; i++) {
+      auto ind_bb = ind_set[i];
+      auto ind_seq = bbSeq(ind_bb);
+      for(auto & bb : ind_seq)
+        ins_cnt += bb->insCount();
+      bb_list.insert(bb_list.end(), ind_seq.begin(), ind_seq.end());
+    }
+    if(validCF(bb_list)) {
+      candidate_count += ins_cnt;
+      setProperty(bb_list, 0, entry->start());
+      auto valid = propertyCheck(entry_lst,bb_list);
+      for(auto & v : valid) {
+        setProperty(bb_list, v.second, v.first);
+      }
+    }
+    if(codeByProperty(ind_set[mid])) {
+      //All passed
+      lower_bound = mid + 1; 
+    }
+    else
+      upper_bound = mid;
+  }
+}
+
+void
+PointerAnalysis::indTgtValidation(BasicBlock *entry, 
+                                  vector <BasicBlock *> &parent_path,
+                                  vector <BasicBlock *> &ind_set) {
+  //valid_ind_path.insert(entry->start());
+  vector <BasicBlock *> entry_lst;
+  entry_lst.push_back(entry);
+  vector <BasicBlock *> probable_valid_tgts;
+  vector <BasicBlock *> probable_invalid_tgts;
+  bool invalid_detected = false;
+  for(auto & bb : ind_set) {
+    //if(codeByProperty(bb))
+    //  continue;
+    //if(bb->contextChecked(entry->start()))
+    //  continue;
+    if(Conflicts_.find(bb->start()) != Conflicts_.end())
+      break;
+    auto ind_seq = bbSeq(bb);
+    if(validCF(ind_seq) == false) {
+      setProperty(ind_seq, -1, bb->start());
+      Conflicts_.insert(bb->start());
+      break;
+    }
+    if(conflictsPriorityCode(bb)) {
+      Conflicts_.insert(bb->start());
+      break;
+    }
+    auto score = probScore(bb->start());
+    if(score >= ACCEPT_THRESHOLD) {
+      setProperty(ind_seq, CODE_SCORE, bb->start());
+      continue;
+    }
+    if(invalid_detected) {
+      DEF_LOG("Adding probable invalid tgt for bsearch: "<<hex<<bb->start());
+      probable_invalid_tgts.push_back(bb);
+    }
+    else if(likelyTrueJmpTblTgt(bb)) {
+      DEF_LOG("Adding probable valid tgt for bsearch: "<<hex<<bb->start());
+      probable_valid_tgts.push_back(bb);
+    }
+    else {
+      DEF_LOG("Adding probable invalid tgt for bsearch: "<<hex<<bb->start());
+      probable_invalid_tgts.push_back(bb);
+      invalid_detected = true;
+    }
+  }
+  vector <BasicBlock *> bb_list;
+  bb_list.insert(bb_list.end(), parent_path.begin(), parent_path.end());
+  //Check all valid tgts first
+  long ins_cnt = 0;
+  int ctr = 0;
+  for(auto & ind_bb : probable_valid_tgts) {
+    auto ind_seq = bbSeq(ind_bb);
+    for(auto & bb : ind_seq)
+      ins_cnt += bb->insCount();
+    bb_list.insert(bb_list.end(), ind_seq.begin(), ind_seq.end());
+  }
+  candidate_count += ins_cnt;
+  if(validCF(bb_list)) {
+    auto valid = propertyCheck(entry_lst,bb_list);
+    for(auto & v : valid) {
+      setProperty(bb_list, v.second, v.first);
+    }
+  }
+  if(probable_valid_tgts.size() > 0 && 
+     codeByProperty(probable_valid_tgts[probable_valid_tgts.size() - 1]) == false) {
+    binarySearchValidation(entry, parent_path, probable_valid_tgts);
+  }
+  else if(probable_invalid_tgts.size() > 0) {
+    auto first_invalid = probable_invalid_tgts[0];
+    auto ind_seq = bbSeq(first_invalid);
+    if(validCF(ind_seq) == false) {
+      setProperty(ind_seq, -1, first_invalid->start());
+      Conflicts_.insert(first_invalid->start());
+      return;
+    }
+    if(conflictsPriorityCode(first_invalid)) {
+      Conflicts_.insert(first_invalid->start());
+      return;
+    }
+    vector <BasicBlock *> bb_list;
+    bb_list.insert(bb_list.end(), parent_path.begin(), parent_path.end());
+    bb_list.insert(bb_list.end(), ind_seq.begin(), ind_seq.end());
+    if(validCF(bb_list)) {
+      auto valid = propertyCheck(entry_lst,bb_list);
+      for(auto & v : valid) {
+        setProperty(bb_list, v.second, v.first);
+      }
+      if(codeByProperty(first_invalid)) {
+        binarySearchValidation(entry, parent_path, probable_invalid_tgts);
+      }
+    }
+  }
+}
+
+void
+PointerAnalysis::recursiveIndTgtValidation(BasicBlock *entry,
+                                           BasicBlock *intermediate_ind,
+                                           vector <BasicBlock *> &parent_path,
+                                           unordered_set <uint64_t> &passed) {
+  if(passed.find(intermediate_ind->start()) != passed.end())
+    return;
+  DEF_LOG("Intermediate bb: "<<hex<<intermediate_ind->start());
+  passed.insert(intermediate_ind->start());
+  unordered_map <uint64_t, vector<BasicBlock *>> jtable_tgt_map;
+  auto inter_path = bbSeq(intermediate_ind);
+  for(auto & bb : inter_path) {
+    if(bb->indirectCFWithReg()) {
+      auto ind_set = bb->indirectTgts();
+      if(IndTgtValidationMap_[bb->end()].find(entry->start()) != IndTgtValidationMap_[bb->end()].end())
+        continue;
+      IndTgtValidationMap_[bb->end()].insert(entry->start());
+      DEF_LOG("CF: "<<hex<<bb->end()<<" ind tgt cnt: "<<ind_set.size());
+      for(auto & ind_bb : ind_set) {
+        DEF_LOG("Ind tgt: "<<hex<<ind_bb->start());
+        auto jtables = ind_bb->belongsToJumpTable();
+        for(auto & j : jtables) {
+          //DEF_LOG("Jmp tbl: "<<hex<<j);
+          jtable_tgt_map[j].push_back(ind_bb);
+        }
+      }
+    }
+  }
+  parent_path.insert(parent_path.end(), inter_path.begin(), inter_path.end());
+  for(auto & j : jtable_tgt_map) {
+    auto ind_set = j.second;
+    if(ind_set.size() > 0 && hasPossibleCode(ind_set)) {
+      auto bb_list = parent_path;
+      indTgtValidation(entry, bb_list, ind_set);
+    }
+  }
+  for(auto & j : jtable_tgt_map) {
+    auto ind_set = j.second;
+    for(auto & ind_bb : ind_set) {
+      if(passed.find(ind_bb->start()) != passed.end())
+        continue;
+      if(codeByProperty(ind_bb) && contextPassed(entry,ind_bb)) {
+        auto bb_list = parent_path;
+        DEF_LOG("Recursively validating ind tgt: "<<hex<<ind_bb->start());
+        recursiveIndTgtValidation(entry,ind_bb,bb_list,passed);
+      }
+    }
+  }
+}
+
+//void
+//PointerAnalysis::validateIndTgtsFrmEntry(BasicBlock *entry) {
+//  DEF_LOG("Validating jmp tbl tgts for entry: "<<hex<<entry->start());
+//  //vector <BasicBlock *> entry_lst;
+//  //entry_lst.push_back(entry);
+//  //auto ind_set = allIndTgts(entry_lst);
+//  unordered_map <uint64_t, vector<BasicBlock *>> jtable_tgt_map;
+//  auto bb_list = bbSeq(entry);
+//  for(auto & bb : bb_list) {
+//    if(bb->indirectCFWithReg()) {
+//      auto ind_set = bb->indirectTgts();
+//      IndTgtValidationMap_[bb->end()].insert(entry->start());
+//      DEF_LOG("BB: "<<hex<<bb->start()<<" CF: "<<hex<<bb->end()<<" ind tgt cnt: "<<ind_set.size());
+//      for(auto & ind_bb : ind_set) {
+//        DEF_LOG("Ind tgt: "<<hex<<ind_bb->start());
+//        auto jtables = ind_bb->belongsToJumpTable();
+//        for(auto & j : jtables) {
+//          //DEF_LOG("Jmp tbl: "<<hex<<j);
+//          jtable_tgt_map[j].push_back(ind_bb);
+//        }
+//      }
+//    }
+//  }
+//  for(auto & j : jtable_tgt_map) {
+//    auto ind_set = j.second;
+//    if(ind_set.size() > 0 && hasPossibleCode(ind_set)) {
+//      auto parent_path = bb_list;
+//      indTgtValidation(entry, parent_path, ind_set);
+//    }
+//  }
+//  for(auto & j : jtable_tgt_map) {
+//    auto ind_set = j.second;
+//    unordered_set <uint64_t> passed;
+//    for(auto & ind_bb : ind_set) {
+//      if(passed.find(ind_bb->start()) != passed.end())
+//        continue;
+//      if(codeByProperty(ind_bb) && contextPassed(entry,ind_bb)) {
+//        auto parent_path = bb_list;
+//        DEF_LOG("Recursively validating ind tgt: "<<hex<<ind_bb->start());
+//        recursiveIndTgtValidation(entry,ind_bb,parent_path,passed);
+//      }
+//    }
+//  }
+//}
+/*
+void
+PointerAnalysis::validateIndTgtsFrmEntry(BasicBlock *entry) {
+  DEF_LOG("Validating jmp tbl tgts for entry: "<<hex<<entry->start());
+  auto bb_list = bbSeq(entry);
+  unordered_set <uint64_t> valid_ind_path;
+  valid_ind_path.insert(entry->start());
+  queue <BasicBlock *> ind_cfs;
+  for(auto & bb : bb_list) {
+    if(bb->lastIns()->isIndirectCf()) {
+      ind_cfs.push(bb);
+    }
+  }
+  unordered_set <uint64_t> passed;
+  while(ind_cfs.empty() == false) {
+    auto cf_bb = ind_cfs.front();
+    ind_cfs.pop();
+    if(passed.find(cf_bb->start()) != passed.end())
+      continue;
+    auto ind_tgts = cf_bb.indirectTgts();
+    if(ind_tgts.size() > 0) {
+      vector <BasicBlock *> ind_set_to_validate;
+      vector <BasicBlock *> separate_validation;
+      vector <BasicBlock *> bb_list_to_analyze;
+      unordered_map<int64_t, vector<int64_t>> ind_tgts;
+      for(auto & ind_bb : ind_tgts) {
+        if(codeByProperty(ind_bb)) {
+          auto ind_bb_seq = bbSeq(ind_bb);
+          for(auto & bb2 : ind_bb_seq)
+            if(bb2->lastIns()->isIndirectCf())
+              ind_cfs.push(bb2);
+          valid_ind_path.insert(ind_bb->start());
+          continue;
+        }
+        DEF_LOG("Validating jump table target: "<<hex<<ind_bb->start()<<" entry: "<<hex<<entry->start());
+        if(Conflicts_.find(ind_bb->start()) != Conflicts_.end())
+          continue;
+        resolveNoRetCall(ind_bb);
+        auto ind_seq = bbSeq(ind_bb);
+        if(validCF(ind_seq) == false) {
+          DEF_LOG("invalid control flow");
+          setProperty(ind_seq, -1, bb->start());
+          Conflicts_.insert(bb->start());
+          continue;
+        }
+        if(conflictsPriorityCode(ind_bb)) {
+          DEF_LOG("Conflicts with priority code");
+          Conflicts_.insert(ind_bb->start());
+          continue;
+        }
+        auto exit_routes = allRoutes(entry, cf_bb, valid_ind_path);
+        unordered_set <uint64_t> present;
+        for(auto & bb3 : exit_routes)
+          present.insert(bb3->start());
+        checkIndTgts(ind_tgts,exit_routes,present);
+        ind_tgts[cf_bb->start()].push_back(ind_bb->start());
+        exit_routes.insert(exit_routes.end(),ind_seq.begin(), ind_seq.end());
+        if(validCF(exit_routes) == false) {
+          DEF_LOG("Conflicts with entry");
+          setProperty(exit_routes, -1, entry->start());
+          continue;
+        }
+        setProperty(exit_routes, 0, entry->start());
+        bb_list_to_analyze.insert(bb_list_to_analyze.end(), exit_routes.begin(), exit_routes.end());
+        auto score = probScore(bb->start());
+        if(score >= ACCEPT_THRESHOLD)
+          setProperty(ind_seq, CODE_SCORE, bb->start());
+        else {
+          if(likelyTrueJmpTblTgt(ind_bb))
+            ind_set_to_validate.push_back(ind_bb);
+          else
+            separate_validation.push_back(ind_bb);
+        }
+      }
+    }
+  }
+}
+*/
+void
 PointerAnalysis::validateIndTgtsFrmEntry(BasicBlock *entry) {
   DEF_LOG("Validating jmp tbl tgts for entry: "<<hex<<entry->start());
   queue <BasicBlock *> roots;
@@ -1027,11 +1381,11 @@ PointerAnalysis::validateIndTgtsFrmEntry(BasicBlock *entry) {
     if(passed.find(bb->start()) == passed.end()) {
       passed.insert(bb->start());
       DEF_LOG("Validating jump table target: "<<hex<<bb->start()<<" entry: "<<hex<<entry->start());
-      auto ind_seq = bbSeq(bb);
       if(codeByProperty(bb)) {
         DEF_LOG("Pre-marked as code");
         //for(auto & bb2 : ind_seq)
         //  passed_.insert(bb2->start());
+        valid_ind_path.insert(bb->start());
         vector <BasicBlock *> next_entry;
         next_entry.push_back(bb);
         auto nxt_ind_set = allIndTgts(next_entry);
@@ -1047,32 +1401,39 @@ PointerAnalysis::validateIndTgtsFrmEntry(BasicBlock *entry) {
       */
       if(Conflicts_.find(bb->start()) != Conflicts_.end())
         continue;
+      resolveNoRetCall(bb);
+      auto ind_seq = bbSeq(bb);
       if(validCF(ind_seq) == false) {
         DEF_LOG("invalid control flow");
         setProperty(ind_seq, -1, bb->start());
         Conflicts_.insert(bb->start());
         continue;
       }
+      if(conflictsPriorityCode(bb)) {
+        DEF_LOG("Conflicts with priority code");
+        Conflicts_.insert(bb->start());
+        continue;
+      }
       auto exit_routes = allRoutes(entry, bb, valid_ind_path);
+      DEF_LOG("Checking conflict with entry");
       if(validCF(exit_routes) == false) {
         DEF_LOG("Conflicts with entry");
         setProperty(exit_routes, -1, entry->start());
         continue;
       }
       setProperty(exit_routes, 0, entry->start());
-      if(conflictsPriorityCode(bb)) {
-        DEF_LOG("Conflicts with priority code");
-        Conflicts_.insert(bb->start());
-        continue;
-      }
-      for(auto & bb : ind_seq) {
-        auto ins_list = bb->insList();
-        candidate_count += ins_list.size();
-      }
       auto score = probScore(bb->start());
       if(score >= ACCEPT_THRESHOLD)
         setProperty(ind_seq, CODE_SCORE, bb->start());
       else {
+        //setProperty(ind_seq, CODE_SCORE, bb->start());
+        //long ins_cnt = 0;
+        //for(auto & bb : exit_routes) {
+        //  auto ins_list = bb->insList();
+        //  ins_cnt += ins_list.size();
+        //}
+        //candidate_count+=ins_cnt;
+        //DEF_LOG("Jump table target validation candidate count: "<<hex<<entry->start()<<"-"<<dec<<ins_cnt);
         auto valid = propertyCheck(entry_lst,exit_routes);
         for(auto & v : valid) {
           setProperty(exit_routes, v.second, v.first);
@@ -1206,8 +1567,8 @@ PointerAnalysis::conflictsPriorityCode(BasicBlock *bb) {
 
 void
 PointerAnalysis::filterJmpTblTgts(Function *fn) {
-  set <uint64_t> possibleEntries = fn->probableEntry();
-  set <uint64_t> defEntries = fn->entryPoints();
+  auto defEntries = fn->probableEntry();
+  auto possibleEntries = fn->entryPoints();
   set <uint64_t> allEntries;
   allEntries.insert(defEntries.begin(),defEntries.end());
   allEntries.insert(possibleEntries.begin(), possibleEntries.end());
@@ -1363,8 +1724,6 @@ PointerAnalysis::classifyEntry(uint64_t entry) {
   for(auto & bb2 : lst) {
     if(bb2->isCode() == false) {
       if(dataByProperty(bb2)) {
-        if(bb2->start() == 0x6b869)
-          DEF_LOG("Marking as data: "<<bb2->start());
         markAsDefData(bb2->start());
       }
     }
@@ -1376,7 +1735,13 @@ PointerAnalysis::classifyEntry(uint64_t entry) {
         if(bb2->isCode() == false) {
           if(Conflicts_.find(bb2->start()) == Conflicts_.end() && 
              nonCodeScore(entry) >= CODE_SCORE) {
+            //if(entry == 0x406c50)
+            //  DEF_LOG("Marking BB as def code: "<<hex<<bb2->start());
             markAsDefCode(bb2->start());
+          }
+          else {
+            //if(entry == 0x406c50)
+            //  DEF_LOG("Conflicting bb: "<<hex<<bb2->start());
           }
         }
       }
@@ -1552,6 +1917,74 @@ PointerAnalysis::isNopPadding(BasicBlock *bb) {
   return false;
 }
 
+bool
+PointerAnalysis::sameFunctionBody(uint64_t addr1, uint64_t addr2) {
+  map <uint64_t, Function *>funMap = funcMap();
+  auto fn1 =is_within(addr1,funMap);
+  auto fn2 =is_within(addr2,funMap);
+  if(fn1->first == fn2->first)
+    return true;
+  return false;
+}
+
+void
+PointerAnalysis::entryValidation(BasicBlock *entry) {
+  if(checked_.find(entry->start()) != checked_.end())
+    return;
+  auto p = ptr(entry->start());
+  DEF_LOG("Validating entry: "<<hex<<entry->start());
+  if(p != NULL && 
+     p->source() == PointerSource::JUMPTABLE) {
+    if(p->symbolizable(SymbolizeIf::LINEAR_SCAN) == false && 
+       likelyTrueFunction(entry) == false) {
+      DEF_LOG("Potential jump table tgt..returning");
+      return;
+    }
+  }
+  checked_.insert(entry->start());
+  if(entry->isCode() || codeByProperty(entry)) {
+    DEF_LOG("Entry already passed...checking for jump table tgts");
+    vector <BasicBlock *> entry_lst;
+    entry_lst.push_back(entry);
+    auto ind_set = allIndTgts(entry_lst);
+    bool indirect_tgt_validation = false;
+    for(auto & ind_bb : ind_set) {
+      DEF_LOG("Ind bb: "<<hex<<ind_bb->start());
+      /*
+      if(codeByProperty(ind_bb))
+        DEF_LOG("Target pre validated..");
+      else if(sameFunctionBody(entry->start(),ind_bb->start()) == false)
+        DEF_LOG("Different function from entry...");
+      else if(likelyTrueJmpTblTgt(ind_bb) == false)
+        DEF_LOG("Unlikely jump table tgt..");
+      else {
+        indirect_tgt_validation = true;
+        break;
+      }
+      */
+      if(likelyTrueJmpTblTgt(ind_bb) &&
+         codeByProperty(ind_bb) == false) {
+        indirect_tgt_validation = true;
+        break;
+      }
+    }
+    if(indirect_tgt_validation)
+      validateIndTgtsFrmEntry(entry);
+    return;
+  }
+  if(isNopPadding(entry)) {
+    passAllProps(entry);
+  }
+  else {
+    resolveNoRetCall(entry);
+    if(codeParent(entry))
+      passAllProps(entry);
+    analyzeEntry(entry);
+  }
+  if(codeByProperty(entry) && contextPassed(entry,entry))
+    validateIndTgtsFrmEntry(entry);
+}
+
 void
 PointerAnalysis::createAnalysisQ(CandidateType t) {
   map <uint64_t, Function *>funMap = funcMap();
@@ -1559,13 +1992,16 @@ PointerAnalysis::createAnalysisQ(CandidateType t) {
   if(t == CandidateType::DEF_FN_ENTRY) {
     for(auto & fn : funMap) {
       DEF_LOG("Analyzing def entries for function: "<<hex<<fn.first);
-      set <uint64_t> def_entries = fn.second->entryPoints();
+      auto def_entries = fn.second->entryPoints();
       vector <BasicBlock *> all_entries;
       for(auto & e : def_entries) {
         auto bb = getBB(e);
         if(bb != NULL) {
           resolveNoRetCall(bb);
           all_entries.push_back(bb);
+          if(ptr(bb->start()) != NULL && 
+             ptr(bb->start())->source() == PointerSource::JUMPTABLE)
+            continue;
           validateIndTgtsFrmEntry(bb);
         }
       }
@@ -1580,7 +2016,95 @@ PointerAnalysis::createAnalysisQ(CandidateType t) {
   else if(t == CandidateType::PSBL_FN_ENTRY) {
     for(auto & fn : funMap) {
       DEF_LOG("Analyzing psbl entries for function: "<<hex<<fn.first);
-      set <uint64_t> possibleEntries = fn.second->probableEntry();
+      auto possibleEntries = fn.second->probableEntry();
+      vector <BasicBlock *> all_entries;
+      for(auto & e : possibleEntries) {
+        auto score = probScore(e);
+        if(score >= 0) {
+          DEF_LOG("Adding possible entry to Q: "<<hex<<e<<" score: "<<dec<<score);
+          auto bb = getBB(e);
+          if(bb != NULL)
+            resolveNoRetCall(bb);
+          analysisQ_.push(AnalysisCandidate(e, score));
+        }
+      }
+    }
+  }
+  else if(t == CandidateType::PSBL_PTRS) {
+    for(auto & p : ptrMap) {
+      if(p.second->source() == PointerSource::GAP_PTR) { 
+        auto score = probScore(p.second->address());
+        if(score >= 0) {
+          DEF_LOG("Adding possible ptr(RA/Jmp tbl tgt) to Q: "<<hex<<p.second->address()<<" score: "<<dec<<score);
+          auto bb = getBB(p.first);
+          if(bb != NULL)
+            resolveNoRetCall(bb);
+          analysisQ_.push(AnalysisCandidate(p.second->address(),score));
+        }
+      }
+    }
+  }
+  else if(t == CandidateType::ADDITIONAL_PSBL_PTRS) {
+    for(auto & p : possiblePtrs_) {
+      auto score = probScore(p);
+      if(score >= 0) {
+        DEF_LOG("Adding possible ptr(RA/Jmp tbl tgt) to Q: "<<hex<<p<<" score: "<<dec<<score);
+          auto bb = getBB(p);
+          if(bb != NULL)
+            resolveNoRetCall(bb);
+        analysisQ_.push(AnalysisCandidate(p,score));
+      }
+    }
+  }
+  else if(t == CandidateType::JMP_TBL_TGTS) {
+    auto jmp_tbls = jumpTables();
+    for(auto & j : jmp_tbls) {
+      vector <BasicBlock *> targets = j.targetBBs();
+      for(auto & tgt : targets) {
+        if(checked_.find(tgt->start()) != checked_.end())
+          continue;
+        checked_.insert(tgt->start());
+        if(codeByProperty(tgt)) {
+          auto score = probScore(tgt->start()) + nonCodeScore(tgt->start());
+          analysisQ_.push(AnalysisCandidate(tgt->start(),score));
+        }
+      }
+    }
+  }
+}
+/*
+void
+PointerAnalysis::createAnalysisQ(CandidateType t) {
+  map <uint64_t, Function *>funMap = funcMap();
+  map <uint64_t, Pointer *> ptrMap = pointers ();
+  if(t == CandidateType::DEF_FN_ENTRY) {
+    for(auto & fn : funMap) {
+      DEF_LOG("Analyzing def entries for function: "<<hex<<fn.first);
+      auto def_entries = fn.second->entryPoints();
+      vector <BasicBlock *> all_entries;
+      for(auto & e : def_entries) {
+        auto bb = getBB(e);
+        if(bb != NULL) {
+          resolveNoRetCall(bb);
+          all_entries.push_back(bb);
+          if(ptr(bb->start()) != NULL && 
+             ptr(bb->start())->source() == PointerSource::JUMPTABLE)
+            continue;
+          validateIndTgtsFrmEntry(bb);
+        }
+      }
+      //analyzeEntries(all_entries);
+      for(auto & e : def_entries) {
+        long double score = powl(2,44) * 40;
+        DEF_LOG("Adding definite entry to Q: "<<hex<<e<<" score: "<<dec<<score);
+        analysisQ_.push(AnalysisCandidate(e,score));
+      }
+    }
+  }
+  else if(t == CandidateType::PSBL_FN_ENTRY) {
+    for(auto & fn : funMap) {
+      DEF_LOG("Analyzing psbl entries for function: "<<hex<<fn.first);
+      auto possibleEntries = fn.second->probableEntry();
       vector <BasicBlock *> all_entries;
       for(auto & e : possibleEntries) {
         if(checked_.find(e) != checked_.end())
@@ -1640,9 +2164,7 @@ PointerAnalysis::createAnalysisQ(CandidateType t) {
   }
   else if(t == CandidateType::PSBL_PTRS) {
     for(auto & p : ptrMap) {
-      if(p.second->source() == PointerSource::POSSIBLE_RA || 
-         p.second->source() == PointerSource::GAP_PTR
-        /*|| (p.second->type() == PointerType::UNKNOWN && p.second->source() != PointerSource::JUMPTABLE)*/) {
+      if(p.second->source() == PointerSource::GAP_PTR) {
         if(checked_.find(p.first) != checked_.end())
           continue;
         auto bb = getBB(p.second->address());
@@ -1734,6 +2256,9 @@ PointerAnalysis::createAnalysisQ(CandidateType t) {
     for(auto & j : jmp_tbls) {
       vector <BasicBlock *> targets = j.targetBBs();
       for(auto & tgt : targets) {
+        if(checked_.find(tgt->start()) != checked_.end())
+          continue;
+        checked_.insert(tgt->start());
         if(codeByProperty(tgt)) {
           auto score = probScore(tgt->start()) + nonCodeScore(tgt->start());
           analysisQ_.push(AnalysisCandidate(tgt->start(),score));
@@ -1742,7 +2267,7 @@ PointerAnalysis::createAnalysisQ(CandidateType t) {
     }
   }
 }
-
+*/
 bool
 PointerAnalysis::callTargetIntegrity(BasicBlock *entry, unordered_set <uint64_t> &checked) {
   //DEF_LOG("Checking call target integrity: "<<hex<<entry->start());
@@ -1767,6 +2292,7 @@ PointerAnalysis::callTargetIntegrity(BasicBlock *entry, unordered_set <uint64_t>
   return true;
 }
 
+
 void
 PointerAnalysis::analyzeCandidates() {
   DEF_LOG("Starting prioritized rejection");
@@ -1780,6 +2306,8 @@ PointerAnalysis::analyzeCandidates() {
         Conflicts_.insert(bb->start());
         continue;
       }
+      if(bb->isCode() == false)
+        entryValidation(bb);
       if(bb->isCode() || nonCodeScore(bb->start()) >= CODE_SCORE) {
         unordered_set <uint64_t> checked;
         if(callTargetIntegrity(bb, checked) == false) {
@@ -1790,8 +2318,21 @@ PointerAnalysis::analyzeCandidates() {
         DEF_LOG("Entry passed: "<<hex<<bb->start());
         auto bb_list = bbSeq(bb);
         for(auto & bb2 : bb_list) {
+          //DEF_LOG("Passing BB: "<<hex<<bb2->start());
           passed_.insert(bb2->start());
         }
+        for(auto & p : possiblePtrs_) {
+          auto psbl_bb = getBB(p);
+          if(psbl_bb != NULL && codeByProperty(psbl_bb)) {
+            auto bb_list = bbSeq(bb);
+            for(auto & bb2 : bb_list) {
+              passed_.insert(bb2->start());
+            }
+            validateIndTgtsFrmEntry(psbl_bb);
+          }
+          additionalPtrs_.insert(p);
+        }
+        possiblePtrs_.clear();
         //validateIndTgtsFrmEntry(bb);
         //classifyEntry(bb->start());
         //resolveNoRetCall(bb);
@@ -1799,17 +2340,34 @@ PointerAnalysis::analyzeCandidates() {
       }
       else {
         DEF_LOG("BB failed property check: "<<hex<<bb->start());
-        Conflicts_.insert(bb->start());
+        //Conflicts_.insert(bb->start());
         continue;
       }
     }
   }
+  /*
+  for(auto & e : postQAnalysis_) {
+    auto bb = getBB(e);
+    if(bb != NULL && codeByProperty(bb) == false) {
+      resolveNoRetCall(bb)
+      analyzeEntry(bb);
+    }
+    if(codeByProperty(bb)) {
+      validateIndTgtsFrmEntry(bb);
+      auto bb_list = bbSeq(bb);
+      for(auto & bb2 : bb_list) {
+        passed_.insert(bb2->start());
+      }
+    }
+  }
+  */
 }
 
 
 void
 PointerAnalysis::cfgConsistencyAnalysis() {
   LOG("Checking CF consistency");
+  std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
   propagateAllRoots();
   updateBBTypes();
   phase1NonReturningCallResolution();
@@ -1817,7 +2375,7 @@ PointerAnalysis::cfgConsistencyAnalysis() {
   analyzeCandidates();
   createAnalysisQ(CandidateType::PSBL_FN_ENTRY);
   createAnalysisQ(CandidateType::PSBL_PTRS);
-  createAnalysisQ(CandidateType::ADDITIONAL_PSBL_PTRS);
+  //createAnalysisQ(CandidateType::ADDITIONAL_PSBL_PTRS);
   analyzeCandidates();
   createAnalysisQ(CandidateType::JMP_TBL_TGTS);
   analyzeCandidates();
@@ -1837,11 +2395,14 @@ PointerAnalysis::cfgConsistencyAnalysis() {
   //  removeConflicts();
   //FNCorrection();
   classify();
-  for(auto & p : possiblePtrs_) {
+  for(auto & p : additionalPtrs_) {
     classifyEntry(p);
   }
   propagateDefCodeProperty();
-  DEF_LOG("Candidate count: "<<dec<<candidate_count);
+  std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+
+  cout <<"Second phase time = " << dec<<std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count() << " [ms]" << std::endl;
+  cout<<"Candidate count: "<<dec<<candidate_count<<endl;
 }
 
 int

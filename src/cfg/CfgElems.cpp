@@ -246,9 +246,11 @@ validJumpForScore(Instruction *ins) {
     return false;
   uint64_t fall = ins->location() + ins->insSize();
   int32_t offt = (int32_t)(ins->target()) - (int32_t)(fall);
-  if(ins->insSize() >= 5 && abs(offt) <= 128)
-    return false;
-  if(ins->insSize() == 2 && abs(offt) == 0)
+  //if(ins->insSize() >= 5 && abs(offt) <= 128)
+  //  return false;
+  //if(ins->insSize() == 2 && abs(offt) == 0)
+  //  return false;
+  if(abs(offt) == 0)
     return false;
   
   return true;
@@ -658,7 +660,7 @@ CfgElems::conflictingBBs(uint64_t addrs) {
   auto bb = getBB(addrs);
   if(bb != NULL) {
     for(auto i = bb->start(); i < bb->boundary(); i++) {
-      if(!bb->isValidIns(i)) {
+      if(bb->noConflict(i) == false) {
         auto cnf_bb = getBB(i);
         if(cnf_bb != NULL)
           conflict_bbs.push_back(cnf_bb);
@@ -733,7 +735,7 @@ CfgElems::jumpScore(vector <BasicBlock *> &bb_lst) {
           bb_score = powl(2,4);
         else
           bb_score = bb_score * powl(2,4);
-        */
+          */
         score += powl(2,4);
       }
       else if(last_ins->isUnconditionalJmp() && last_ins->insSize() >= 5 && !last_ins->isCall()
@@ -744,8 +746,8 @@ CfgElems::jumpScore(vector <BasicBlock *> &bb_lst) {
           bb_score = powl(2,15);
         else
           bb_score = bb_score * powl(2,15);
-        */
-        score += powl(2,15);
+          */
+        score += powl(2,10);
       }
       else if(last_ins->isJump() && last_ins->insSize() >= 6) {
         //DEF_LOG("Long conditional jump target: "<<hex<<bb->start());
@@ -754,8 +756,8 @@ CfgElems::jumpScore(vector <BasicBlock *> &bb_lst) {
           bb_score = powl(2,17);
         else
           bb_score = bb_score * powl(2,17);
-        */
-        score += powl(2,17);
+          */
+        score += powl(2,15);
       }
     }
   }
@@ -777,6 +779,7 @@ CfgElems::fnSigScore(vector <Instruction *> &ins_list) {
       break;
     if(ins->asmIns().find("push") != string::npos) {
       string reg = ins->op1();
+      //DEF_LOG("Push found: "<<reg);
       if(saved_reg.find(reg) != saved_reg.end()) {
         //Repeated saves...invalid address
         //DEF_LOG("Repeated saves..making sig score 0");
@@ -798,7 +801,8 @@ CfgElems::fnSigScore(vector <Instruction *> &ins_list) {
     }
     else if(ins->asmIns().find("sub") != string::npos) {
       string operand = ins->op1();
-      if(saved_reg.find("%rsp") == saved_reg.end() && operand.find(",%rsp") != string::npos) {
+      if(saved_reg.find("%rsp") == saved_reg.end() && operand.find("%rsp") != string::npos) {
+        //DEF_LOG("Checking fn sig..mov sub");
         if(score == 0)
           score = powl(2,17);
         else
@@ -806,6 +810,18 @@ CfgElems::fnSigScore(vector <Instruction *> &ins_list) {
         saved_reg.insert("%rsp");
       }
     }
+    else if(ins->asmIns().find("mov") != string::npos) {
+      string operand = ins->op1();
+      if(operand.find("%rbp") != string::npos && operand.find("%rsp") != string::npos) {
+        //DEF_LOG("Checking fn sig..mov found");
+        if(score == 0)
+          score = powl(2,17);
+        else
+          score *= powl(2,17);
+      }
+    }
+    else if(ctr >= 10)
+      break;
     if(ctr == 0 && score == 0) {
       //DEF_LOG("First instruction not a valid sig start: "<<ins->asmIns());
       break;
@@ -830,9 +846,9 @@ CfgElems::fnSigScore(BasicBlock *bb) {
     if(p->target() == bb->start() &&
        last_ins->isCall() && validJumpForScore(last_ins)) {
       if(call_score == 0)
-        call_score = powl(2,15);
+        call_score = powl(2,10);
       else
-        call_score *= powl(2,15);
+        call_score *= powl(2,10);
     }
   }
   score += call_score;
@@ -864,20 +880,24 @@ CfgElems::probScore(uint64_t addrs) {
     if(CFValidity::validIns(bb_lst)) {
       //return powl(2,4);
       double score = crossingCft(bb_lst);
-      //DEF_LOG("Crossing cft score: "<<dec<<score);
+      /*
+       * Uncomment for original implementation
+       */
       score += jumpScore(bb_lst);
-      //DEF_LOG("jump target score: "<<dec<<score);
+      DEF_LOG("Jump score: "<<score);
       score += fnSigScore(bb);
-      //DEF_LOG("signature score: "<<dec<<score);
+      DEF_LOG("Sig score: "<<score);
       score += defCodeCftScore(bb_lst);
-      //DEF_LOG("Def code CFT score: "<<dec<<score);
+
+      //score *= jumpScore(bb_lst);
+      //score *= fnSigScore(bb);
+      //score *= defCodeCftScore(bb_lst);
       
+      /*
+       * Uncomment for original implementation
+       */
       auto p = ptr(addrs);
       if(p != NULL) {
-        //if(p->source() == PointerSource::RIP_RLTV)
-        //  score += powl(2,7);
-        //else if(p->source() != PointerSource::GAP_PTR)
-        //  score += powl(2,4);
         if(p->source() == PointerSource::POSSIBLE_RA)
           score += powl(2,4);
       }
@@ -2648,11 +2668,10 @@ CfgElems::dataSegmntEnd (uint64_t addrs)
   //considered as one data blk.
 
   uint64_t next_code = nextCodeBlock(addrs);
-  //if(next_code != 0)
-  //  return next_code;
+  if(next_code != 0)
+    return next_code;
 
   uint64_t ro_data_end = 0;
-  /*
   map < uint64_t, Pointer * >&pointer_map = pointers ();
 
   auto ptr_it = pointer_map.lower_bound (addrs);
@@ -2668,7 +2687,6 @@ CfgElems::dataSegmntEnd (uint64_t addrs)
         return next_code;
     }
   }
-  */
   //else if no subsequent pointer access is found, return the end of read-only
   //data section.
 

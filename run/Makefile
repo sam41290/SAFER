@@ -6,7 +6,7 @@ TARGET = demo
 
 VERBOSE = TRUE
 
-DIRS = binary cfg disasm elf exception exe_manager randomization utils instrument includes 
+DIRS = binary cfg disasm elf exception exe_manager randomization utils instrument 
 SOURCEDIRS = $(foreach dir, $(DIRS), $(addprefix $(SOURCEDIR)/, $(dir)))
 TARGETDIRS = $(foreach dir, $(DIRS), $(addprefix $(BUILDDIR)/, $(dir))) $(BUILDDIR)/run
 
@@ -72,7 +72,7 @@ all: directories $(TARGET)
 
 $(TARGET): $(OBJS)
 	$(HIDE)echo Linking $@
-	$(HIDE)$(CXX) $(INCLUDES) -L../src/rtl-analysis/ -L../src/SBA/ $(OBJS) -o $(TARGET) -lcapstone -lanalysis -lsba
+	$(HIDE)$(CXX) $(INCLUDES) -L../src/SBD/analysis $(OBJS) -o $(TARGET) -lcapstone -lanalysis_new
 
 $(OBJS): $(foreach targetdir, $(TARGETDIRS), $(eval $(call generateRules, $(targetdir))))
 

@@ -76,6 +76,7 @@ BasicBlock::isValidIns(uint64_t addrs) {
 
 bool
 BasicBlock::indirectCFWithReg() {
+  //DEF_LOG("Checking if indirect CF: "<<hex<<start());
   return(lastIns()->indirectCFWithReg() & !(isCall()));
 }
 
@@ -93,7 +94,7 @@ BasicBlock::split(uint64_t address) {
    * newly created basic block.
    * The new basic block is marked as the fall through of the old one.
    */
-  LOG("Splitting bb " <<hex <<start_ <<" at " <<hex <<address);
+ LOG("Splitting bb " <<hex <<start_ <<" at " <<hex <<address);
   if(address > end_ || address < start_)
     return NULL;
   if(isValidIns(address) == false) {
@@ -146,7 +147,7 @@ BasicBlock::split(uint64_t address) {
     new_bb->callType(callType_);
     new_bb->isJmpTblBlk(isJmpTblBlk());
     new_bb->indirectTgts(indirectTgts_);
-    if(start() == 0xc576) {
+    if(start() == 0x40f856) {
       DEF_LOG("Splitting bb : "<<hex<<start()<<" at "<<new_bb->start()<<" new bb indrct tgt cnt: "<<new_bb->indirectTgts().size());
     }
     //LOG("is code set");
@@ -654,12 +655,12 @@ BasicBlock::noConflict(uint64_t addrs) {
     for(auto & ins : insList_) {
       if(addrs == ins->location())
         return true;
-      else if((addrs - ins->location()) == 1
-               && ins->insSize() > 1) {
-        auto bin = ins->insBinary();
-        if(bin.size() > 0 && utils::is_prefix(bin[0]))
-          return true;
-      }
+      //else if((addrs - ins->location()) == 1
+      //         && ins->insSize() > 1) {
+      //  auto bin = ins->insBinary();
+      //  if(bin.size() > 0 && utils::is_prefix(bin[0]))
+      //    return true;
+      //}
     }
     return false;
   }

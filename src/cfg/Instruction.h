@@ -28,7 +28,7 @@ class Instruction : public Instrument//, public virtual ENCCLASS
 private:
   uint64_t loc_;
   vector <uint8_t> insBinary_; //hex bytes of original Instruction
-  uint64_t target_ = false;
+  uint64_t target_ = 0;
   bool isJump_ = false;
   bool forcePrintAsm_ = false;
   bool isUnconditionalJmp_ = false;

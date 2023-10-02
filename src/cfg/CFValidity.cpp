@@ -97,7 +97,6 @@ CFValidity::validCFTransfer(vector <BasicBlock *> &bbList) {
   bool valid = true;
   int size = bbList.size();
   bool exit_point = false;
-  //LOG("BB list size: "<<size);
   for(int i = 0; i < (size - 1); i++) {
     //DEF_LOG("BB: "<<hex<<bbList[i]->start()<<" - "<<bbList[i]->boundary());
     if(bbList[i]->boundary() > bbList[i + 1]->start()) {
@@ -140,10 +139,16 @@ CFValidity::validCFTransfer(vector <BasicBlock *> &bbList) {
       if(bb->isCall() || 
          last_ins->asmIns().find("ret") != string::npos ||
          last_ins->asmIns().find("ud2") != string::npos ||
-        (last_ins->isJump() && bb->target() == 0))
+         last_ins->isIndirectCf()) {
         exit_point = true;
+      }
+      //DEF_LOG("BB: "<<hex<<bb->start()<<" last ins: "
+      //    <<hex<<last_ins->location()<<" "
+      //    <<last_ins->asmIns()<<" "<<last_ins->isIndirectCf()
+      //    <<" "<<exit_point);
 
     }
+    DEF_LOG("Exit point: "<<exit_point);
     if(exit_point)
       return valid;
     else {

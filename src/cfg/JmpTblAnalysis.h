@@ -9,7 +9,8 @@
 #include "Pointer.h"
 #include "Function.h"
 #include "libutils.h"
-#include "libanalysis.h"
+//#include "libanalysis.h"
+#include "../src/SBD/includes/libanalysis.h"
 #include "CFValidity.h"
 #include "Dfs.h"
 #include "SaInput.h"
@@ -60,7 +61,7 @@ namespace SBI {
     //---------------------------------------------------------
     void analyzeFn(Function *fn);
     void processJTable(JumpTable &j);
-    void decodeJmpTblTgts(analysis::JTable j_lst);
+    void decodeJmpTblTgts(analysis_new::JTable j_lst);
     void readTargets (JumpTable & jt, uint64_t jloc);
     //uint64_t dataSegmntEnd(uint64_t addrs);
   };
