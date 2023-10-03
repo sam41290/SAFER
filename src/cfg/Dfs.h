@@ -44,6 +44,7 @@ namespace SBI {
     vector <BasicBlock *> indbbList_;
     queue <BasicBlock *> BfsQ_;
     BasicBlock *curEntry_ = NULL;
+    unordered_set <uint64_t> indRoots_;
 
     unordered_map <uint64_t, BasicBlock *> root_;
     //unordered_map <uint64_t, vector <BasicBlock *>> indPaths_;
@@ -66,6 +67,7 @@ namespace SBI {
     vector <BasicBlock *> externalCallers(BasicBlock *bb, BasicBlock *entry);
     int peepHoleStackDecrement(uint64_t addrs, BasicBlock *bb);
     int stackDecrement(vector <Instruction *> &ins_list);
+    unordered_set <uint64_t> indRoots() { return indRoots_; }
   private:
     void psblExitDFS(BasicBlock *bb, stack <BasicBlock *> &calls,
                        unordered_set <uint64_t> &passed);

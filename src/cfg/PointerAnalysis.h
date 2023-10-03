@@ -84,6 +84,7 @@ class PointerAnalysis : public virtual SaInput, public virtual CFValidity,
   unordered_set <uint64_t> FNCorrectionDone_;
   unordered_map <uint64_t, unordered_set<uint64_t>> IndTgtValidationMap_;
   priority_queue<AnalysisCandidate, vector<AnalysisCandidate>, CompareCandidate> analysisQ_;
+  const vector<string> ABIReg = {"sp","bx","bp","r12","r13","r14","r15"};
 public:
   PointerAnalysis (uint64_t memstrt, uint64_t memend, string exepath);
   void cfgConsistencyAnalysis();
@@ -94,7 +95,7 @@ public:
                        vector <BasicBlock *> &seq2);
   void checkIndTgts(unordered_map<int64_t, vector<int64_t>> & ind_tgts,
                     vector <BasicBlock *> & fin_bb_list,
-                    unordered_set <uint64_t> &present);
+                    const unordered_set <uint64_t> &present);
   virtual bool addToCfg(uint64_t addrs, PointerSource src) = 0;
   virtual void addToDisasmRoots (uint64_t address) = 0;
   virtual void rootSrc(PointerSource root) = 0;
@@ -109,11 +110,13 @@ private:
   void jmpTblConsistency();
   bool CFDensityChk(vector <BasicBlock *> &bbList);
   unordered_map <uint64_t,int> validInit(vector <BasicBlock *> &entry_lst,
-                                         vector <BasicBlock *> &fin_bb_list);
+                                         vector <BasicBlock *> &fin_bb_list,
+                                         const unordered_set <uint64_t> &valid_ind_path);
   //int validInit(uint64_t entry, vector <BasicBlock *> &fin_bb_lis);
   unordered_map <uint64_t,int> regPreserved(vector <BasicBlock *> &entry_lst,
                                             vector <BasicBlock *> &fin_bb_list,
-                                            const vector <string> &reg_list);
+                                            const vector <string> &reg_list,
+                                            const unordered_set <uint64_t> &valid_ind_path);
   //int regPreserved(uint64_t entry,
   //  vector <BasicBlock *> &fin_bb_list,const vector <string> &reg_list);
   bool aligned(Pointer *ptr);
@@ -140,7 +143,8 @@ private:
   void filterJmpTblTgts(Function *fn);
   void classifyEntry(uint64_t entry);
   unordered_map <uint64_t, int> propertyCheck(vector <BasicBlock *> &entry_bb, 
-                                              vector<BasicBlock *> &bb_list);
+                                              vector<BasicBlock *> &bb_list,
+                                              const unordered_set <uint64_t> &valid_ind_path = unordered_set <uint64_t>());
   void resolveAllNoRetCalls();
   void resolveNoRetCall(BasicBlock *entry);
   void classifyPossiblePtrs();
@@ -155,7 +159,8 @@ private:
   bool hasUnresolvedIndTgts(BasicBlock *entry);
   unordered_map <uint64_t,int> validInitAndRegPreserve(vector <BasicBlock *> &entry_lst,
                                                        vector <BasicBlock *> &fin_bb_list,
-                                                       const vector <string> &reg_list);
+                                                       const vector <string> &reg_list,
+                                                       const unordered_set <uint64_t> &valid_ind_path);
   //int validInitAndRegPreserve(uint64_t entry,
   //  vector <BasicBlock *> &fin_bb_list,
   //  const vector <string> &reg_list);

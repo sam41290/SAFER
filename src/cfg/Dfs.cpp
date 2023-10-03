@@ -284,6 +284,7 @@ Dfs::allRouteDfs(BasicBlock *through,
             //LOG("Root: "<<hex<<root->second->start());
             auto root_seq = bbSeq(root->second);
             path.insert(root_seq.begin(), root_seq.end());
+            indRoots_.insert(root->second->start());
             if(root->second->start() == curEntry_->start())
               break;
             root = root_.find(root->second->start());
@@ -327,7 +328,7 @@ Dfs::allRoutes(BasicBlock *entry, BasicBlock *through,
   unordered_set <BasicBlock *> path_set;
   curEntry_ = entry;
   BfsQ_.push(entry);
-
+  indRoots_.clear();
   allRouteDfs(through,passed, path_set, valid_ind_path);
   path.insert(path.end(),path_set.begin(),path_set.end());
   LOG("path size: "<<path.size());
