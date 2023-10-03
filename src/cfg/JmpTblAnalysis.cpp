@@ -263,7 +263,7 @@ JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
     if(bb != NULL) {
       DEF_LOG("Analyzing jump table for: "<<hex<<entry);
       vector <BasicBlock *> bb_list = bbSeq(bb);
-      if(validIns(bb_list)) {
+     // if(validIns(bb_list)) {
         unordered_map<int64_t, vector<int64_t>> ind_tgts;
         indTgts(bb_list,ind_tgts);
         vector <uint64_t> cf_list;
@@ -313,9 +313,9 @@ JmpTblAnalysis::analyzeAddress(vector <int64_t> &entries) {
             linkAllBBs();
           }
        // }
-      }
-      else
-        DEF_LOG("Invalid ins: "<<hex<<entry);
+     // }
+     // else
+     //   DEF_LOG("Invalid ins: "<<hex<<entry);
     }
   }
 

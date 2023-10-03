@@ -707,14 +707,14 @@ PointerAnalysis::resolveNoRetCall(BasicBlock *entry) {
       call_bb->callType(BBType::RETURNING);
       LOG("Marking returning as child resolved: "<<hex<<call_bb->start());
     }
-    else if(validCF(bb_lst) == false) {
+    else if(validCF(fall_seq) == false) {
       DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
       possiblePtrs_.insert(call_bb->fallThrough());
       call_bb->callType(BBType::NON_RETURNING);
       call_bb->fallThrough(0);
       call_bb->fallThroughBB(NULL);
     }
-    else if(noRet(bb_lst)) {
+    else if(noRet(fall_seq)) {
       DEF_LOG("No return in fall through..Marking returning: "<<hex<<call_bb->start());
       call_bb->callType(BBType::RETURNING);
       resolving_done.insert(call_bb->start());

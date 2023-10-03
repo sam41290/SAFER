@@ -956,8 +956,11 @@ Cfg::cnsrvtvDisasm() {
   disassembleGaps();
   preCachedJumpTables();
   possibleCodeDisasm();
-  //phase1NonReturningCallResolution();
   addHintBasedEntries();
+  //propagateAllRoots();
+  //updateBBTypes();
+  //phase1NonReturningCallResolution();
+  //analyze();
   linkAllBBs();
 
 
