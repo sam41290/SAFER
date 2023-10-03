@@ -508,7 +508,6 @@ PointerAnalysis::validInitAndRegPreserve(vector <BasicBlock *> &entry_lst,
   uint64_t entry = entry_lst[0]->start();
   unordered_map <uint64_t, int> valid;
   unordered_map<int64_t, vector<int64_t>> ind_tgts;
-  unordered_set <uint64_t> present;
   //for(auto & bb : fin_bb_list)
   //  present.insert(bb->start());
   checkIndTgts(ind_tgts,fin_bb_list,valid_ind_path);
@@ -521,11 +520,11 @@ PointerAnalysis::validInitAndRegPreserve(vector <BasicBlock *> &entry_lst,
   string sizeFile = dir + "/tmp/" + to_string(entry) + ".sz";
   dumpInsSizes(sizeFile,ins_sz);
 
-  //if(present.find(0x4c4758) != present.end()) {
-  //  dumpIndrctTgt(jtableFile + ".chk",ind_tgts);
-  //  genFnFile(file_name + ".chk",entry,fin_bb_list);
-  //  dumpInsSizes(sizeFile + ".chk",ins_sz);
-  //}
+  if(valid_ind_path.find(0x457c6) != valid_ind_path.end()) {
+    dumpIndrctTgt(jtableFile + ".chk",ind_tgts);
+    genFnFile(file_name + ".chk",entry,fin_bb_list);
+    dumpInsSizes(sizeFile + ".chk",ins_sz);
+  }
 
   for(auto & bb : entry_lst) {
     analysis_new::load(bb->start(), file_name, sizeFile, jtableFile);
@@ -1448,9 +1447,12 @@ PointerAnalysis::validateIndTgtsFrmEntry(BasicBlock *entry) {
         //DEF_LOG("Jump table target validation candidate count: "<<hex<<entry->start()<<"-"<<dec<<ins_cnt);
         valid_inds.insert(bb->start());
 
-        auto valid = propertyCheck(entry_lst,exit_routes);
+        auto valid = propertyCheck(entry_lst,exit_routes,valid_inds);
         for(auto & v : valid) {
-          setProperty(exit_routes, v.second, v.first);
+          if((entry->isCode() || likelyTrueJmpTblTgt(bb)) && v.second == 2)
+            setProperty(exit_routes, CODE_SCORE, v.first);
+          else
+            setProperty(exit_routes, v.second, v.first);
         }
       }
       if(codeByProperty(bb)) {

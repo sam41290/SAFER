@@ -711,7 +711,8 @@ CfgElems::crossingCft(vector <BasicBlock *> &bb_lst) {
 long double
 CfgElems::jumpScore(vector <BasicBlock *> &bb_lst) {
   long double score = 0;
-  long double bb_score_ceil = powl(2,50);
+  //long double bb_score_ceil = powl(2,50);
+  unordered_map<uint64_t, long double> score_map;
   for(auto & bb : bb_lst) {
     auto last_ins = bb->lastIns();
     long double bb_score = 0;
@@ -725,7 +726,12 @@ CfgElems::jumpScore(vector <BasicBlock *> &bb_lst) {
         else
           bb_score = bb_score * powl(2,8);
           */
-        score +=  powl(2,8);
+        //score +=  powl(2,8);
+        auto tgt = bb->target();
+        if(score_map[tgt] == 0)
+          score_map[tgt] = powl(2,8);
+        else
+          score_map[tgt] *=  powl(2,8);
       }
       else if(last_ins->isJump() && last_ins->insSize() == 2 &&
               last_ins->asmIns().find("ret") == string::npos) {
@@ -736,7 +742,12 @@ CfgElems::jumpScore(vector <BasicBlock *> &bb_lst) {
         else
           bb_score = bb_score * powl(2,4);
           */
-        score += powl(2,4);
+        //score += powl(2,4);
+        auto tgt = bb->target();
+        if(score_map[tgt] == 0)
+          score_map[tgt] = powl(2,4);
+        else
+          score_map[tgt] *=  powl(2,4);
       }
       else if(last_ins->isUnconditionalJmp() && last_ins->insSize() >= 5 && !last_ins->isCall()
               && bb->target() != 0) {
@@ -747,7 +758,12 @@ CfgElems::jumpScore(vector <BasicBlock *> &bb_lst) {
         else
           bb_score = bb_score * powl(2,15);
           */
-        score += powl(2,15);
+        //score += powl(2,15);
+        auto tgt = bb->target();
+        if(score_map[tgt] == 0)
+          score_map[tgt] = powl(2,11);
+        else
+          score_map[tgt] *=  powl(2,11);
       }
       else if(last_ins->isJump() && last_ins->insSize() >= 6) {
         //DEF_LOG("Long conditional jump target: "<<hex<<bb->start());
@@ -757,11 +773,18 @@ CfgElems::jumpScore(vector <BasicBlock *> &bb_lst) {
         else
           bb_score = bb_score * powl(2,17);
           */
-        score += powl(2,20);
+        //score += powl(2,20);
+        auto tgt = bb->target();
+        if(score_map[tgt] == 0)
+          score_map[tgt] = powl(2,15);
+        else
+          score_map[tgt] *=  powl(2,15);
       }
     }
   }
   //DEF_LOG("Jump target score: "<<dec<<score);
+  for(auto & s : score_map)
+    score += s.second;
   return score;
 }
 
