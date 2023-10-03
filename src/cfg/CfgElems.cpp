@@ -747,7 +747,7 @@ CfgElems::jumpScore(vector <BasicBlock *> &bb_lst) {
         else
           bb_score = bb_score * powl(2,15);
           */
-        score += powl(2,10);
+        score += powl(2,15);
       }
       else if(last_ins->isJump() && last_ins->insSize() >= 6) {
         //DEF_LOG("Long conditional jump target: "<<hex<<bb->start());
@@ -757,7 +757,7 @@ CfgElems::jumpScore(vector <BasicBlock *> &bb_lst) {
         else
           bb_score = bb_score * powl(2,17);
           */
-        score += powl(2,15);
+        score += powl(2,20);
       }
     }
   }
@@ -846,9 +846,9 @@ CfgElems::fnSigScore(BasicBlock *bb) {
     if(p->target() == bb->start() &&
        last_ins->isCall() && validJumpForScore(last_ins)) {
       if(call_score == 0)
-        call_score = powl(2,10);
+        call_score = powl(2,15);
       else
-        call_score *= powl(2,10);
+        call_score *= powl(2,15);
     }
   }
   score += call_score;
@@ -1164,9 +1164,10 @@ CfgElems::conflictsDefCode(uint64_t addrs) {
 bool
 CfgElems::zeroDefCodeConflict(vector <BasicBlock *> &bb_list) {
   for(auto & bb : bb_list) {
+    //DEF_LOG("Checking def code conflict bb: "<<hex<<bb->start());
     if(bb->isCode() == false && (conflictsDefCode(bb->start()) ||
           conflictsDefCode(bb->boundary()))) {
-      LOG("bb: "<<hex<<bb->start()<<" conflicts def code");
+      DEF_LOG("bb: "<<hex<<bb->start()<<" conflicts def code");
       return false;
     }
   }

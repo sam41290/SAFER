@@ -53,14 +53,18 @@ namespace SBI {
       string asm_ins = ins->asmIns();
       vector <string> words = utils::split_string(asm_ins," ");
       for(auto & w : words) {
-        if(utils::invalid_prefixes.find(w) != utils::invalid_prefixes.end())
+        if(utils::invalid_prefixes.find(w) != utils::invalid_prefixes.end()) {
+          DEF_LOG("Invalid prefix at: "<<hex<<ins->location());
           return false;
+        }
       }
       if(ins->asmIns().find("lock lea") != string::npos ||
         ((ins->isJump() || ins->isCall() || ins->asmIns().find("ret") != string::npos) && 
           ins->asmIns().find("lock") != string::npos)/* ||
-         ins->asmIns().find("lock add") != string::npos*/)
+         ins->asmIns().find("lock add") != string::npos*/) {
+        DEF_LOG("invalid lock prefix at: "<<hex<<ins->location());
         return false;
+      }
       /*
       for(auto & p : utils::invalid_prefixes)
         if(ins->mnemonic().find(p) != string::npos || ins->prefix().find(p) != string::npos)
@@ -70,7 +74,7 @@ namespace SBI {
     }
     static bool validUsrModeIns(Instruction *ins) {
       if(utils::is_priviledged_ins(ins->asmIns())) {
-        LOG("priviledged ins at: "<<hex<<ins->location());
+        DEF_LOG("priviledged ins at: "<<hex<<ins->location());
         return false;
       }
       return true;

@@ -373,14 +373,15 @@ PointerAnalysis::checkIndTgts(unordered_map<int64_t, vector<int64_t>> & ind_tgts
 unordered_map <uint64_t,int>
 PointerAnalysis::regPreserved(vector <BasicBlock *> &entry_lst,
                               vector <BasicBlock *> &fin_bb_list,
-                              const vector <string> &reg_list) {
+                              const vector <string> &reg_list,
+                              const unordered_set <uint64_t> &valid_ind_path) {
   uint64_t entry = entry_lst[0]->start();
   unordered_map <uint64_t, int> valid;
   unordered_map<int64_t, vector<int64_t>> ind_tgts;
   unordered_set <uint64_t> present;
-  for(auto & bb : fin_bb_list)
-    present.insert(bb->start());
-  checkIndTgts(ind_tgts,fin_bb_list,present);
+  //for(auto & bb : fin_bb_list)
+  //  present.insert(bb->start());
+  checkIndTgts(ind_tgts,fin_bb_list,valid_ind_path);
   string dir = get_current_dir_name();
   string jtableFile = dir + "/tmp/" + to_string(entry) + ".ind";
   dumpIndrctTgt(jtableFile,ind_tgts);
@@ -437,14 +438,15 @@ PointerAnalysis::regPreserved(vector <BasicBlock *> &entry_lst,
 
 unordered_map <uint64_t,int>
 PointerAnalysis::validInit(vector <BasicBlock *> &entry_lst, 
-                           vector <BasicBlock *> &fin_bb_list) {
+                           vector <BasicBlock *> &fin_bb_list,
+                           const unordered_set <uint64_t> &valid_ind_path) {
   uint64_t entry = entry_lst[0]->start();
   unordered_map <uint64_t, int> valid;
   unordered_map<int64_t, vector<int64_t>> ind_tgts;
   unordered_set <uint64_t> present;
-  for(auto & bb : fin_bb_list)
-    present.insert(bb->start());
-  checkIndTgts(ind_tgts,fin_bb_list,present);
+  //for(auto & bb : fin_bb_list)
+  //  present.insert(bb->start());
+  checkIndTgts(ind_tgts,fin_bb_list,valid_ind_path);
   string dir = get_current_dir_name();
   string jtableFile = dir + "/tmp/" + to_string(entry) + ".ind";
   dumpIndrctTgt(jtableFile,ind_tgts);
@@ -501,14 +503,15 @@ PointerAnalysis::validInit(vector <BasicBlock *> &entry_lst,
 unordered_map <uint64_t,int>
 PointerAnalysis::validInitAndRegPreserve(vector <BasicBlock *> &entry_lst,
                                          vector <BasicBlock *> &fin_bb_list,
-                                         const vector <string> &reg_list) {
+                                         const vector <string> &reg_list,
+                                         const unordered_set <uint64_t> &valid_ind_path) {
   uint64_t entry = entry_lst[0]->start();
   unordered_map <uint64_t, int> valid;
   unordered_map<int64_t, vector<int64_t>> ind_tgts;
   unordered_set <uint64_t> present;
-  for(auto & bb : fin_bb_list)
-    present.insert(bb->start());
-  checkIndTgts(ind_tgts,fin_bb_list,present);
+  //for(auto & bb : fin_bb_list)
+  //  present.insert(bb->start());
+  checkIndTgts(ind_tgts,fin_bb_list,valid_ind_path);
   string dir = get_current_dir_name();
   string jtableFile = dir + "/tmp/" + to_string(entry) + ".ind";
   dumpIndrctTgt(jtableFile,ind_tgts);
@@ -643,7 +646,8 @@ PointerAnalysis::cfCheck(vector <BasicBlock *> &bb_list) {
 
 unordered_map <uint64_t, int>
 PointerAnalysis::propertyCheck(vector <BasicBlock *> &entry_lst, 
-                               vector<BasicBlock *> &bb_list) {
+                               vector<BasicBlock *> &bb_list,
+                               const unordered_set <uint64_t> &valid_ind_path) {
   unordered_map <uint64_t, int> valid;
   for(auto & p : propList_) {
     switch (p) {
@@ -656,16 +660,16 @@ PointerAnalysis::propertyCheck(vector <BasicBlock *> &entry_lst,
         break;
       */
       case Property::VALIDINIT :
-        valid = validInit(entry_lst, bb_list);
+        valid = validInit(entry_lst, bb_list, valid_ind_path);
         break;
       case Property::SP_PRESERVED :
-        valid = regPreserved(entry_lst, bb_list, vector<string>{"sp"});
+        valid = regPreserved(entry_lst, bb_list, vector<string>{"sp"},valid_ind_path);
         break;
       case Property::ABI_REG_PRESERVED :
-        valid = regPreserved(entry_lst, bb_list, vector<string>{"sp","bx","bp","r12","r13","r14","r15"});
+        valid = regPreserved(entry_lst, bb_list, ABIReg,valid_ind_path);
         break;
       case Property::ABI_REG_PRESERVE_AND_VALID_INIT :
-        valid = validInitAndRegPreserve(entry_lst, bb_list, vector<string>{"sp","bx","bp","r12","r13","r14","r15"});
+        valid = validInitAndRegPreserve(entry_lst, bb_list, ABIReg,valid_ind_path);
         break;
       default:
         break;
@@ -702,6 +706,13 @@ PointerAnalysis::resolveNoRetCall(BasicBlock *entry) {
     if(resolved) {
       call_bb->callType(BBType::RETURNING);
       LOG("Marking returning as child resolved: "<<hex<<call_bb->start());
+    }
+    else if(validCF(bb_lst) == false) {
+      DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
+      possiblePtrs_.insert(call_bb->fallThrough());
+      call_bb->callType(BBType::NON_RETURNING);
+      call_bb->fallThrough(0);
+      call_bb->fallThroughBB(NULL);
     }
     else if(noRet(bb_lst)) {
       DEF_LOG("No return in fall through..Marking returning: "<<hex<<call_bb->start());
@@ -783,7 +794,7 @@ PointerAnalysis::resolveNoRetCall(BasicBlock *entry) {
         }
         else {
           for(auto & e : all_entries) {
-            if(likelyTrueFunction(e)) {
+            if(likelyTrueFunction(e) && checkPath(e,call_bb)) {
               entry_to_check = e;
               break;
             }
@@ -1415,6 +1426,7 @@ PointerAnalysis::validateIndTgtsFrmEntry(BasicBlock *entry) {
         continue;
       }
       auto exit_routes = allRoutes(entry, bb, valid_ind_path);
+      auto valid_inds = indRoots();
       DEF_LOG("Checking conflict with entry");
       if(validCF(exit_routes) == false) {
         DEF_LOG("Conflicts with entry");
@@ -1434,6 +1446,8 @@ PointerAnalysis::validateIndTgtsFrmEntry(BasicBlock *entry) {
         //}
         //candidate_count+=ins_cnt;
         //DEF_LOG("Jump table target validation candidate count: "<<hex<<entry->start()<<"-"<<dec<<ins_cnt);
+        valid_inds.insert(bb->start());
+
         auto valid = propertyCheck(entry_lst,exit_routes);
         for(auto & v : valid) {
           setProperty(exit_routes, v.second, v.first);

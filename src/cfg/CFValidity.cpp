@@ -62,8 +62,10 @@ CFValidity::validIns(vector <BasicBlock *> &bb_list) {
     //LOG("Checking ins validity for bb: "<<hex<<bb->start());
     if(validIns_.find(bb->start()) != validIns_.end())
       continue;
-    if(invalidIns_.find(bb->start()) != invalidIns_.end())
+    if(invalidIns_.find(bb->start()) != invalidIns_.end()) {
+      DEF_LOG("Invalid ins at bb: "<<hex<<bb->start());
       return false;
+    }
     vector<Instruction *> insList = bb->insList();
     for(auto & ins : insList) {
       for(auto & rule : insRule_) {

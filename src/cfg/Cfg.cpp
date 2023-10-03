@@ -39,6 +39,7 @@ Cfg::disassemble() {
   all_const_relocs.insert(all_const_relocs.end(),xtra_reloc.begin(), xtra_reloc.end());
   allConstRelocs(all_const_relocs);
   genCFG();
+  /*
   ptr_map = pointers();
   for(auto & p : ptr_map) {
     if(p.second->symbolizable(SymbolizeIf::RLTV) || p.second->symbolizable(SymbolizeIf::CONST)) {
@@ -119,6 +120,7 @@ Cfg::disassemble() {
     }
   }
   DEF_LOG("Guessing jump tables complete");
+  */
   //classifyPtrs();
   populateRltvTgts();
   randomizer();
@@ -359,7 +361,7 @@ Cfg::processTarget(BasicBlock *bb, PointerSource t) {
     if(last_ins->isCall()) {
       //bb->type(tgt_type);
       if(tgt_type == BBType::NON_RETURNING) {
-        LOG("Marking bb non returining: " <<hex <<bb->start());
+        DEF_LOG("Marking bb non returining: " <<hex <<bb->start());
         bb->fallThrough(0);
         bb->fallThroughBB(NULL);
         bb->type(BBType::NON_RETURNING); 
