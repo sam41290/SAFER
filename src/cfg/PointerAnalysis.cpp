@@ -360,7 +360,7 @@ bbInList(BasicBlock *bb, vector <BasicBlock *> &bb_list) {
 void
 PointerAnalysis::checkIndTgts(unordered_map<int64_t, vector<int64_t>> & ind_tgts,
                               vector <BasicBlock *> & fin_bb_list,
-                              unordered_set <uint64_t> &present) {
+                              const unordered_set <uint64_t> &present) {
   for(auto & bb : fin_bb_list) {
     auto ind_tgt_set = bb->indirectTgts();
     for(auto & ind_bb : ind_tgt_set) {
