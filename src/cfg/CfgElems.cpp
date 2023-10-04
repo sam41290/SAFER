@@ -892,6 +892,54 @@ CfgElems::defCodeCftScore(vector <BasicBlock *> &bb_lst) {
 }
 
 long double
+outOfSnippetJumps(vector <BasicBlock *> &bb_lst) {
+  unordered_map <uint64_t,long double> score_map;
+  for(auto & bb : bb_lst) {
+    score_map[bb->start()] = 0;
+  }
+  for(auto & bb : bb_lst) {
+    auto parents = bb->parents();
+    for(auto & p : parents) {
+      if(score_map.find(p->start()) == score_map.end() && p->target() == bb->start()) {
+        auto last_ins = p->lastIns();
+        if(last_ins->isUnconditionalJmp() && last_ins->insSize() == 2 && 
+           last_ins->asmIns().find("ret") == string::npos && bb->target() != 0) {
+          if(score_map[bb->start()] == 0)
+            score_map[bb->start()] = powl(2,8);
+          else
+            score_map[bb->start()] *=  powl(2,8);
+        }
+        else if(last_ins->isJump() && last_ins->insSize() == 2 &&
+                last_ins->asmIns().find("ret") == string::npos) {
+          if(score_map[bb->start()] == 0)
+            score_map[bb->start()] = powl(2,4);
+          else
+            score_map[bb->start()] *=  powl(2,4);
+        }
+        else if(last_ins->isUnconditionalJmp() && last_ins->insSize() >= 5 && !last_ins->isCall()
+                && bb->target() != 0) {
+          if(score_map[bb->start()] == 0)
+            score_map[bb->start()] = powl(2,11);
+          else
+            score_map[bb->start()] *=  powl(2,11);
+        }
+        else if(last_ins->isJump() && last_ins->insSize() >= 6) {
+          if(score_map[bb->start()] == 0)
+            score_map[bb->start()] = powl(2,15);
+          else
+            score_map[bb->start()] *=  powl(2,15);
+        }
+
+      }
+    }
+  }
+  long double score = 0;
+  for(auto & s : score_map)
+    score += s.second;
+  return score;
+}
+
+long double
 CfgElems::probScore(uint64_t addrs) {
 
   //Calculates score of a function entry address.
@@ -922,7 +970,16 @@ CfgElems::probScore(uint64_t addrs) {
       auto p = ptr(addrs);
       if(p != NULL) {
         if(p->source() == PointerSource::POSSIBLE_RA)
-          score += powl(2,4);
+          score += powl(2,10);
+        score += outOfSnippetJumps(bb_lst);
+      }
+      else {
+        auto prev_reg = addrs - 1;
+        auto prev_bb = withinBB(prev_reg);
+        if(bb != NULL && bb->lastIns()->isCall()) {
+          score += powl(2,10);
+          score += outOfSnippetJumps(bb_lst);
+        }
       }
 
       DEF_LOG("Entry: "<<hex<<addrs<<" score: "<<dec<<score);
