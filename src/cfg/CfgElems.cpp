@@ -782,7 +782,7 @@ CfgElems::jumpScore(vector <BasicBlock *> &bb_lst) {
       }
     }
   }
-  //DEF_LOG("Jump target score: "<<dec<<score);
+  DEF_LOG("Jump target score: "<<dec<<score);
   for(auto & s : score_map)
     score += s.second;
   return score;
@@ -970,17 +970,17 @@ CfgElems::probScore(uint64_t addrs) {
       auto p = ptr(addrs);
       if(p != NULL) {
         if(p->source() == PointerSource::POSSIBLE_RA)
-          score += powl(2,10);
-        score += outOfSnippetJumps(bb_lst);
+          score += powl(2,4);
+        //score += outOfSnippetJumps(bb_lst);
       }
-      else {
-        auto prev_reg = addrs - 1;
-        auto prev_bb = withinBB(prev_reg);
-        if(bb != NULL && bb->lastIns()->isCall()) {
-          score += powl(2,10);
-          score += outOfSnippetJumps(bb_lst);
-        }
-      }
+      //else {
+      //  auto prev_reg = addrs - 1;
+      //  auto prev_bb = withinBB(prev_reg);
+      //  if(bb != NULL && bb->lastIns()->isCall()) {
+      //    score += powl(2,4);
+      //    score += outOfSnippetJumps(bb_lst);
+      //  }
+      //}
 
       DEF_LOG("Entry: "<<hex<<addrs<<" score: "<<dec<<score);
 
