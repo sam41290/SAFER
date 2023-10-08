@@ -134,6 +134,19 @@ CfgElems::otherUseOfJmpTbl(JumpTable &j) {
 
 void
 CfgElems::chkJmpTblRewritability() {
+#ifdef STATIC_TRANS
+  for(auto & j : jmpTables_) {
+    auto loc_ptr = ptr(j.location());
+    auto base_ptr = ptr(j.base());
+    if(j.type() == 2 || j.type() == 3 || loc_ptr == NULL || 
+       base_ptr == NULL || sameLocDiffBase(j.location(),j.base()) ||
+      (type_ == exe_type::NOPIE && (loc_ptr->symbolizable(SymbolizeIf::IMMOPERAND) || 
+                                    base_ptr->symbolizable(SymbolizeIf::IMMOPERAND)))) {
+      DEF_LOG("Marking jump table non transformable: "<<hex<<j.location());
+      j.rewritable(false);
+    }
+  }
+#else
   unordered_set <uint64_t> unsafe_jumps;
   string dir = get_current_dir_name();
   ifstream ifile;
@@ -238,6 +251,7 @@ CfgElems::chkJmpTblRewritability() {
     }
   }
   */
+#endif
 }
 
 bool
