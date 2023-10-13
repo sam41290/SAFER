@@ -8,10 +8,10 @@
 #  exit
 #fi
 
-COREUTILS_SRC_DIR=${HOME}/coreutils/coreutils-8.30/src
+COREUTILS_SRC_DIR=${HOME}/coreutils-8.30/src
 
-COREUTILS_INSTALL=${HOME}/coreutils/coreutils-data/bin
-COREUTILS_LIB=${HOME}/coreutils/coreutils-data/libexec/coreutils
+COREUTILS_INSTALL=${HOME}/coreutils-nopie/bin
+COREUTILS_LIB=${HOME}/coreutils-nopie/libexec/coreutils
 
 TOOL_PATH=${HOME}/SBI
 
@@ -22,16 +22,19 @@ then
 	args=$1
 elif [ $# -eq 2 ]
 then
-	args=$2
+	args=$1' '$2
 elif [ $# -eq 3 ]
 then
-    args=$2' '$3
+    args=$1' '$2' '$3
 elif [ $# -eq 4 ]
 then
-    args=$2' '$3' '$4
+    args=$1' '$2' '$3' '$4
 elif [ $# -eq 5 ]
 then
-    args=$2' '$3' '$4' '$5;
+    args=$1' '$2' '$3' '$4' '$5;
+elif [ $# -eq 6 ]
+then
+	args=$1' '$2' '$3' '$4' '$5' '$6;
 fi
 
 i=0

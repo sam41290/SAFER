@@ -78,7 +78,7 @@ using namespace std;
     fn->addProbableEntry(addrs);
 
 #define ADDSYMBOLCANDIDATE(addrs,storage,symbolize,t,symtype) {\
-  if(pointerMap_[addrs]->symExists(storage) == false) {\
+  if(pointerMap_[addrs]->symExists(storage,symtype) == false) {\
     Symbol s1(storage,symtype);\
     pointerMap_[addrs]->symCandidate(s1);\
   }\

@@ -17,16 +17,22 @@ then
     args=$2
 elif [ $# -eq 3 ]
 then
-    args=$2'\n'$3
+    args=$2' '$3
 elif [ $# -eq 4 ]
 then
-    args=$2'\n'$3'\n'$4;
+    args=$2' '$3' '$4;
+elif [ $# -eq 5 ]
+then
+	args=$2' '$3' '$4' '$5;
+elif [ $# -eq 6 ]
+then
+	args=$2' '$3' '$4' '$5' '$6;
 fi
 
 echo "instrument args"
 echo "$args"
 
-rand_mode=`echo $args | grep "config" | cut -d"=" -f2`
+rand_mode=`echo $args | grep "rand_mode" | cut -d"=" -f2`
 
 echo "rand_mode:"
 echo "$rand_mode"
@@ -35,7 +41,7 @@ len=`echo -n $rand_mode | wc -m`
 
 if [ $len -le 0 ]
 then
-    rand_mode="default"
+    rand_mode="NoRand"
 fi
 
 export LD_LIBRARY_PATH=/usr/lib/ocaml
@@ -81,7 +87,7 @@ then
 	  echo "processing ${filepath}"
       rm ${REGEN_DIR}/${file}_2
 	  cp ${filepath} ${REGEN_DIR}/
-	  ${TOOL_PATH}/instrument.sh ${REGEN_DIR}/${file} config=${rand_mode}
+	  ${TOOL_PATH}/instrument.sh ${REGEN_DIR}/${file} ${args}
 	  mode_len=`echo ${#mode}`
 
 	  if [ ${mode_len} -eq 0 ]

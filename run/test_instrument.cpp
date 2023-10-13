@@ -14,7 +14,8 @@ main (int argc, char *args[]) {
   binary_path += args[1];
   cout << binary_path << endl;
   Binary b (binary_path);
-
+#ifdef STATIC_TRANS
+#else
   vector<InstArg> arglst2;
   arglst2.push_back(InstArg::INDIRECT_TARGET);
   arglst2.push_back(InstArg::RIP);
@@ -28,6 +29,7 @@ main (int argc, char *args[]) {
     vector<InstArg> arglst4;
     b.registerInstrumentation(InstPoint::RET_CHK,"GTF_stack",arglst4);
   }
+#endif
   SHSTK(b)
   b.rewrite();
   return 0;

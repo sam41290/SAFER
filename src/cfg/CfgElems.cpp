@@ -1304,7 +1304,7 @@ CfgElems::withinCodeSec(uint64_t addrs) {
   for(auto & sec : rxSections_) {
     if(addrs >= sec.vma && addrs < (sec.vma + sec.size) 
         && sec.sec_type == section_types::RX) {
-      //LOG(hex<<addrs<<" Within code section: "<<hex<<sec.vma<<" - "<<sec.vma + sec.size);
+      DEF_LOG(hex<<addrs<<" Within code section: "<<hex<<sec.vma<<" - "<<sec.vma + sec.size);
       return true;
     }
   }

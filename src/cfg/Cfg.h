@@ -99,6 +99,7 @@ private:
   void addHintBasedEntries();
   void handleLoopIns(vector <BasicBlock *> &bb_list);
   void reAddFallThrough(vector <BasicBlock *> &bb_list);
+  void guessJumpTable();
 };
 }
 #endif

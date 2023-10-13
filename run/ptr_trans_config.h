@@ -1,12 +1,15 @@
+#define STATIC_TRANS
 
-#define FULL_ADDR_TRANS false
-#define FULL_ENCODE true
-#define RA_OPT true
-#define SAFE_JTABLE true
-#define NO_ENCODE_LEAPTRS false
+#ifdef STATIC_TRANS
+  #define FULL_ADDR_TRANS false
+  #define FULL_ENCODE false
+  #define RA_OPT true
+  #define SAFE_JTABLE false
+  #define NO_ENCODE_LEAPTRS false
+  #define ENCODE 0
+#endif
 
 #define SHSTK(b)
-#define ENCODE 1
 #define ENCCLASS MultInv
 
 #define NOTSTRING(ptr) notString(ptr) //also checks alignment
