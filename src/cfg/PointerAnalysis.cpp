@@ -1986,6 +1986,7 @@ PointerAnalysis::entryValidation(BasicBlock *entry) {
     passAllProps(entry);
     return;
   }
+  //return;
 #endif
   if(p != NULL && 
      p->source() == PointerSource::JUMPTABLE) {
@@ -2030,10 +2031,17 @@ PointerAnalysis::entryValidation(BasicBlock *entry) {
     passAllProps(entry);
   }
   else {
+#ifdef EH_FRAME_DISASM_ROOT
+  if(likelyTrueEhCode(entry)) {
+    passAllProps(entry);
+    //return;
+  }
+#else
     resolveNoRetCall(entry);
     if(codeParent(entry))
       passAllProps(entry);
     analyzeEntry(entry);
+#endif
   }
   if(codeByProperty(entry) && contextPassed(entry,entry))
     validateIndTgtsFrmEntry(entry);
