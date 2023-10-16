@@ -702,6 +702,20 @@ PointerAnalysis::resolveNoRetCall(BasicBlock *entry) {
     BasicBlock *call_bb = exitCalls.top();
     exitCalls.pop();
     auto fall_seq = bbSeq(call_bb);
+#ifdef EH_FRAME_DISASM_ROOT
+      auto fall_bb = call_bb->fallThroughBB();
+      if(withinFn(fall_bb->start())) {
+        call_bb->callType(BBType::RETURNING);
+      }
+      else {
+        DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
+        possiblePtrs_.insert(call_bb->fallThrough());
+        call_bb->callType(BBType::NON_RETURNING);
+        call_bb->fallThrough(0);
+        call_bb->fallThroughBB(NULL);
+      }
+      continue;
+#endif
     if(resolved) {
       call_bb->callType(BBType::RETURNING);
       LOG("Marking returning as child resolved: "<<hex<<call_bb->start());

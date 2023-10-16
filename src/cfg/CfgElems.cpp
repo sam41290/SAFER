@@ -350,6 +350,21 @@ CfgElems::phase1NonReturningCallResolution() {
           }
           call_checked.insert(exit_call->start());
           DEF_LOG("Resolving exit call: "<<hex<<exit_call->start());
+#ifdef EH_FRAME_DISASM_ROOT
+          auto fall_bb = exit_call->fallThroughBB();
+          if(withinFn(fall_bb->start())) {
+            exit_call->callType(BBType::RETURNING);
+          }
+          else {
+            DEF_LOG("Marking non-returning: "<<hex<<exit_call->start());
+            newPointer(exit_call->fallThrough(), PointerType::UNKNOWN,
+                       PointerSource::POSSIBLE_RA,PointerSource::POSSIBLE_RA,exit_call->end());
+            exit_call->callType(BBType::NON_RETURNING);
+            exit_call->fallThrough(0);
+            exit_call->fallThroughBB(NULL);
+          }
+          continue;
+#endif
           auto fall_through = exit_call->fallThroughBB();
           if(fall_through != NULL) {
             auto bb_list = bbSeq(fall_through);
@@ -1304,7 +1319,7 @@ CfgElems::withinCodeSec(uint64_t addrs) {
   for(auto & sec : rxSections_) {
     if(addrs >= sec.vma && addrs < (sec.vma + sec.size) 
         && sec.sec_type == section_types::RX) {
-      DEF_LOG(hex<<addrs<<" Within code section: "<<hex<<sec.vma<<" - "<<sec.vma + sec.size);
+      //DEF_LOG(hex<<addrs<<" Within code section: "<<hex<<sec.vma<<" - "<<sec.vma + sec.size);
       return true;
     }
   }
