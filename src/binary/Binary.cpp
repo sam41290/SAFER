@@ -268,8 +268,8 @@ Binary::findSecondHookSpace(uint64_t addrs) {
   //    return (h + 5);
   //}
 
-  auto start = addrs - 128;
-  auto end = addrs + 128;
+  auto start = addrs + 2 - 127;
+  auto end = addrs + 2 + 127;
 
   while (start < end) {
     auto cur_block = is_within(start, trampData_);
