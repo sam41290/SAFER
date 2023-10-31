@@ -959,7 +959,8 @@ Cfg::cnsrvtvDisasm() {
   disassembleGaps();
   preCachedJumpTables();
   possibleCodeDisasm();
-  addHintBasedEntries();
+  //addHintBasedEntries();
+
   //propagateAllRoots();
   //updateBBTypes();
   //phase1NonReturningCallResolution();
@@ -1755,7 +1756,7 @@ Cfg::printFunc(uint64_t fstart, string file_name) {
     randomizer_->print(defbbs, file_name, fstart);
   //DEF_LOG("Printing psbl code bbs");
   if (psbl_code.size() > 0) {
-    DEF_LOG("First bb: "<<hex<<psbl_code[0]->start());
+    //DEF_LOG("First bb: "<<hex<<psbl_code[0]->start());
     randomizer_->print(psbl_code, file_name, fstart);
   }
 #endif

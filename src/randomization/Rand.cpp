@@ -104,6 +104,7 @@ Rand::printUnwindRec(uint64_t frame, BasicBlock * bb) {
 
 void
 Rand::addJmpToFallThru(BasicBlock *bb) {
+  //DEF_LOG("Adding fall throughs");
   if(bb != NULL && bb->fallThroughBB() != NULL) {
     //DEF_LOG("Adding fall through: "<<hex<<bb->start()<<"->"<<hex<<bb->fallThrough());
     Instruction ins;
@@ -113,6 +114,7 @@ Rand::addJmpToFallThru(BasicBlock *bb) {
     ins.isJump(1);
     bb->fallThroughIns(ins);
   }
+  //DEF_LOG("Adding fall through complete!!!");
 }
 
 vector<BasicBlock *> 
@@ -211,25 +213,26 @@ Rand::brkBasicBlk(vector <uint64_t> &bigBlks,set <uint64_t> &brkPoints,
    * If some break point falls within a pre-defined BB, it splits the BB.
    */
   //vector<BasicBlock *> newBBs;
-  LOG("Breaking basic blocks");
+  //DEF_LOG("Breaking basic blocks");
 
-  set <uint64_t> to_be_processed = brkPoints;
+  //set <uint64_t> to_be_processed = brkPoints;
+  //unordered_set <uint64_t>
 
-  while(to_be_processed.size() > 0) {
+  //while(to_be_processed.size() > 0) {
     //vector<BasicBlock *> newBBs;
     for(auto & start : brkPoints) {
-      if(to_be_processed.find(start) != to_be_processed.end()) {
+     // if(to_be_processed.find(start) != to_be_processed.end()) {
         //bigBlks.push_back(start);
         //auto it = basicBlkMap_.find(start);
         //if break point is already a basic block start then skip
-        LOG("Breaking at "<<hex<<start);
+        //DEF_LOG("Breaking at "<<hex<<start);
         BasicBlock *prevBB = NULL;
         bool brk_found = false;
-        for(auto bb : bbs) {
+        for(auto & bb : bbs) {
           //LOG("BB: "<<hex<<bb->start()<<" - "<<bb->end());
           if(bb->start() == start) {
             addJmpToFallThru(prevBB);
-            to_be_processed.erase(start);
+            //to_be_processed.erase(start);
             bigBlks.push_back(start);
             brk_found = true;
             break;
@@ -237,22 +240,29 @@ Rand::brkBasicBlk(vector <uint64_t> &bigBlks,set <uint64_t> &brkPoints,
           prevBB = bb;
         }
         if(brk_found == false) {
-          for(auto bb : bbs) {
+          //DEF_LOG("Could not find break point...looking for BB to split");
+          for(auto & bb : bbs) {
             if(bb->start() < start && bb->end() >= start) {
+              //DEF_LOG("Splitting BB: "<<hex<<bb->start()<<" at "<<hex<<start);
               BasicBlock *newBB = bb->split(start);
-              addJmpToFallThru(bb);
-              bbs.push_back(newBB);
-              to_be_processed.erase(start);
-              bigBlks.push_back(start);
+              if(newBB != NULL) {
+                addJmpToFallThru(bb);
+                bbs.push_back(newBB);
+                //to_be_processed.erase(start);
+                bigBlks.push_back(start);
+              }
               break;
             }
           }
+          //DEF_LOG("Sorting bbs");
           sort(bbs.begin(),bbs.end(),compareBB);
+          //DEF_LOG("Sorting done");
         }
-      }
+     // }
     }
 
-  }
+ // }
+  DEF_LOG("Breaking basic blocks complete");
   return bbs;
 }
 

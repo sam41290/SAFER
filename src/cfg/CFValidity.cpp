@@ -15,6 +15,8 @@ bool
 CFValidity::validOpCode(Instruction *ins) {
   if(ins->asmIns().find("%riz") != string::npos)
     return false;
+  if(ins->asmIns().find("%?") != string::npos)
+    return false;
   if(ins->asmIns().find(".byte") != string::npos) {
     //LOG("Gap byte: "<<hex<<ins->location()<<": "<<ins->asmIns());
     return false;
