@@ -29,17 +29,25 @@ do
 done
 
 export LD_LIBRARY_PATH=/usr/lib/ocaml
-cp ${TOOL_PATH}/run/randmodes/NoRand.h ${TOOL_PATH}/run/config.h
+#cp ${TOOL_PATH}/run/randmodes/NoRand.h ${TOOL_PATH}/run/config.h
 
-
-cd ${TOOL_PATH}/src/lift/lift-code
+cd ${TOOL_PATH}/src/SBD/lift/lift-code
 make clean
 make all
 
 
-cd ${TOOL_PATH}/src/rtl-analysis/
+cd ${TOOL_PATH}/src/SBD/analysis/
 make clean
-make libanalysis.so
+make all
+
+#cd ${TOOL_PATH}/src/lift/lift-code
+#make clean
+#make all
+#
+#
+#cd ${TOOL_PATH}/src/rtl-analysis/
+#make clean
+#make libanalysis.so
 
 cd ${TOOL_PATH}
 
