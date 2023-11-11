@@ -1,9 +1,8 @@
 #pragma once
 
-#define ACCEPT_THRESHOLD powl(2,20)
-#define REJECT_THRESHOLD 0 //powl(2,10)
-#define CODE_SCORE 6
-
+#define ACCEPT_THRESHOLD 1.79769e+308//powl(2,60)
+#define REJECT_THRESHOLD 0//powl(2,4)
+#define CODE_SCORE 2
 //#define GROUND_TRUTH
 
 //#define SYM_TABLE_DISASM_ROOT //uses symbol table.
@@ -22,9 +21,10 @@
 #define DISASMONLY
 #define SHSTK(b)
 
+
 #define CFGCONSISTENCYCHECK
 
-#define INIT_TYPE 4 //With ABI
+#define INIT_TYPE 3 //With ABI
 
 #ifdef CFGCONSISTENCYCHECK
 
@@ -51,15 +51,7 @@
 #define SYMBOLIZERLTV(ptr) symbolizeRltvPtr(ptr)
 #define SYMBOLIZENONSTRING(ptr) symbolizeNonString(ptr)
 
-//#define SYMBOLIZE(ptr)
-#define SYMBOLIZE(ptr) { \
-  if(FULL_ADDR_TRANS == false) {\
-    SYMBOLIZERELOCATEDCONST(ptr); \
-    SYMBOLIZERELOCATEDIMM(ptr); \
-    if(NO_ENCODE_LEAPTRS == false)\
-      SYMBOLIZERLTV(ptr); \
-  }\
-}
+#define SYMBOLIZE(ptr)
 
 /*
 #define SYMBOLIZE(ptr) { \
@@ -73,13 +65,14 @@
 
 #define INSVALIDITY vector <InsValidityRules> {InsValidityRules::VLD_OP,InsValidityRules::VLD_MEM,InsValidityRules::VLD_PRFX,InsValidityRules::VLD_USRMODE_INS}
 
-#define PROPERTIES {Property::VALIDINS, Property::VALID_CF, Property::ABI_REG_PRESERVE_AND_VALID_INIT}
+#define PROPERTIES {Property::VALIDINS, Property::VALID_CF,Property::VALIDINIT}
 #define DEFDATA(p) \
   ((p == Property::VALIDINS) ? true :\
    (p == Property::VALID_CF) ? true : false)
 
 #define DEFCODE(p) \
-  ((p == Property::ABI_REG_PRESERVE_AND_VALID_INIT) ? true :\
+  ((p == Property::SP_PRESERVED) ? true :\
+   (p == Property::ABI_REG_PRESERVED) ? true :\
    (p == Property::VALIDINIT) ? true : false)
 
 #define TRANSITIVECF Update::LOCAL
