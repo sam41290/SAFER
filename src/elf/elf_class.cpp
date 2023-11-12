@@ -1235,6 +1235,7 @@ ElfClass::printPHdrs(string fname) {
   vector <section> new_secs = newSections();
   pheader cur_ph;
   pheader att_ph;
+  bool att_sec_found = false;
   for(auto & sec : new_secs) {
     if(sec.load == false)
       continue;
@@ -1251,6 +1252,7 @@ ElfClass::printPHdrs(string fname) {
       cur_ph = new_ph;
     }
     if(sec.is_att) {
+      att_sec_found = true;
       att_ph.start_sym = sec.start_sym;
       att_ph.file_end_sym = sec.end_sym;
       att_ph.mem_end_sym = sec.end_sym;
@@ -1295,16 +1297,28 @@ ElfClass::printPHdrs(string fname) {
     }
   }
 
-  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<PT_SBI_ATT<<endl;
-  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<PF_R<<endl;
-  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Off))<<" "<<att_ph.start_sym<<" - .elf_header_start"<<endl;
-  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Addr))<<" "<<att_ph.start_sym<<" - .elf_header_start"<<endl;
-  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Addr))<<" "<<att_ph.start_sym<<" - .elf_header_start"<<endl;
-  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<att_ph.file_end_sym
-    <<" - "<<att_ph.start_sym<<endl;
-  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<att_ph.mem_end_sym<<
-   " - "<<att_ph.start_sym<<endl;
-  ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<1<<endl;
+  if(att_sec_found) {
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<PT_SBI_ATT<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<PF_R<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Off))<<" "<<att_ph.start_sym<<" - .elf_header_start"<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Addr))<<" "<<att_ph.start_sym<<" - .elf_header_start"<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Addr))<<" "<<att_ph.start_sym<<" - .elf_header_start"<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<att_ph.file_end_sym
+      <<" - "<<att_ph.start_sym<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<att_ph.mem_end_sym<<
+     " - "<<att_ph.start_sym<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<1<<endl;
+  }
+  else {
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<PT_NULL<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<PF_R<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Off))<<" "<<0<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Addr))<<" "<<0<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Addr))<<" "<<0<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<0<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<0<<endl;
+    ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Xword))<<" "<<1<<endl;
+  }
   int sz = newPHdrs_.size() + 1;
   while(sz <= (elfHeader_->e_phnum + 3)) {
     ofile<<TYPE_TO_ASM_DIRECTIVE(sizeof(Elf64_Word))<<" "<<PT_NULL<<endl;
@@ -1758,14 +1772,22 @@ ElfClass::updateWithoutObjCopy(string bname,string obj_file) {
   populateNewSymAddrs ();
   updAllSecHdrsV2(new_bname);
   insertDataSeg (new_bname);
-  //updSymTbl (new_bname);
+#ifdef STATIC_TRANS
+  updSymTbl (new_bname);
+#endif
   updRelaSections (new_bname);
-  //updTramps (new_bname);
+#ifdef STATIC_TRANS
+  updTramps (new_bname);
+#endif
   updDynSection (new_bname);
   changeEntryPnt (new_bname);
+#ifdef STATIC_TRANS
+  DEF_LOG("Skipping hash table generation");
+#else
 #ifdef ONE_LEVEL_HASH
 #else
   insertHashTbl (new_bname);
+#endif
 #endif
   instBname(new_bname);
 }
@@ -1946,6 +1968,9 @@ ElfClass::updDynSection (string bname) {
     }
     */
     else if(dyn[i].d_tag == DT_NEEDED) {
+#ifdef STATIC_TRANS
+    }
+#else
        LOG("Shared lib name offset: "<<hex<<dyn[i].d_un.d_val);
        section dyn_str_sec = secHeader(".dynstr");
        char name[20];
@@ -1956,6 +1981,7 @@ ElfClass::updDynSection (string bname) {
          utils::WRITE_TO_FILE(bname,newname,dyn_str_sec.offset + dyn[i].d_un.d_val,20);
        }
     }
+#endif
   }
   utils::WRITE_TO_FILE (bname, dyn, dyn_offset, size);
 

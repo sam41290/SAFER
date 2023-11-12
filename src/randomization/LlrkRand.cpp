@@ -11,16 +11,16 @@ LlrkRand::populateLlrkBrkPoints(vector <uint64_t> &allIns) {
   /*Chooses random locations to introduce breaks
    */
 
-  LOG("Splitting at random locations");
+  DEF_LOG("Splitting at random locations");
   int blkCount;
 
   int insCount = allIns.size();
 
-  LOG("Total instruction count: " <<insCount);
+  DEF_LOG("Total instruction count: " <<insCount);
   int blkSize = insCount / brkPoints_.size();  //Calculate ZJR block size
-  LOG("ZJR block size: " <<blkSize);
+  DEF_LOG("ZJR block size: " <<blkSize);
   if(blkSize <= LLRK_COMMON_CONSTANT_VALUE) {
-    LOG("No further split required");
+    DEF_LOG("No further split required");
     return;
   }
   //Calculate required number of breaks.
@@ -44,7 +44,7 @@ LlrkRand::populateLlrkBrkPoints(vector <uint64_t> &allIns) {
   int possibleCandidatesCnt = psbl_candidates.size();
 
   if(possibleCandidatesCnt <(blkCount - 1)) {
-    LOG("number of candidates <required break points. No further split possible");
+    DEF_LOG("number of candidates <required break points. No further split possible");
     return;
   }
 
@@ -58,7 +58,7 @@ LlrkRand::populateLlrkBrkPoints(vector <uint64_t> &allIns) {
 
   for(int i = 0; i <(blkCount - 1); i++) {
     uint64_t address = psbl_candidates[i];
-    LOG("LLRK break point: " <<hex <<address);
+    DEF_LOG("LLRK break point: " <<hex <<address);
     brkPoints_.insert(address);
     i++;
   }
@@ -67,7 +67,7 @@ LlrkRand::populateLlrkBrkPoints(vector <uint64_t> &allIns) {
 
 vector <BasicBlock *> LlrkRand::randomizeBasicBlks(vector <BasicBlock *> &bbs) {
   
-  LOG("Applying ZJR...");
+  DEF_LOG("Applying ZJR...");
   ZjrRand::populateZjrBreakPoints(bbs);
   vector <uint64_t> allIns = ZjrRand::getAllInstructions();
 
@@ -96,7 +96,7 @@ vector <BasicBlock *> LlrkRand::randomizeBasicBlks(vector <BasicBlock *> &bbs) {
 void
 LlrkRand::print(vector <BasicBlock *> bbs, string fileName,
          uint64_t fstart) {
-  bbs = removeDuplication(bbs);
+  //bbs = removeDuplication(bbs);
   addJmpToFallThru(bbs[bbs.size() - 1]);
   vector <BasicBlock *> finalBBs = randomizeBasicBlks(bbs);
 

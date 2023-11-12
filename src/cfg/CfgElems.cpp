@@ -134,6 +134,19 @@ CfgElems::otherUseOfJmpTbl(JumpTable &j) {
 
 void
 CfgElems::chkJmpTblRewritability() {
+#ifdef STATIC_TRANS
+  for(auto & j : jmpTables_) {
+    auto loc_ptr = ptr(j.location());
+    auto base_ptr = ptr(j.base());
+    if(j.type() == 2 || j.type() == 3 || loc_ptr == NULL || 
+       base_ptr == NULL || sameLocDiffBase(j.location(),j.base()) ||
+      (type_ == exe_type::NOPIE && (loc_ptr->symbolizable(SymbolizeIf::IMMOPERAND) || 
+                                    base_ptr->symbolizable(SymbolizeIf::IMMOPERAND)))) {
+      DEF_LOG("Marking jump table non transformable: "<<hex<<j.location());
+      j.rewritable(false);
+    }
+  }
+#else
   unordered_set <uint64_t> unsafe_jumps;
   string dir = get_current_dir_name();
   ifstream ifile;
@@ -238,6 +251,7 @@ CfgElems::chkJmpTblRewritability() {
     }
   }
   */
+#endif
 }
 
 bool
@@ -336,6 +350,21 @@ CfgElems::phase1NonReturningCallResolution() {
           }
           call_checked.insert(exit_call->start());
           DEF_LOG("Resolving exit call: "<<hex<<exit_call->start());
+#ifdef EH_FRAME_DISASM_ROOT
+          auto fall_bb = exit_call->fallThroughBB();
+          if(withinFn(fall_bb->start())) {
+            exit_call->callType(BBType::RETURNING);
+          }
+          else {
+            DEF_LOG("Marking non-returning: "<<hex<<exit_call->start());
+            newPointer(exit_call->fallThrough(), PointerType::UNKNOWN,
+                       PointerSource::POSSIBLE_RA,PointerSource::POSSIBLE_RA,exit_call->end());
+            exit_call->callType(BBType::NON_RETURNING);
+            exit_call->fallThrough(0);
+            exit_call->fallThroughBB(NULL);
+          }
+          continue;
+#endif
           auto fall_through = exit_call->fallThroughBB();
           if(fall_through != NULL) {
             auto bb_list = bbSeq(fall_through);
@@ -782,7 +811,7 @@ CfgElems::jumpScore(vector <BasicBlock *> &bb_lst) {
       }
     }
   }
-  //DEF_LOG("Jump target score: "<<dec<<score);
+  DEF_LOG("Jump target score: "<<dec<<score);
   for(auto & s : score_map)
     score += s.second;
   return score;
@@ -970,17 +999,17 @@ CfgElems::probScore(uint64_t addrs) {
       auto p = ptr(addrs);
       if(p != NULL) {
         if(p->source() == PointerSource::POSSIBLE_RA)
-          score += powl(2,10);
-        score += outOfSnippetJumps(bb_lst);
+          score += powl(2,4);
+        //score += outOfSnippetJumps(bb_lst);
       }
-      else {
-        auto prev_reg = addrs - 1;
-        auto prev_bb = withinBB(prev_reg);
-        if(bb != NULL && bb->lastIns()->isCall()) {
-          score += powl(2,10);
-          score += outOfSnippetJumps(bb_lst);
-        }
-      }
+      //else {
+      //  auto prev_reg = addrs - 1;
+      //  auto prev_bb = withinBB(prev_reg);
+      //  if(bb != NULL && bb->lastIns()->isCall()) {
+      //    score += powl(2,4);
+      //    score += outOfSnippetJumps(bb_lst);
+      //  }
+      //}
 
       DEF_LOG("Entry: "<<hex<<addrs<<" score: "<<dec<<score);
 
@@ -1290,7 +1319,7 @@ CfgElems::withinCodeSec(uint64_t addrs) {
   for(auto & sec : rxSections_) {
     if(addrs >= sec.vma && addrs < (sec.vma + sec.size) 
         && sec.sec_type == section_types::RX) {
-      //LOG(hex<<addrs<<" Within code section: "<<hex<<sec.vma<<" - "<<sec.vma + sec.size);
+      //DEF_LOG(hex<<addrs<<" Within code section: "<<hex<<sec.vma<<" - "<<sec.vma + sec.size);
       return true;
     }
   }

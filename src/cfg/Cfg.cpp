@@ -39,8 +39,15 @@ Cfg::disassemble() {
   all_const_relocs.insert(all_const_relocs.end(),xtra_reloc.begin(), xtra_reloc.end());
   allConstRelocs(all_const_relocs);
   genCFG();
-  /*
-  ptr_map = pointers();
+  //classifyPtrs();
+  populateRltvTgts();
+  randomizer();
+  prntPtrStats();
+}
+
+void
+Cfg::guessJumpTable() {
+  auto ptr_map = pointers();
   for(auto & p : ptr_map) {
     if(p.second->symbolizable(SymbolizeIf::RLTV) || p.second->symbolizable(SymbolizeIf::CONST)) {
       if(p.second->type() == PointerType::CP || isJmpTblLoc(p.first))
@@ -120,11 +127,6 @@ Cfg::disassemble() {
     }
   }
   DEF_LOG("Guessing jump tables complete");
-  */
-  //classifyPtrs();
-  populateRltvTgts();
-  randomizer();
-  prntPtrStats();
 }
 
 void 
@@ -833,8 +835,8 @@ Cfg::EHDisasm() {
       //First pointer into EH frame body as valid disasm root
       if(fn.second->dummy() == false) {
         disasmRoots_.push(fn.first);
-        newPointer(fn.first,PointerType::UNKNOWN,PointerSource::EHFIRST,100);
-        createFn(true, fn.first,fn.first,code_type::UNKNOWN);
+        newPointer(fn.first,PointerType::CP,PointerSource::EHFIRST,100);
+        createFn(true, fn.first,fn.first,code_type::CODE);
       }
     }
     processAllRoots();
@@ -850,12 +852,13 @@ Cfg::EHDisasm() {
                && p->source() != PointerSource::STOREDCONST
                && p->source() != PointerSource::CONSTOP) {
               disasmRoots_.push(*it);
-              //newPointer(*it,PointerType::UNKNOWN,PointerSource::EHFIRST,100);
+              newPointer(*it,PointerType::UNKNOWN,PointerSource::EHFIRST,100);
             }
           }
       }
     }
     processAllRoots();
+    disassembleGaps();
     //linkAllBBs();
     //analyze();
 #endif
@@ -956,7 +959,8 @@ Cfg::cnsrvtvDisasm() {
   disassembleGaps();
   preCachedJumpTables();
   possibleCodeDisasm();
-  addHintBasedEntries();
+  //addHintBasedEntries();
+
   //propagateAllRoots();
   //updateBBTypes();
   //phase1NonReturningCallResolution();
@@ -1541,6 +1545,7 @@ Cfg::genCFG() {
 #endif
   classifyPtrs();
   chkJmpTblRewritability();
+  guessJumpTable();
   symbolize();
   string key("/");
   size_t found = exePath_.rfind(key);
@@ -1561,6 +1566,7 @@ Cfg::genCFG() {
   classifyPtrs();
   possibleCodeDisasm();
   analyze();
+  guessJumpTable();
 //#ifdef CFGCONSISTENCYCHECK
   saveCnsrvtvCode();
   cfgConsistencyAnalysis();
@@ -1750,7 +1756,7 @@ Cfg::printFunc(uint64_t fstart, string file_name) {
     randomizer_->print(defbbs, file_name, fstart);
   //DEF_LOG("Printing psbl code bbs");
   if (psbl_code.size() > 0) {
-    DEF_LOG("First bb: "<<hex<<psbl_code[0]->start());
+    //DEF_LOG("First bb: "<<hex<<psbl_code[0]->start());
     randomizer_->print(psbl_code, file_name, fstart);
   }
 #endif

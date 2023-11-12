@@ -13,16 +13,21 @@ fi
 prog=$1
 
 args=""
-
 if [ $# -eq 2 ]
 then
-    args=$2
+	args=$2
 elif [ $# -eq 3 ]
 then
-    args=$2' '$3
+	args=$2' '$3
 elif [ $# -eq 4 ]
 then
-    args=$2' '$3' '$4;
+	args=$2' '$3' '$4;
+elif [ $# -eq 5 ]
+then
+	args=$2' '$3' '$4' '$5;
+elif [ $# -eq 6 ]
+then
+	args=$2' '$3' '$4' '$5' '$6;
 fi
 
 #rand_mode=`echo $args | grep "config" | cut -d"=" -f2`

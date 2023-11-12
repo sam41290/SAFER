@@ -23,13 +23,16 @@ then
 	args=$2
 elif [ $# -eq 3 ]
 then
-    args=$2' '$3
+	args=$2' '$3
 elif [ $# -eq 4 ]
 then
-    args=$2' '$3' '$4
+	args=$2' '$3' '$4;
 elif [ $# -eq 5 ]
 then
-    args=$2' '$3' '$4' '$5;
+	args=$2' '$3' '$4' '$5;
+elif [ $# -eq 6 ]
+then
+	args=$2' '$3' '$4' '$5' '$6;
 fi
 
 i=0
@@ -58,7 +61,7 @@ sort -u ${TOOL_PATH}/testsuite/deps/suite_file_list.dat \
 
 mv ${TOOL_PATH}/testsuite/deps/tmp_file_list.dat ${TOOL_PATH}/testsuite/deps/suite_file_list.dat
 
-${TOOL_PATH}/testsuite/instrument_prog.sh suite
+${TOOL_PATH}/testsuite/instrument_prog.sh suite ${args}
 mkdir ${INST_DIR}
 while read line
 do

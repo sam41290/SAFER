@@ -294,6 +294,8 @@ class GttAtt : public Encode {
     string encodeLea(string op, uint64_t ptr) {
         size_t pos = op.find (",");
         string reg = op.substr (pos + 2);
+        if(reg.find("%") == string::npos)
+          reg = "%" + reg;
         //string inst = "pushf\n";
         //inst += "movabs $0x00000000f0000000," + reg + "\n"
         //      + "add .gtt_ind(%rip)," + reg + "\n"
@@ -452,6 +454,8 @@ class MultInv : public Encode {
     string encodeLea(string op, uint64_t ptr) {
         size_t pos = op.find (",");
         string reg = op.substr (pos + 2);
+        if(reg.find("%") == string::npos)
+          reg = "%" + reg;
         /*
         string inst = "pushf\n";
         if(reg.find("rdx") != string::npos) {

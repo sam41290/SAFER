@@ -220,6 +220,28 @@ Binary::hookPoints() {
   //    hookPoints_.push_back(p.first);
   //  }
   //}
+  unordered_set <uint64_t> added;
+  for(auto & p : pointerMap_) {
+    DEF_LOG("pointer: "<<hex<<p.first<<" source: "<<(int)p.second->source());
+    if(codeCFG_->withinCodeSec(p.first) && 
+       (p.second->symbolizable(SymbolizeIf::CONST) ||
+        p.second->symbolizable(SymbolizeIf::IMMOPERAND) ||
+        p.second->symbolizable(SymbolizeIf::RLTV) ||
+        p.second->symbolizable(SymbolizeIf::JMP_TBL_TGT))) {
+      DEF_LOG("Adding hook point: "<<hex<<p.first);
+      added.insert(p.first);
+      hookPoints_.push_back(p.first);
+    }
+    else
+      DEF_LOG("Ignoring pointer for hooking: "<<hex<<p.first);
+  }
+  for(auto & f : funcMap_) {
+    auto entries = f.second->allEntries();
+    for(auto & e : entries) {
+      if(added.find(e) == added.end() && codeCFG_->definiteCode(e))
+        hookPoints_.push_back(e);
+    }
+  }
   hookPoints_.push_back(codeSegmentEnd_); //Pushing code segment end to ease space calculation.
   sort(hookPoints_.begin(), hookPoints_.end());
 }
@@ -236,15 +258,39 @@ Binary::nextHookPoint(uint64_t addr) {
 
 uint64_t
 Binary::findSecondHookSpace(uint64_t addrs) {
-  for(auto & h : hookPoints_) {
-    if(h < addrs && (addrs - h) > 255)
-      continue;
-    if(addrs < h && ( h - addrs ) > 255)
-      return 0;
-    uint64_t next_hook = nextHookPoint(h);
-    if((h + 10) < next_hook)
-      return (h + 5);
+  //for(auto & h : hookPoints_) {
+  //  if(h < addrs && (addrs - h) > 255)
+  //    continue;
+  //  if(addrs < h && ( h - addrs ) > 255)
+  //    return 0;
+  //  uint64_t next_hook = nextHookPoint(h);
+  //  if((h + 10) < next_hook)
+  //    return (h + 5);
+  //}
+
+  auto start = addrs + 2 - 127;
+  auto end = addrs + 2 + 127;
+
+  while (start < end) {
+    auto cur_block = is_within(start, trampData_);
+    auto next_block = next_iterator(start, trampData_);
+    auto blk_end = codeSegmentEnd_;
+    if(next_block != trampData_.end())
+      blk_end = next_block->first;
+    if(blk_end >= end)
+      blk_end = end;
+    auto space_start = start;
+    if(cur_block != trampData_.end() && 
+       space_start < (cur_block->first + cur_block->second.size()))
+      space_start = cur_block->second.size() + cur_block->first;
+    if(space_start < codeSegmentStart_)
+      space_start = codeSegmentStart_;
+    auto space = blk_end - space_start;
+    if(space >= 5)
+      return space_start;
+    start = blk_end;
   }
+
   return 0;
 }
 
@@ -255,22 +301,35 @@ Binary::calcTrampData() {
   //Phase 1: check 5 byte space
   unsigned int sz = (unsigned int)hookPoints_.size();
   for(unsigned int i = 0; i < (sz - 1); i++) {
+    DEF_LOG("Checking hook point: "<<hex<<hookPoints_[i]);
     auto next_pos = i + 1;
     uint64_t next_ptr = 0;
     if(next_pos < sz) {
       next_ptr = hookPoints_[next_pos];
     }
-    //else {
-    //  next_ptr = codeSegmentEnd_;
-    //}
     uint64_t space = next_ptr - hookPoints_[i];
-    if(space >= 5) {
-      LOG("Phase 1 Space found for hook: "<<hex<<hookPoints_[i]<<": "<<5);
-      hookTgts_.push_back(make_pair(hookPoints_[i],manager_->newSymVal(hookPoints_[i])));
+    auto p = pointerMap_.find(hookPoints_[i]);
+    if(p->second->type() == PointerType::CP) {
+      if(space >= 5) {
+        DEF_LOG("Phase 1 Space found for hook: "<<hex<<hookPoints_[i]<<": "<<5);
+        //hookTgts_.push_back(make_pair(hookPoints_[i],manager_->newSymVal(hookPoints_[i])));
+        auto opcode = utils::hook(hookPoints_[i], manager_->newSymVal(hookPoints_[i]));
+        trampData_[hookPoints_[i]] = opcode;
+      }
+      else {
+        DEF_LOG("Pushing to phase 2: "<<hex<<hookPoints_[i]);
+        phase2.push_back(make_pair(hookPoints_[i],space));
+      }
     }
     else {
-      LOG("Pushing to phase 2: "<<hex<<hookPoints_[i]);
-      phase2.push_back(make_pair(hookPoints_[i],space));
+      DEF_LOG("Hook point is data: "<<hex<<hookPoints_[i]);
+      uint8_t *data = (uint8_t *) malloc(space);
+      uint64_t offset = utils::GET_OFFSET(exePath_,hookPoints_[i]);
+      utils::READ_FROM_FILE(exePath_,(void *)data,offset,space);
+      vector <uint8_t> bytes;
+      for(int i = 0; i < space; i ++)
+        bytes.push_back(data[i]);
+      trampData_[hookPoints_[i]] = bytes;
     }
   }
 
@@ -280,14 +339,18 @@ Binary::calcTrampData() {
     if(p.second >= 2) {
       uint64_t short_tgt = findSecondHookSpace(p.first);
       if(short_tgt != 0) {
-        LOG("Phase 2 found short target: "<<hex<<p.first<<"->"<<hex<<short_tgt);
-        hookTgts_.push_back(make_pair(p.first,short_tgt));
+        DEF_LOG("Phase 2 found short target: "<<hex<<p.first<<"->"<<hex<<short_tgt);
+        //hookTgts_.push_back(make_pair(p.first,short_tgt));
+        auto short_jmp =  utils::hook(p.first,short_tgt);
+        trampData_[p.first] = short_jmp;
         uint64_t new_addr = manager_->newSymVal(p.first);
-        LOG("New address: "<<hex<<new_addr);
-        hookTgts_.push_back(make_pair(short_tgt,new_addr));
+        DEF_LOG("New address: "<<hex<<new_addr);
+        //hookTgts_.push_back(make_pair(short_tgt,new_addr));
+        auto long_jmp = utils::hook(short_tgt,new_addr);
+        trampData_[short_tgt] = long_jmp;
       }
       else {
-        LOG("Pushing to phase 3: "<<hex<<p.first);
+        DEF_LOG("Pushing to phase 3: "<<hex<<p.first);
         phase3.push_back(p.first);
       }
     }
@@ -306,49 +369,47 @@ Binary::calcTrampData() {
   //       now.
 
   for(auto & p : phase3) {
-    LOG("Phase 3: Putting BB bytes for: "<<hex<<p);
-    auto bb = codeCFG_->withinBB(p);
+    DEF_LOG("Phase 3: Putting hlt bytes for: "<<hex<<p);
+    //auto bb = codeCFG_->withinBB(p);
     vector <uint8_t> opcodes;
-    if(bb != NULL) {
-      uint64_t next_hook = nextHookPoint(p);
-      vector <BasicBlock *> bb_list;
-      bb_list.push_back(bb);
-      while(bb->fallThrough() != 0 && bb->fallThrough() < next_hook) {
-        bb_list.push_back(bb->fallThroughBB());
-        bb = bb->fallThroughBB();
-      }
-      for(auto & bb2: bb_list) {
-        vector <Instruction *> ins_list = bb2->insList();
-        for (auto & ins : ins_list) {
-          if(ins->location() >= p) {
-            vector <uint8_t> bin = ins->insBinary();
-            opcodes.insert(opcodes.end(), bin.begin(),bin.end());
-          }
-        }
-      }
-    }
+    uint64_t next_hook = nextHookPoint(p);
+    int size = next_hook - p;
+    for(int i = 0; i < size; i++)
+      opcodes.push_back(0xf4);
     trampData_[p] = opcodes;
   }
 
+  //for(unsigned int i = 0; i < (sz - 1); i++) {
+  //  auto next_pos = i + 1;
+  //  uint64_t next_ptr = 0;
+  //  if(next_pos < sz) {
+  //    next_ptr = hookPoints_[next_pos];
+  //  }
+  //  auto p = hookPoints_[i];
+  //  uint64_t space = next_ptr - p;
+  //  auto data_sz = trampData_[p].size();
+  //  for(auto i = data_sz; i < space; i++)
+  //     trampData_[p].push_back(0xf4);
+  //}
 
   //generate hooks for Phase 1 and phase 2 candidates
 
-  for(auto & h : hookTgts_) {
-    vector <uint8_t> opcode = utils::hook(h.first,h.second);
-    trampData_[h.first] = opcode;
-  }
-  uint64_t header_sz = manager_->exeHdrSz() + manager_->newPHdrSz(); 
-  for(auto & sec : roSections_) {
-    if(sec.offset > header_sz) {
-      uint8_t *data = (uint8_t *) malloc(sec.size);
-      utils::READ_FROM_FILE(exePath_,(void *)data,sec.offset,sec.size);
-      vector <uint8_t> bytes;
-      for(int i = 0; i < sec.size; i ++)
-        bytes.push_back(data[i]);
-      trampData_[sec.vma] = bytes;
-      free(data);
-    }
-  }
+  //for(auto & h : hookTgts_) {
+  //  vector <uint8_t> opcode = utils::hook(h.first,h.second);
+  //  trampData_[h.first] = opcode;
+  //}
+  //uint64_t header_sz = manager_->exeHdrSz() + manager_->newPHdrSz(); 
+  //for(auto & sec : roSections_) {
+  //  if(sec.offset > header_sz) {
+  //    uint8_t *data = (uint8_t *) malloc(sec.size);
+  //    utils::READ_FROM_FILE(exePath_,(void *)data,sec.offset,sec.size);
+  //    vector <uint8_t> bytes;
+  //    for(int i = 0; i < sec.size; i ++)
+  //      bytes.push_back(data[i]);
+  //    trampData_[sec.vma] = bytes;
+  //    free(data);
+  //  }
+  //}
 
 }
 
@@ -364,10 +425,12 @@ Binary::rewrite() {
   instrument();
   string file_name = print_assembly();
   manager_->rewrite(file_name);
+#ifdef STATIC_TRANS
   //if(manager_->type() == exe_type::NOPIE) {
-  //  calcTrampData();
-  //  manager_->placeHooks(trampData_);
+    calcTrampData();
+    manager_->placeHooks(trampData_);
   //}
+#endif
 }
 
 void
@@ -617,7 +680,14 @@ Binary::printOldCodeAndData(string file_name) {
   //all_secs.insert(all_secs.end(), rwSections_.begin(), rwSections_.end());
   for(section & sec : rxSections_) {
     section new_sec = sec;
+#ifdef STATIC_TRANS
+    //if(manager_->type() == exe_type::NOPIE) 
+      new_sec.sec_type = section_types::RX;
+    //else
+      //new_sec.sec_type = section_types::RONLY;
+#else
     new_sec.sec_type = section_types::RONLY;
+#endif
     if((RA_OPT == false || manager_->isEhSection(sec.vma) == false) && sec.sec_type != section_types::RX) { 
       if(sec.name.rfind(".") == 0) {
         new_sec.start_sym = sec.name + "_dup";
@@ -686,8 +756,16 @@ Binary::printOldCodeAndData(string file_name) {
     new_sec.end_sym = ".old" + to_string(ctr) + "_end";
     if(p.p_flag == pheader_flags::RW)
       new_sec.sec_type = section_types::RW;
-    else
+    else {
+#ifdef STATIC_TRANS
+      //if(manager_->type() == exe_type::NOPIE) 
+        new_sec.sec_type = section_types::RX;
+      //else
+        //new_sec.sec_type = section_types::RONLY;
+#else
       new_sec.sec_type = section_types::RONLY;
+#endif
+    }
     new_sec.additional = true;
     if(prev_end != 0) {
       uint64_t align_point = 0;
@@ -784,6 +862,10 @@ Binary::printOldCodeAndData(string file_name) {
           i += sec_size;
       }
       else if(interp_sec) {
+#ifdef STATIC_TRANS
+        utils::printAsm(".byte " + to_string((uint32_t)data[i]) + "\n",addr, label, b, file_name);
+        i++;
+#else
         string interp((char *)(data + i));
         interp.replace(interp.find("x86-64"),6,"xsafer");
         auto len = interp.length();
@@ -796,6 +878,7 @@ Binary::printOldCodeAndData(string file_name) {
         label = "." + to_string(addr + j);
         utils::printAsm(".byte " + to_string((uint32_t)0) + "\n",addr + j, label, b, file_name);
         i += sec_size;
+#endif
       }
       else {
         utils::printAsm(".byte " + to_string((uint32_t)data[i]) + "\n",addr, label, b, file_name);
@@ -1393,7 +1476,9 @@ string Binary::print_assembly() {
   phdr_sec.additional = true;
   manager_->newSection(phdr_sec);
   stitchSections(section_types::RX,"new_code.s",true);
-
+#ifdef STATIC_TRANS
+  DEF_LOG("Skipping translation table addition");
+#else
   //if(RA_OPT) {
     int ctr = 0;
     auto all_ras = codeCFG_->allReturnSyms();
@@ -1432,6 +1517,7 @@ string Binary::print_assembly() {
     utils::printLbl(att_sec.end_sym,"att.s");
     utils::printAlgn(8, "new_code.s");
   utils::append_files("att.s", "new_code.s");
+#endif
   //}
     //ADD ATT TRAMPS
 
@@ -1469,6 +1555,9 @@ string Binary::print_assembly() {
   utils::append_files("nonloadsecs.s", file_name);
   return file_name;
 #else
+#ifdef STATIC_TRANS
+  DEF_LOG("Skipping translation table addition");
+#else
   //{
     //New section for hash table
     section hash_tbl_sec("hash_tbl",0,0,0,8);
@@ -1478,7 +1567,7 @@ string Binary::print_assembly() {
     hash_tbl_sec.additional = true;
     manager_->newSection(hash_tbl_sec);
   //}
-
+#endif
 
   manager_->printNonLoadSecs("nonloadsecs.s");
 
@@ -1495,9 +1584,12 @@ string Binary::print_assembly() {
   utils::append_files("new_code.s", file_tmp);
   utils::printLbl(".new_codesegment_end",file_tmp);
 
+#ifdef STATIC_TRANS
+  DEF_LOG("Skipping translation table addition");
+#else
   uint64_t hash_entry_cnt = manager_->generateHashTbl(file_tmp,att_sec); 
   uint64_t hash_tbl_sz = hash_entry_cnt * sizeof(void *);
-
+#endif
   utils::append_files("exe_hdr.s", file_name);
   utils::append_files("old_code_and_data.s", file_name);
   utils::printAlgn(manager_->segAlign(), file_name);
@@ -1507,10 +1599,13 @@ string Binary::print_assembly() {
   utils::printLbl(".pheader_end",file_name);
   utils::append_files("new_code.s", file_name);
   //
+#ifdef STATIC_TRANS
+  DEF_LOG("Skipping translation table addition");
+#else
   string hash_asm = manager_->hashTblAsm();
   utils::printAsm(hash_asm,0,hash_tbl_sec.start_sym,SymBind::NOBIND,file_name);
   utils::printLbl(hash_tbl_sec.end_sym,file_name);
-
+#endif
   utils::printLbl(".new_codesegment_end",file_name);
   utils::append_files("nonloadsecs.s", file_name);
   //utils::append_files(TOOL_PATH"/src/instrument/atf.s",file_name);

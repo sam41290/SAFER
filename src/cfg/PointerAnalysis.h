@@ -190,6 +190,7 @@ private:
   bool isNopPadding(BasicBlock *bb);
   bool callTargetRoot(BasicBlock *bb);
   bool likelyTrueJmpTblTgt(BasicBlock *bb);
+  bool likelyTrueEhCode(BasicBlock *bb);
   bool likelyTrueFunction(BasicBlock *bb);
   void entryValidation(BasicBlock *entry);
   void binarySearchValidation(BasicBlock *entry,

@@ -147,9 +147,12 @@ BasicBlock::split(uint64_t address) {
     new_bb->callType(callType_);
     new_bb->isJmpTblBlk(isJmpTblBlk());
     new_bb->indirectTgts(indirectTgts_);
-    if(start() == 0x40f856) {
-      DEF_LOG("Splitting bb : "<<hex<<start()<<" at "<<new_bb->start()<<" new bb indrct tgt cnt: "<<new_bb->indirectTgts().size());
-    }
+    for(auto & m_bb : mergedBBs_)
+      new_bb->mergeBB(m_bb);
+    mergedBBs_.clear();
+    //if(start() == 0x40f856) {
+    //  DEF_LOG("Splitting bb : "<<hex<<start()<<" at "<<new_bb->start()<<" new bb indrct tgt cnt: "<<new_bb->indirectTgts().size());
+    //}
     //LOG("is code set");
     insList_ = newInsList1;
     end_ = lastIns()->location();
@@ -297,8 +300,12 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
    */
 
   //DEF_LOG("Adjusting RIP relative access");
-  if(insList_.size() <= 0)
+  if(insList_.size() <= 0) {
     LOG("No instructions in the bb!!");
+    return;
+  }
+  if(passed(Property::VALIDINS) == false)
+    return;
   for(auto & it : insList_) {
     if(it->isRltvAccess() == 1 && it->rltvOfftAdjusted() == false) {
       uint64_t rip_rltv_offset = it->ripRltvOfft();
@@ -374,8 +381,10 @@ BasicBlock::printFallThroughJmp(string file_name) {
 
 vector <uint64_t> BasicBlock::allInsLoc() {
   vector <uint64_t> all_ins;
-  for(auto it:insList_)
-    all_ins.push_back(it->location());
+  for(auto & it : insList_) {
+    if(it->location() != 0)
+      all_ins.push_back(it->location());
+  }
 
   return all_ins;
 }
@@ -383,6 +392,8 @@ vector <uint64_t> BasicBlock::allInsLoc() {
 
 void
 BasicBlock::instrument() {
+  if(passed(Property::VALIDINS) == false)
+    return;
   vector<pair<uint64_t,string>> tgtAddrs = targetAddrs();
   map<string,vector<InstArg>>allargs = instArgs();
   for(auto & tgt : tgtAddrs) {

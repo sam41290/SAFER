@@ -702,6 +702,20 @@ PointerAnalysis::resolveNoRetCall(BasicBlock *entry) {
     BasicBlock *call_bb = exitCalls.top();
     exitCalls.pop();
     auto fall_seq = bbSeq(call_bb);
+#ifdef EH_FRAME_DISASM_ROOT
+      auto fall_bb = call_bb->fallThroughBB();
+      if(withinFn(fall_bb->start())) {
+        call_bb->callType(BBType::RETURNING);
+      }
+      else {
+        DEF_LOG("Marking non-returning: "<<hex<<call_bb->start());
+        possiblePtrs_.insert(call_bb->fallThrough());
+        call_bb->callType(BBType::NON_RETURNING);
+        call_bb->fallThrough(0);
+        call_bb->fallThroughBB(NULL);
+      }
+      continue;
+#endif
     if(resolved) {
       call_bb->callType(BBType::RETURNING);
       LOG("Marking returning as child resolved: "<<hex<<call_bb->start());
@@ -1411,6 +1425,11 @@ PointerAnalysis::validateIndTgtsFrmEntry(BasicBlock *entry) {
       */
       if(Conflicts_.find(bb->start()) != Conflicts_.end())
         continue;
+#ifdef EH_FRAME_DISASM_ROOT
+      if(withinFn(bb->start()) && likelyTrueJmpTblTgt(bb)) {
+        passAllProps(bb);
+      }
+#else
       resolveNoRetCall(bb);
       auto ind_seq = bbSeq(bb);
       if(validCF(ind_seq) == false) {
@@ -1455,6 +1474,7 @@ PointerAnalysis::validateIndTgtsFrmEntry(BasicBlock *entry) {
             setProperty(exit_routes, v.second, v.first);
         }
       }
+#endif
       if(codeByProperty(bb)) {
         //for(auto & bb2 : exit_routes)
         //  passed_.insert(bb2->start());
@@ -1516,6 +1536,18 @@ PointerAnalysis::likelyTrueJmpTblTgt(BasicBlock *bb) {
        p->symbolizable(SymbolizeIf::LINEAR_SCAN))
       return true;
   }
+  return false;
+}
+
+bool
+PointerAnalysis::likelyTrueEhCode(BasicBlock *bb) {
+#ifdef EH_FRAME_DISASM_ROOT
+  auto p = ptr(bb->start());
+  if(p != NULL && withinFn(bb->start()) &&
+     p->symbolizable(SymbolizeIf::LINEAR_SCAN))
+    return true;
+  return false;
+#endif
   return false;
 }
 
@@ -1949,6 +1981,13 @@ PointerAnalysis::entryValidation(BasicBlock *entry) {
     return;
   auto p = ptr(entry->start());
   DEF_LOG("Validating entry: "<<hex<<entry->start());
+#ifdef EH_FRAME_DISASM_ROOT
+  if(likelyTrueEhCode(entry)) {
+    passAllProps(entry);
+    return;
+  }
+  //return;
+#endif
   if(p != NULL && 
      p->source() == PointerSource::JUMPTABLE) {
     if(p->symbolizable(SymbolizeIf::LINEAR_SCAN) == false && 
@@ -1992,10 +2031,17 @@ PointerAnalysis::entryValidation(BasicBlock *entry) {
     passAllProps(entry);
   }
   else {
+#ifdef EH_FRAME_DISASM_ROOT
+  if(likelyTrueEhCode(entry)) {
+    passAllProps(entry);
+    //return;
+  }
+#else
     resolveNoRetCall(entry);
     if(codeParent(entry))
       passAllProps(entry);
     analyzeEntry(entry);
+#endif
   }
   if(codeByProperty(entry) && contextPassed(entry,entry))
     validateIndTgtsFrmEntry(entry);
@@ -2028,6 +2074,18 @@ PointerAnalysis::createAnalysisQ(CandidateType t) {
         analysisQ_.push(AnalysisCandidate(e,score));
       }
     }
+#ifdef EH_FRAME_DISASM_ROOT
+    for(auto & p : ptrMap) {
+      if(p.second->source() == PointerSource::EHFIRST) { 
+        auto bb = getBB(p.first);
+        if(bb != NULL && bb->isCode() == false) {
+          passAllProps(bb);
+          long double score = powl(2,44) * 40;
+          analysisQ_.push(AnalysisCandidate(p.second->address(),score));
+        }
+      }
+    }
+#endif
   }
   else if(t == CandidateType::PSBL_FN_ENTRY) {
     for(auto & fn : funMap) {
@@ -2402,9 +2460,9 @@ PointerAnalysis::cfgConsistencyAnalysis() {
     classifyPsblFn(fn.second);
   classifyPossiblePtrs(); 
   */
-#ifdef EH_FRAME_DISASM_ROOT
-  removeEHConflicts();
-#endif
+//#ifdef EH_FRAME_DISASM_ROOT
+//  removeEHConflicts();
+//#endif
   //jmpTblConsistency();
   //disassembleGaps();
   //if(PRIORITIZED_REJECT)

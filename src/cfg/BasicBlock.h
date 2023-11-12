@@ -141,6 +141,12 @@ public:
         p_list.push_back((Property)p.first);
     return p_list; 
   }
+  bool passed(Property p_in) {
+    if(props_.find((int)p_in) == props_.end() ||
+       props_[(int)p_in] == false)
+      return false;
+    return true;
+  }
   void passedProp(Property p) { 
     //passedProps_.insert((int)p);
     //if(failedProps_.find((int)p) != failedProps_.end())

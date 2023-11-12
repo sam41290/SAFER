@@ -194,15 +194,15 @@ public:
   void source(PointerSource src) { source_ = src; }
   void encodable(bool enc) { encodable_ = enc; }
   bool encodable() { return encodable_; }
-  bool symExists(uint64_t loc) {
+  bool symExists(uint64_t loc, SymbolType t) {
     for(auto & sym : symCandidates_) {
-      if(sym.location() == loc)
+      if(sym.location() == loc && sym.type() == t)
         return true;
     }
     return false;
   }
   void symCandidate(Symbol s) {
-    //LOG("Adding symbol candidate: "<<hex<<address_<<" storage: "<<hex<<s.location());
+    //DEF_LOG("Adding symbol candidate: "<<hex<<address_<<" storage: "<<hex<<s.location());
     symCandidates_.push_back(s); 
   }
   vector <Symbol> symCandidate() { return symCandidates_; }
@@ -242,6 +242,7 @@ public:
        cnd == SymbolizeIf::IMMOP_LOC_MATCH)
       loc = va_arg(args,uint64_t);
     for(auto & sym : symCandidates_) {
+      //DEF_LOG("Checking if symbolizable: "<<hex<<sym.location()<<" type: "<<(int)sym.type());
       if(sym.location() == 0 || sym.location() == 100)
         continue;
       if(sym.symbolizable(cnd,loc))

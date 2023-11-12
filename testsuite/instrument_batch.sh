@@ -21,14 +21,20 @@ then
 elif [ $# -eq 4 ]
 then
     args=$2' '$3' '$4;
+elif [ $# -eq 5 ]
+then
+	args=$2' '$3' '$4' '$5;
+elif [ $# -eq 6 ]
+then
+	args=$2' '$3' '$4' '$5' '$6;
 fi
 
 echo "instrument_batch args"
 echo "$args"
 
 rand_mode=`echo $args | grep "rand_mode" | cut -d"=" -f2`
-echo "instrument_batch rand_mode"
-echo "$rand_mode"
+echo "instrument_batch rand_mode ${rand_mode}"
+#echo "$rand_mode"
 
 len=`echo -n $rand_mode | wc -m`
 

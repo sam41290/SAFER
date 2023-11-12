@@ -57,10 +57,10 @@ struct section
 
 struct pheader
 {
-  uint64_t offset;
-  uint64_t address;
-  uint64_t file_sz;
-  uint64_t mem_sz;
+  uint64_t offset = 0;
+  uint64_t address = 0;
+  uint64_t file_sz = 0;
+  uint64_t mem_sz = 0;
   string start_sym = "";
   string mem_end_sym = "";
   string file_end_sym = "";
