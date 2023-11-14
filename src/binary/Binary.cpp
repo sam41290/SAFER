@@ -6,6 +6,8 @@
 
 using namespace SBI;
 
+bool disasm_only = false; 
+
 extern map <uint64_t, call_site_info> all_call_sites;	//contains info
 //regarding try-catch blocks and landing pads.
 
@@ -419,6 +421,8 @@ Binary::rewrite() {
 #ifdef DISASMONLY
   exit(0);
 #endif
+  if(disasm_only)
+    exit(0);
   genInstAsm();
   //install_segfault_handler();
   //check_segfault_handler();
