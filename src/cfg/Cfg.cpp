@@ -959,7 +959,9 @@ Cfg::cnsrvtvDisasm() {
   disassembleGaps();
   preCachedJumpTables();
   possibleCodeDisasm();
-  //addHintBasedEntries();
+#ifdef DISASMONLY
+  addHintBasedEntries();
+#endif
 
   //propagateAllRoots();
   //updateBBTypes();
