@@ -504,6 +504,7 @@ Instruction::instrument() {
     if(tgt.first == InstPoint::LEA_INS_POST)
       instAsmPost_ += generate_hook(tgt.second,args,mnemonic_);
     else if(tgt.first == InstPoint::ADDRS_TRANS) {
+      DEF_LOG("Address translation: "<<hex<<location());
       asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::ADDRS_TRANS);
       forcePrintAsm_ = true;
     }

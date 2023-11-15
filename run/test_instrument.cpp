@@ -32,6 +32,7 @@ main (int argc, char *args[]) {
   cout << binary_path << endl;
   Binary b (binary_path);
 #ifdef STATIC_TRANS
+  cout<<"Skipping runtime translation and decoding"<<endl;
 #else
   vector<InstArg> arglst2;
   arglst2.push_back(InstArg::INDIRECT_TARGET);

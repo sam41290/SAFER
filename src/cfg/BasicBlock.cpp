@@ -304,8 +304,8 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
     LOG("No instructions in the bb!!");
     return;
   }
-  if(passed(Property::VALIDINS) == false)
-    return;
+  //if(passed(Property::VALIDINS) == false)
+  //  return;
   for(auto & it : insList_) {
     if(it->isRltvAccess() == 1 && it->rltvOfftAdjusted() == false) {
       uint64_t rip_rltv_offset = it->ripRltvOfft();
@@ -392,8 +392,8 @@ vector <uint64_t> BasicBlock::allInsLoc() {
 
 void
 BasicBlock::instrument() {
-  if(passed(Property::VALIDINS) == false)
-    return;
+  //if(passed(Property::VALIDINS) == false)
+  //  return;
   vector<pair<uint64_t,string>> tgtAddrs = targetAddrs();
   map<string,vector<InstArg>>allargs = instArgs();
   for(auto & tgt : tgtAddrs) {
@@ -418,8 +418,10 @@ BasicBlock::instrument() {
         if(FULL_ADDR_TRANS == false && NO_ENCODE_LEAPTRS == false && 
            ins->isRltvAccess() && ins->isLea())
           ins->encode(true);
-        if((ins->isIndirectCf() && ins->atRequired()))
+        if((ins->isIndirectCf() && ins->atRequired())) {
+          DEF_LOG("Adding instrumentation to basic block: "<<hex<<ins->location()<<" "<<(int)p.first);
           ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
+        }
       }
     }
     else if(p.first == InstPoint::LEGACY_SHADOW_STACK) {

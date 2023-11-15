@@ -120,6 +120,7 @@ Instrument::moveZeros(string op1, uint64_t loc, string file_name) {
 void 
 Instrument::registerInstrumentation(InstPoint p,string
     func_name,vector<InstArg>argsLst) {
+  DEF_LOG("Registering instrumentation: "<<(int)p<<" "<<func_name);
   targetPos_.push_back(make_pair(p,func_name));
   instFuncs_.push_back(func_name);
   instArgs_[func_name] = argsLst;

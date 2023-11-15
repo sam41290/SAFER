@@ -1247,10 +1247,13 @@ Binary::genInstAsm() {
 void
 Binary::instrument() {
   vector<string> instFuncs = instFunctions();
-  if(instFuncs.size() <= 0)
+  if(instFuncs.size() <= 0) {
+    DEF_LOG("No registered instrumentation....returning");
     return;
+  }
   vector<pair<InstPoint,string>> targetPos = targetPositions();
   for(auto & p : targetPos) {
+    DEF_LOG("Adding instrumentation to binary: "<<(int)p.first);
     codeCFG_->registerInstrumentation(p.first,p.second,instArgs()[p.second]);
   }
   //codeCFG_->instrument();

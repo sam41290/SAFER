@@ -2607,6 +2607,7 @@ CfgElems::instrument() {
   }
   vector<pair<InstPoint,string>> targetPos = targetPositions();
   for(auto & x : targetPos) {
+    DEF_LOG("Adding instrumentation to CFG: "<<(int)x.first);
     if(x.first == InstPoint::BASIC_BLOCK) {
       for(auto fn : funcMap_) {
         vector<BasicBlock *> bbs = fn.second->getDefCode();
