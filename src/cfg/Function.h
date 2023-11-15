@@ -142,31 +142,35 @@ public:
   }
 */
   void dump() {
-    uint64_t st = start();
-    uint64_t nd = end();
+    //uint64_t st = start();
+    //uint64_t nd = end();
     vector <BasicBlock *> defBB = getDefCode();
     vector <BasicBlock *> psblBB = getUnknwnCode();
     ofstream ofile;
-    string file = "tmp/cfg/" + to_string(st) + ".fn";
-    ofile.open(file,ofstream::out | ofstream::app);
-    ofile<<"start "<<dec<<st<<" "<<dec<<nd<<endl;
-    for(auto entry : entryPoints_) {
-      ofile<<"def_entry "<<dec<<entry<<endl;
-    }
-    for(auto entry : probableEntry_)
-      ofile<<"psbl_entry "<<dec<<entry<<endl;
-    ofile.close();
+    //string file = "tmp/cfg/" + to_string(st) + ".fn";
+    string def_file = "tmp/cfg/definite_basicblocks.lst";
+    string psbl_file = "tmp/cfg/psbl_basicblocks.lst";
+    //ofile.open(file,ofstream::out | ofstream::app);
+    //ofile<<"start "<<dec<<st<<" "<<dec<<nd<<endl;
+    //for(auto entry : entryPoints_) {
+    //  ofile<<"def_entry "<<dec<<entry<<endl;
+    //}
+    //for(auto entry : probableEntry_)
+    //  ofile<<"psbl_entry "<<dec<<entry<<endl;
+    //ofile.close();
     for(auto & bb : defBB) {
-      ofile.open(file,ofstream::out | ofstream::app);
-      ofile<<"def_bb "<<dec<<bb->start()<<" "<<dec<<bb->end()<<endl;
-      ofile.close();
-      bb->dump(file);
+      //ofile.open(file,ofstream::out | ofstream::app);
+      ////ofile<<"def_bb "<<dec<<bb->start()<<" "<<dec<<bb->end()<<endl;
+      //ofile.close();
+      bb->dump(def_file);
     }
     for(auto & bb : psblBB) {
-      ofile.open(file,ofstream::out | ofstream::app);
-      ofile<<"psbl_bb "<<dec<<bb->start()<<" "<<dec<<bb->end()<<endl;
-      ofile.close();
-      bb->dump(file);
+      if(bb->notData()) {
+        //ofile.open(file,ofstream::out | ofstream::app);
+        //ofile<<"psbl_bb "<<dec<<bb->start()<<" "<<dec<<bb->end()<<endl;
+        //ofile.close();
+        bb->dump(psbl_file);
+      }
     }
     ofile.close();
   }

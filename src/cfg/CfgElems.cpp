@@ -1828,14 +1828,31 @@ CfgElems::dump() {
   ofstream ofile;
   ofile.open("tmp/cfg/functions.lst");
   for(auto & fn : funcMap_) {
+    auto entries = fn.second->allEntries();
+    for(auto & e : entries) {
+      auto bb = getBB(e);
+      if(bb != NULL) {
+        if(bb->isCode()) {
+          ofile<<dec<<"Definite entry: "<<fn.second->start()<<endl;
+        }
+        else if(bb->notData()) {
+          ofile<<dec<<"Possible entry: "<<fn.second->start()<<endl;
+        }
+      }
+    }
     fn.second->dump();
-    ofile<<dec<<fn.second->start()<<endl;
   }
   ofile.close();
 
   ofile.open("tmp/cfg/pointers.lst");
   for(auto & ptr : pointerMap_) {
     ptr.second->dump(ofile);
+  }
+  ofile.close();
+
+  ofile.open("tmp/cfg/jmptables.lst");
+  for(auto & j : jmpTables_) {
+    j.dump(ofile);
   }
   ofile.close();
 }

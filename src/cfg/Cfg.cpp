@@ -959,7 +959,9 @@ Cfg::cnsrvtvDisasm() {
   disassembleGaps();
   preCachedJumpTables();
   possibleCodeDisasm();
-  //addHintBasedEntries();
+#ifdef DISASMONLY
+  addHintBasedEntries();
+#endif
 
   //propagateAllRoots();
   //updateBBTypes();
@@ -1540,8 +1542,8 @@ Cfg::genCFG() {
   saveCnsrvtvCode();
   cfgConsistencyAnalysis();
   //dump();
-#else
-  dump();
+//#else
+//  dump();
 #endif
   classifyPtrs();
   chkJmpTblRewritability();

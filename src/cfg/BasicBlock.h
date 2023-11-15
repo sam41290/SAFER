@@ -24,6 +24,10 @@ enum class BBType
   NA
 };
 
+#define BBTYPE(t) \
+  ((t == SBI::BBType::NON_RETURNING) ? "non-returning" : "returning")
+#define CODETYPE(c) \
+  ((c == code_type::CODE) ? "definite-code" : "may not be code")
 //enum class CFStatus {
 //  CONSISTENT,
 //  INCONSISTENT,
@@ -147,6 +151,12 @@ public:
       return false;
     return true;
   }
+  bool notData() {
+    for(auto & p : props_)
+      if(p.second == true && (int)p.first >= 0)
+        return true;
+    return false;
+  }
   void passedProp(Property p) { 
     //passedProps_.insert((int)p);
     //if(failedProps_.find((int)p) != failedProps_.end())
@@ -213,20 +223,22 @@ public:
     ofile.open(file,ofstream::out | ofstream::app);
     ofile<<"start "<<dec<<start_<<" "<<dec<<end_<<endl;
     ofile<<"end "<<dec<<end_<<endl;
-    ofile<<"type "<<dec<<(int)type_<<endl;
-    ofile<<"calltype "<<dec<<(int)callType_<<endl;
-    ofile<<"codetype "<<dec<<(int)codeType_<<endl;
-    ofile<<"JTable";
-    for(auto & j : belongsToJumpTable_)
-      ofile<<" "<<j;
-    ofile<<endl;
+    //ofile<<"type "<<dec<<(int)type_<<endl;
+    if(isCall())
+      ofile<<"calltype "<<dec<<BBTYPE(callType_)<<endl;
+    ofile<<"codetype "<<dec<<CODETYPE(codeType_)<<endl;
+    //ofile<<"JTable";
+    //for(auto & j : belongsToJumpTable_)
+    //  ofile<<" "<<j;
+    //ofile<<endl;
     ofile<<"target "<<dec<<target_<<endl;
     ofile<<"fall "<<dec<<fallThrough_<<endl;
-    for (auto & bb : indirectTgts_)
-      ofile<<"indrc_tgt "<<dec<<bb->start()<<endl;
     for(auto ins : insList_) {
       ofile<<"ins "<<dec<<ins->location()<<" "<<ins->insSize()<<" "<<ins->asmIns()<<endl;
     }
+    for (auto & bb : indirectTgts_)
+      ofile<<"indrc_tgt "<<dec<<bb->start()<<endl;
+    ofile<<"-------------------------------------------------------"<<endl;
     ofile.close();
   }
   void target(uint64_t tgt) { target_ = tgt; }

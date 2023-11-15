@@ -13,6 +13,12 @@ using namespace std;
  * We use static analysis to identify the location, size and set of pointers
  * they contain.
  */
+
+#define JTABLETYPE(t) \
+  ((t==1) ? "base + *(location + index * stride)" : \
+   (t==2) ? "base + index * stride" : \
+   (t==3) ? "*(location + index * stride)" : "None")
+
 namespace SBI {
 class JumpTable
 {
@@ -78,6 +84,24 @@ public:
 
   string rewriteTgts();
   void displayTgts();
+  void dump(ofstream & ofile) {
+    ofile<<"Location: "<<dec<<location_<<endl;
+    ofile<<"End: "<<dec<<end_<<endl;
+    ofile<<"Base: "<<dec<<base_<<endl;
+    ofile<<"Pattern: "<<JTABLETYPE(type_)<<endl;
+    ofile<<"Indirect jump at: ";
+    for(auto & c : cfLoc_)
+      ofile<<dec<<c<<" ";
+    ofile<<endl;
+    ofile<<"Targets: "<<endl;
+    for (auto & bb :targetBBs_) {
+      if(bb->isCode())
+        ofile<<dec<<bb->start()<<endl;
+      else
+        break;
+    }
+    ofile<<"----------------------------------------------"<<endl;
+  }
 };
 }
 #endif
