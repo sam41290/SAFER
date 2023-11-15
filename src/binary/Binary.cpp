@@ -1239,6 +1239,7 @@ Binary::genInstAsm() {
 
 void
 Binary::instrument() {
+  DEF_LOG("Adding instrumentation");
   vector<string> instFuncs = instFunctions();
   if(instFuncs.size() <= 0)
     return;

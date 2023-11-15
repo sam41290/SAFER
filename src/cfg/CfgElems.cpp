@@ -2580,6 +2580,7 @@ CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
 
 void
 CfgElems::instrument() {
+  DEF_LOG("Instrumenting CFG");
   vector<pair<uint64_t, string>> tgtAddrs = targetAddrs();
   for(auto tgt:tgtAddrs) {
     auto bb = getBB(tgt.first);
