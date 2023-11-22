@@ -1,6 +1,6 @@
 #!/bin/sh
 
-cfgdir=$2
+disasm_only=$2
 disasm=$3
 
 #make
@@ -30,11 +30,11 @@ if [ "${disasm}" = "symtabledisasm" ]; then
   #  gawk --non-decimal-data '{printf("%d\n",$1)}' | sort -u > tmp/${file}.ptrlst
 fi
 
-if [ -d "${cfgdir}" ]
-then
-  cp -r ${cfgdir} tmp/
-  echo "cfg present" > tmp/cfg.present
-fi
+#if [ -d "${cfgdir}" ]
+#then
+#  cp -r ${cfgdir} tmp/
+#  echo "cfg present" > tmp/cfg.present
+#fi
 if [ -f "${jtable}" ]
 then
   cp -r ${jtable} jmp_table/result.jtable
@@ -53,10 +53,10 @@ cp $1 ./tmp/${exe}
 export LD_LIBRARY_PATH=/usr/lib/ocaml:${HOME}/DASSA/src/SBD/analysis
 
 if [ "${disasm}" = "symtabledisasm" ]; then
-  ./demo $1
+  ./demo $1 ${disasm_only}
 else
   strip ./tmp/${exe}
-  ./demo ./tmp/${exe}
+  ./demo ./tmp/${exe} ${disasm_only} ${disasm}
 fi
 if [ -f "./tmp/${exe}_2" ]
 then

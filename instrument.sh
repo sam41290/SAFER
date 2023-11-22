@@ -1,6 +1,6 @@
 #!/bin/sh
 
-TOOL_PATH=/${HOME}/SBI
+TOOL_PATH=/${HOME}/DASSA
 
 if [ $# -lt 1 ]
 then
@@ -103,7 +103,7 @@ cd ${TOOL_PATH}/${bin}_run
   #make clean
 #fi
 
-#make clean
+make clean
 make
 ./run.sh $binpath > ${binpath}.log
 cd ${wd}
