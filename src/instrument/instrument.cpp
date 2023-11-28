@@ -368,7 +368,6 @@ Instrument::generate_hook(string hook_target, string args,
                 "push %rsi\n" +
                 "movq 16(%rsp),%rdi\n" +
                 "movq %fs:0x78,%rsi\n" +
-                "subq $8,%fs:0x78\n" +
                 "cmpq (%rsi),%rdi\n" + args + "\n" +
                 "jne ." + hook_target + "\n" +
                 "pop %rsi\n" +
@@ -390,8 +389,8 @@ Instrument::generate_hook(string hook_target, string args,
                 ".init_sh_" + to_string(counter) +  ":\n" +
                 "callq .init_shstk\n" +
                 ".shstk_ok_" + to_string(counter) +  ":\n" +
-                "addq $8,%fs:0x78\n" +
                 "movq %fs:0x78," + ca_reg + "\n" +
+                "addq $8,%fs:0x78\n" +
                 "pushq " + extra_reg + "\n" +
                 "movq " + ra_offt + "(%rsp)," + extra_reg + "\n" +
                 "movq " + extra_reg + ",(" + ca_reg + ")\n" +

@@ -10,7 +10,6 @@
         //Any relocated pointers within EH frame body considered as valid code pointer.
 
 #define KNOWN_CODE_POINTER_ROOT
-#define SHSTK(b)
 
 #define CFGCONSISTENCYCHECK
 
