@@ -140,7 +140,7 @@ CFValidity::validCFTransfer(vector <BasicBlock *> &bbList) {
         return false;
       }
 
-      if(bb->isCall() || 
+      if(bb->isCall() || last_ins->isHlt() || 
          last_ins->asmIns().find("ret") != string::npos ||
          last_ins->asmIns().find("ud2") != string::npos ||
          last_ins->isIndirectCf()) {

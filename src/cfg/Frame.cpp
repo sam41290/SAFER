@@ -392,9 +392,8 @@ Frame::markAsDefCode(BasicBlock *bb) {
         if(bb2->start() == 0x40f856) {
           DEF_LOG("Splitting while marking as def code");
         }
-        auto newbb = bb->split(bb2->start());
+        bb->splitNoNew(bb2->start());
         bb->fallThroughBB(bb2);
-        delete(newbb);
       }
     }
 

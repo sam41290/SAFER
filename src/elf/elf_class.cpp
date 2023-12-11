@@ -1063,7 +1063,7 @@ ElfClass::populateNewSymOffts (string obj_file) {
       for(unsigned int j = 0; j < symbol_count; j++) {
         string name ((str_tbl + sym_tbl[j].st_name));
         newSymOfft_[name] = (off_t) sym_tbl[j].st_value + code_segment_offset;
-        LOG(name<<" - "<<hex<<newSymOfft_[name]);
+        //LOG(name<<" - "<<hex<<newSymOfft_[name]);
       }
 
       free (sym_tbl);

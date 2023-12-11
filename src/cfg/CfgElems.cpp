@@ -1587,7 +1587,7 @@ CfgElems::createFn(bool is_call, uint64_t target_address,uint64_t ins_addrs,
   LOG("Function created");
   return;
 }
-
+/*
 BasicBlock *
 CfgElems::readBB(ifstream & ifile) {
   string str;
@@ -1823,6 +1823,7 @@ CfgElems::readCfg() {
   }
   ifile.close();
 }
+*/
 void 
 CfgElems::dump() {
   ofstream ofile;
@@ -2342,6 +2343,8 @@ CfgElems::linkBBs(vector <BasicBlock *> &bbs) {
       }
       else {
         bb->targetBB(tgtbb);
+        if(tgtbb->start() == 0x1bcb10)
+          DEF_LOG("Parent: "<<hex<<bb->start()<<"->Child: "<<hex<<tgtbb->start());
         if(tgtbb->start() != bb->start()) 
           tgtbb->parent(bb);
       }
@@ -2467,8 +2470,8 @@ void
 CfgElems::shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x) {
   auto ins_list = bb->insList();
   for(auto &ins : ins_list) {
-    if (ins->asmIns().find("%fs:0x28") != string::npos &&
-       (ins->asmIns().find("xor") != string::npos || ins->asmIns().find("sub") != string::npos)) {
+    if(ins->asmIns().find("%fs:0x28") != string::npos &&
+      (ins->asmIns().find("xor") != string::npos || ins->asmIns().find("sub") != string::npos)) {
       ins->canaryCheck(true);
       ins->registerInstrumentation(InstPoint::SHSTK_CANARY_EPILOGUE,x.second,instArgs()[x.second]);
       DEF_LOG("Registering canary epilogue instrumentation: "<<hex<<ins->location());
@@ -2526,22 +2529,64 @@ CfgElems::canaryCheckWindow(BasicBlock *bb) {
   return window;
 }
 
+
+BasicBlock *canaryPrologueBB(BasicBlock *entry) {
+  while(entry != NULL) {
+    auto canary_ins = entry->canaryPrologue();
+    if(canary_ins != NULL)
+      return entry;
+    auto last_ins = entry->lastIns();
+    if(last_ins->isJump() || 
+       last_ins->isCall() || 
+       last_ins->asmIns().find("ret") != string::npos)
+      break;
+    entry = entry->fallThroughBB();
+  }
+  if(entry != NULL) {
+    if(entry->isCall())
+      return NULL;
+    auto fall_bb = entry->fallThroughBB();
+    auto tgt_bb = entry->targetBB();
+    while(fall_bb != NULL) {
+      auto canary_ins = fall_bb->canaryPrologue();
+      if(canary_ins != NULL)
+        return fall_bb;
+      auto last_ins = fall_bb->lastIns();
+      if(last_ins->isJump() || 
+         last_ins->isCall() || 
+         last_ins->asmIns().find("ret") != string::npos)
+        break;
+      fall_bb = fall_bb->fallThroughBB();
+    }
+    while(tgt_bb != NULL) {
+      auto canary_ins = tgt_bb->canaryPrologue();
+      if(canary_ins != NULL)
+        return tgt_bb;
+      auto last_ins = tgt_bb->lastIns();
+      if(last_ins->isJump() || 
+         last_ins->isCall() || 
+         last_ins->asmIns().find("ret") != string::npos)
+        break;
+      tgt_bb = tgt_bb->fallThroughBB();
+    }
+  }
+  return NULL;
+}
+
 void
 CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
+
   for(auto & fn : funcMap_) {
-    auto entryPoint = fn.second->allEntries();
-
-    //Add instrumentation code at each entry of a function.
-    //A function can have multiple entries.
-
-    bool canary_found = false;
-    for(auto & entry:entryPoint) {
-      DEF_LOG("Shadow stack instrumentation for entry: "<<hex<<entry);
-      auto bb = fn.second->getBB(entry);
+    DEF_LOG("Checking function for canary prologue: "<<hex<<fn.first);
+    auto all_entries = fn.second->allEntries();
+    for(auto & e : all_entries) {
+      DEF_LOG("Checking entry: "<<hex<<e);
+      auto bb = getBB(e);
       if(bb != NULL) {
         bool drct_call_func = false;
         auto bb_parents = bb->parents(); 
-        for (auto &p_bb : bb_parents) {
+        for (auto & p_bb : bb_parents) {
+          DEF_LOG("Checking if parent is call: "<<hex<<p_bb->start());
           if ((p_bb->isCall() || p_bb->lastIns()->isUnconditionalJmp()) &&
               p_bb->target() == bb->start()) {
             drct_call_func = true;
@@ -2549,51 +2594,153 @@ CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
             break;
           }
         }
-        auto ins_list = canaryCheckWindow(bb);
-        if(ins_list[0]->asmIns().find("endbr64") != string::npos || 
-            drct_call_func) {
-          DEF_LOG("Entry is either call target or has endbr64..canary window:"<<hex<<
-                   ins_list[0]->location()<<"->"<<hex<<ins_list[ins_list.size() - 1]->location());
-          vector <Instruction *> ins_till_canary;
-          uint64_t canary_fall = 0;
-          for(auto & ins : ins_list) {
-            ins_till_canary.push_back(ins);
-            if(ins->asmIns().find("%fs:0x28") != string::npos && 
-               ins->asmIns().find("mov") != string::npos &&
-               ins->alreadyInstrumented(InstPoint::SHSTK_CANARY_PROLOGUE) == false) {
-              DEF_LOG("Canary prologue instrumentation: "<<hex<<ins->location());
-              int canary_offt = stackDecrement(ins_till_canary);//offsetFrmCanaryAddToRa(ins->location(), bb); 
-              ins->raOffset(abs(canary_offt));
-              ins->canaryAdd(true);
-              ins->registerInstrumentation(InstPoint::SHSTK_CANARY_PROLOGUE,x.second,instArgs()[x.second]);
-              canary_found = true;
-              canary_fall = ins->fallThrough();
+        auto ins_list = bb->insList();
+        if(drct_call_func || ins_list[0]->asmIns().find("endbr64") != string::npos ||
+          (fn.first == e && fn.second->dummy() == false)) {
+          Instruction *canary_ins = NULL;
+          Instruction *fall_ins = NULL;
+          auto canary_bb = canaryPrologueBB(bb);
+          if(canary_bb == NULL)
+            continue;
+          canary_ins = canary_bb->canaryPrologue();
+          if(canary_ins == NULL) {
+            DEF_LOG("Canary bb is not null but canary ins is null: "<<hex<<canary_bb->start());
+            exit(0);
+          }
+          auto canary_fall = canary_ins->fallThrough();
+          auto tmp_bb = canary_bb;
+          while(fall_ins == NULL && tmp_bb != NULL) {
+            fall_ins = tmp_bb->getIns(canary_fall);
+            tmp_bb = tmp_bb->fallThroughBB();
+          }
+          //auto bb_list = bbSeq(bb);
+          //for(auto & bb2 : bb_list) {
+          //  canary_ins = bb2->canaryPrologue();
+          //  if(canary_ins != NULL) {
+          //    auto canary_fall = canary_ins->fallThrough();
+          //    auto tmp_bb = bb2;
+
+          //    while(fall_ins == NULL && tmp_bb != NULL) {
+          //      fall_ins = tmp_bb->getIns(canary_fall);
+          //      tmp_bb = tmp_bb->fallThroughBB();
+          //    }
+          //    break;
+          //  }
+          //}
+          if(canary_ins == NULL)
+            continue;
+          DEF_LOG("Canary ins: "<<hex<<canary_ins->location());
+          if(fall_ins == NULL) {
+            DEF_LOG("Canary fall through not found");
+            continue;
+          }
+
+          DEF_LOG("Canary fall through: "<<hex<<fall_ins->location());
+          auto ins_till_canary = insPath(bb,canary_ins->location());
+          auto ra_location = getRA(ins_till_canary);
+          if(ra_location.reg.length() <= 0) {
+            DEF_LOG("Could not find frame register");
+            if(canary_ins->alreadyInstrumented(InstPoint::SHSTK_CANARY_CHANGE) == false) {
+              canary_ins->canaryAdd(true);
+              canary_ins->registerInstrumentation(InstPoint::SHSTK_CANARY_CHANGE,x.second,instArgs()[x.second]);
+              fall_ins->registerInstrumentation(InstPoint::SHSTK_CANARY_MOVE,x.second,instArgs()[x.second]);
+              auto entry_ins = ins_list[0];
+              entry_ins->registerInstrumentation(InstPoint::SHSTK_FUNCTION_ENTRY,x.second,instArgs()[x.second]);
             }
-            if(ins->location() == canary_fall)
-              ins->registerInstrumentation(InstPoint::SHSTK_CANARY_MOVE,x.second,instArgs()[x.second]);
           }
-          /*
-          if(canary_found) {
-            auto bb_list = bbSeq(bb);
-            for(auto & bb2 : bb_list)
-              shadowStackRetInst(bb2,x);
+          else if(canary_ins->alreadyInstrumented(InstPoint::SHSTK_CANARY_PROLOGUE) == false) {
+            canary_ins->raOffset(ra_location.offt);
+            canary_ins->frameReg(ra_location.reg);
+            canary_ins->canaryAdd(true);
+            canary_ins->registerInstrumentation(InstPoint::SHSTK_CANARY_PROLOGUE,x.second,instArgs()[x.second]);
+            fall_ins->registerInstrumentation(InstPoint::SHSTK_CANARY_MOVE,x.second,instArgs()[x.second]);
           }
-          */
         }
       }
     }
-    if(canary_found) {
-      vector<BasicBlock *> bbs = fn.second->getDefCode();
-      for(auto & bb : bbs) {
-        shadowStackRetInst(bb,x);
-      }
-      vector<BasicBlock *> bbs2 = fn.second->getUnknwnCode();
-      for(auto & bb : bbs2) {
-        shadowStackRetInst(bb,x);
-      }
+    vector<BasicBlock *> bbs = fn.second->getDefCode();
+    for(auto & bb : bbs) {
+      shadowStackRetInst(bb,x);
+    }
+    vector<BasicBlock *> bbs2 = fn.second->getUnknwnCode();
+    for(auto & bb : bbs2) {
+      shadowStackRetInst(bb,x);
     }
   }
 }
+
+//void
+//CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
+//  for(auto & fn : funcMap_) {
+//    auto entryPoint = fn.second->allEntries();
+//
+//    //Add instrumentation code at each entry of a function.
+//    //A function can have multiple entries.
+//
+//    bool canary_found = false;
+//    for(auto & entry:entryPoint) {
+//      DEF_LOG("Shadow stack instrumentation for entry: "<<hex<<entry);
+//      auto bb = fn.second->getBB(entry);
+//      if(bb != NULL) {
+//        bool drct_call_func = false;
+//        auto bb_parents = bb->parents(); 
+//        for (auto &p_bb : bb_parents) {
+//          if ((p_bb->isCall() || p_bb->lastIns()->isUnconditionalJmp()) &&
+//              p_bb->target() == bb->start()) {
+//            drct_call_func = true;
+//            DEF_LOG("Entry is call target..parent:"<<hex<<p_bb->start());
+//            break;
+//          }
+//        }
+//        auto ins_list = canaryCheckWindow(bb);
+//        if(ins_list[0]->asmIns().find("endbr64") != string::npos || 
+//            drct_call_func) {
+//          DEF_LOG("Entry is either call target or has endbr64..canary window:"<<hex<<
+//                   ins_list[0]->location()<<"->"<<hex<<ins_list[ins_list.size() - 1]->location());
+//          vector <Instruction *> ins_till_canary;
+//          uint64_t canary_fall = 0;
+//          for(auto & ins : ins_list) {
+//            ins_till_canary.push_back(ins);
+//            if(ins->asmIns().find("%fs:0x28") != string::npos && 
+//               ins->asmIns().find("mov") != string::npos &&
+//               ins->alreadyInstrumented(InstPoint::SHSTK_CANARY_PROLOGUE) == false) {
+//              DEF_LOG("Canary prologue instrumentation: "<<hex<<ins->location());
+//              //int canary_offt = stackDecrement(ins_till_canary);//offsetFrmCanaryAddToRa(ins->location(), bb); 
+//              auto ra_location = getRA(ins_till_canary);
+//              if(ra_location.reg.length() > 0) {
+//                ins->raOffset(ra_location.offt);
+//                ins->frameReg(ra_location.reg);
+//                ins->canaryAdd(true);
+//                ins->registerInstrumentation(InstPoint::SHSTK_CANARY_PROLOGUE,x.second,instArgs()[x.second]);
+//                canary_found = true;
+//                canary_fall = ins->fallThrough();
+//              }
+//            }
+//            if(ins->location() == canary_fall)
+//              ins->registerInstrumentation(InstPoint::SHSTK_CANARY_MOVE,x.second,instArgs()[x.second]);
+//          }
+//          /*
+//          if(canary_found) {
+//            auto bb_list = bbSeq(bb);
+//            for(auto & bb2 : bb_list)
+//              shadowStackRetInst(bb2,x);
+//          }
+//          */
+//        }
+//      }
+//    }
+//    if(canary_found) {
+//      vector<BasicBlock *> bbs = fn.second->getDefCode();
+//      for(auto & bb : bbs) {
+//        shadowStackRetInst(bb,x);
+//      }
+//      vector<BasicBlock *> bbs2 = fn.second->getUnknwnCode();
+//      for(auto & bb : bbs2) {
+//        shadowStackRetInst(bb,x);
+//      }
+//    }
+//  }
+//}
 
 void
 CfgElems::instrument() {

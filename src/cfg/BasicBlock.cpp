@@ -88,6 +88,53 @@ BasicBlock::addIns(Instruction *ins) {
   sort(insList_.begin(), insList_.end(),compareIns);
 }
 
+void
+BasicBlock::splitNoNew(uint64_t address) {
+  /* Breaks the basic block at the given address and returns a Pointer to the
+   * newly created basic block.
+   * The new basic block is marked as the fall through of the old one.
+   */
+ LOG("Splitting bb " <<hex <<start_ <<" at " <<hex <<address);
+  if(address > end_ || address < start_)
+    return;
+  if(isValidIns(address) == false) {
+    LOG("Invalid instruction address");
+    return;
+  }
+  uint64_t new_bb_start = address;
+  uint64_t new_bb_end = end_;
+
+  vector<Instruction *> newInsList1, newInsList2;
+  vector<Instruction *> :: iterator splitPoint;
+  bool splitFound = false;
+  bool isLea = false;
+  isLea_ = false;
+  //uint64_t end;
+  for(auto ins : insList_) {
+    if(ins->location() >= address) {
+      newInsList2.push_back(ins);
+      splitFound = true;
+      if(isLea == false)
+        isLea = ins->isLea();
+    }
+    else {
+      newInsList1.push_back(ins);
+      if(isLea_ == false)
+        isLea_ = ins->isLea();
+    }
+  }
+  if(splitFound) {
+    fallThrough_ = new_bb_start;
+    fallThroughIns_.asmIns("");
+    targetBB_ = NULL;
+    target_ = 0;
+    mergedBBs_.clear();
+    insList_ = newInsList1;
+    end_ = lastIns()->location();
+    indirectTgts_.clear();
+  }
+}
+
 BasicBlock *
 BasicBlock::split(uint64_t address) {
   /* Breaks the basic block at the given address and returns a Pointer to the
@@ -137,6 +184,8 @@ BasicBlock::split(uint64_t address) {
     //LOG("Fall through set!!");
     new_bb->target(target_);
     new_bb->targetBB(targetBB_);
+    if(targetBB_ != NULL)
+      targetBB_->parent(new_bb);
     new_bb->fallThroughIns(fallThroughIns_);
     //LOG("Target set!!!");
     fallThroughIns_.asmIns("");
@@ -307,13 +356,13 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
   //if(passed(Property::VALIDINS) == false)
   //  return;
   for(auto & it : insList_) {
-    if(it->isRltvAccess() == 1 && it->rltvOfftAdjusted() == false) {
+    if(it->isRltvAccess() == true && it->rltvOfftAdjusted() == false) {
       uint64_t rip_rltv_offset = it->ripRltvOfft();
       //DEF_LOG("Relative Pointer: " <<hex <<rip_rltv_offset);
 
       if(CFValidity::validPrfx(it) == false ||
          CFValidity::validOpCode(it) == false) {
-        it->isRltvAccess(false);
+        it->setRltvAccess(false);
         it->asmIns("");
         continue;
       }
@@ -321,8 +370,8 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
       if(rip_rltv_offset >= data_segment_start) {
 
         string op = utils::symbolizeRltvAccess(it->op1(),
-            ".datasegment_start + " + 
-             to_string(rip_rltv_offset - data_segment_start)
+            "(.datasegment_start + " + 
+             to_string(rip_rltv_offset - data_segment_start) + ")"
              ,rip_rltv_offset,SymBind::FORCEBIND);
         it->asmIns(it->prefix() + it->mnemonic() + " " + op);
         it->op1(op);

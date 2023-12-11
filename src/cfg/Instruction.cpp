@@ -38,8 +38,8 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
   insBinary(bytes, size);
   string asm_opcode = prefixChk(mne);
   string operand(op_str);
-  if(address == 0x139517)
-    DEF_LOG(hex<<address<<": "<<asm_opcode<<" "<<operand);
+  //if(address == 0x139517)
+  DEF_LOG(hex<<address<<": "<<asm_opcode<<" "<<operand);
   set <string> cf_ins_set = utils::get_cf_ins_set();
   set <string> uncond_cf_ins_set = utils::get_uncond_cf_ins_set();
   if(asm_opcode.find(",") != string::npos) {
@@ -49,31 +49,53 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
   }
 
   if(cf_ins_set.find(asm_opcode) != cf_ins_set.end()) {
-    isJump(true);
-    if(operand.length()> 0) {
-      if(operand.find("*") != string::npos) {
-        isIndirectCf(true);
+    //isJump(true);
+    sem_ = new JUMP(asm_opcode,operand,insBinary_,loc_,isBnd_);
+
+    if(asm_opcode.find("ret") != string::npos) {
+      isFuncExit(true);
+      sem_-> isJump_ = true;
+      sem_->isUnconditionalJmp_ = true;
+      //sem_->fallThrgh_ = 0;
+      sem_->target_ = 0;
+    }
+    else {
+      if(sem_->isIndrctCf_ == false) {
+        uint64_t tgt = sem_->target_;
+        operand = "." + to_string(tgt);
+      }
+      else {
         atRequired_ = true;
         if(ENCODE == 1)
           decode(true);
       }
-      else if(asm_opcode.find("ret") != string::npos) {
-        isFuncExit(true);
-        isJump(true);
-        isUnconditionalJmp(true);
-        fallThrgh_ = 0;
-        target_ = 0;
-      }
-      else {
-        uint64_t tgt = calcTarget();
-        operand = "." + to_string(tgt);
-        if(asm_opcode == "jmpq")
-          asm_opcode = "jmp";
-        //LOG("Target: "<<hex<<tgt);
-      }
+      if(asm_opcode == "jmpq")
+        asm_opcode = "jmp";
+      //LOG("Target: "<<hex<<tgt);
     }
-
   }
+  else if(asm_opcode.find("lea") != string::npos && operand.length() > 0)
+    sem_= new LEA(asm_opcode,operand,insBinary_,loc_);
+  else if(asm_opcode.find("mov") != string::npos)
+    sem_ = new MOV(asm_opcode,operand,insBinary_,loc_);
+  else if(asm_opcode.find("add") != string::npos)
+    sem_ = new ADD(asm_opcode,operand,insBinary_,loc_);
+  else if(asm_opcode.find("sub") != string::npos)
+    sem_= new ADD(asm_opcode,operand,insBinary_,loc_);
+  else if(asm_opcode.find("push") != string::npos)
+    sem_= new PUSH(asm_opcode,operand,insBinary_,loc_);
+  else if(asm_opcode.find("pop") != string::npos)
+    sem_ = new POP(asm_opcode,operand,insBinary_,loc_);
+  else if(asm_opcode.find("and") != string::npos)
+    sem_ = new AND(asm_opcode,operand,insBinary_,loc_);
+  else if(asm_opcode.find("or") != string::npos)
+    sem_ = new OR(asm_opcode,operand,insBinary_,loc_);
+  else if(asm_opcode.find("xor") != string::npos)
+    sem_ = new XOR(asm_opcode,operand,insBinary_,loc_);
+  else 
+    sem_ = new UNKNOWNINS(asm_opcode,operand,insBinary_,loc_);
+
+
   addOrigIns(asm_opcode);
   addOrigIns(operand);
   if(asm_opcode.find("xbegin") != string::npos) {
@@ -83,10 +105,10 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
   if(asm_opcode.find("rdrand") != string::npos)
     asm_opcode = "rdrand";
   
-  if(uncond_cf_ins_set.find(asm_opcode) != uncond_cf_ins_set.end()) 
-    isUnconditionalJmp(true);
-  if(asm_opcode.find("call") != string::npos)
-    isCall(true);
+  //if(uncond_cf_ins_set.find(asm_opcode) != uncond_cf_ins_set.end()) 
+  //  isUnconditionalJmp(true);
+  //if(asm_opcode.find("call") != string::npos)
+  //  isCall(true);
 
   if(asm_opcode.find("hlt") != string::npos){
     isHlt_ = true;
@@ -100,14 +122,19 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
   label("." + to_string(address));
   mnemonic_ = asm_opcode;
   op1(operand);
-  isRltvAccess(address + size);
-  chkConstOp();
-  chkConstPtr();
+  //isRltvAccess(address + size);
+  //chkConstOp();
+  //chkConstPtr();
+  if(sem_->isRltvAccess_) {
+    string lbl = "." + to_string(sem_->ripRltvOfft_);
+    //op1_ = op1_.replace(offset_pos, pos - offset_pos, lbl);
+    op1_ = utils::symbolizeRltvAccess(op1_,lbl,sem_->ripRltvOfft_,SymBind::NOBIND);
+  }
   asmIns(prefix_ + asm_opcode + " " + op1_);
-  fallThrgh_ = address + size;  
+  //fallThrgh_ = address + size;  
   //LOG("Fall through: "<<hex<<fallThrgh_);
 }
-
+/*
 bool isNumber(const string& str)
 {
     if(str.length() <= 0)
@@ -199,8 +226,6 @@ Instruction::chkConstPtr() {
 uint64_t
 Instruction::calcTarget() {
 
-  /* Calculates the jump target_ from hex bytes of the Instruction.
-   */
 
   string hex_target = "";
   int j = insBinary_.size();
@@ -313,12 +338,12 @@ Instruction::isRltvAccess(int RIP) {
   }
 }
 
-
+*/
 
 bool
 Instruction::indirectCFWithReg() {
   //DEF_LOG("Checking if indirect CF: "<<hex<<location());
-  if(isIndrctCf_ == true && asmIns_.find("ret") == string::npos &&
+  if(sem_->isIndrctCf_ == true && asmIns_.find("ret") == string::npos &&
       asmIns_.find("%rip") == string::npos && asmIns_.find("call") ==
       string::npos) {
       return true;
@@ -338,7 +363,7 @@ Instruction::print(string file_name, string lbl_sfx) {
   }
   else {
     if(forcePrintAsm_ || 
-      ((isJump_ || isCall_ || isRltvAccess_) && asmIns_.find("ret") == string::npos))
+      ((isJump() || isCall() || isRltvAccess()) && asmIns_.find("ret") == string::npos))
       asm_ins += "\t" + asmIns_ + "\n";
     else {
       for(auto byte : insBinary_)
@@ -364,7 +389,7 @@ Instruction::setInstParams(HookType h) {
   paramIns_.push_back("mov");
   instParams_.push_back("$" + to_string(loc_));
   paramIns_.push_back("mov");
-  if(isIndrctCf_) {
+  if(sem_->isIndrctCf_) {
     //if(get_decode()) 
     //  instParams_[(int)InstArg::INDIRECT_TARGET] = getIcfReg(op1_);
     //else 
@@ -377,7 +402,7 @@ Instruction::setInstParams(HookType h) {
   else
     instParams_.push_back("$0");
   paramIns_.push_back("mov");
-  if(isLea_) {
+  if(sem_->isLea_) {
     size_t pos = operand.find (",");
     string pointer = operand.substr(0, pos);
     string reg = operand.substr(pos + 2);
@@ -465,9 +490,15 @@ Instruction::instrument() {
       args += op1().substr(op1().find(",") + 1);
       DEF_LOG("args is : " << args);
     }
+    else if(tgt.first == InstPoint::SHSTK_CANARY_CHANGE)
+      args += op1().substr(op1().find(",") + 1);
     else if(tgt.first == InstPoint::SHSTK_CANARY_PROLOGUE) {
       args += op1().substr(op1().find(",") + 1);
-      args = args + "," + to_string(raOffset() + 8);
+      auto offset = raOffset();
+      //if(frameReg_ == "%rsp")
+      //  offset += 8;
+      //args = args + "," + to_string(offset) + "(" + frameReg_ + ")";
+      args = args + "," + to_string(offset) + "," + frameReg_;
       DEF_LOG("args is : " << args);
     }
     else if(tgt.first == InstPoint::SHSTK_CANARY_MOVE) {
@@ -523,7 +554,7 @@ Instruction::instrument() {
     else if(tgt.first == InstPoint::LEGACY_SHADOW_STACK) {
       //DEF_LOG("Instrumenting returns: "<<hex<<loc_);
       if(isCall()) {
-        if(isIndrctCf_)
+        if(sem_->isIndrctCf_)
           asmIns_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_INDRCT_CALL,fallSym());
         else
           asmIns_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_CALL,fallSym());
@@ -546,6 +577,18 @@ Instruction::instrument() {
       forcePrintAsm_ = true;
       DEF_LOG("canary inst: "<<asmIns_);
     }
+    else if(tgt.first == InstPoint::SHSTK_FUNCTION_ENTRY) {
+      DEF_LOG("Instrumenting function entry for shstk: "<<args);
+      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_FUNCTION_ENTRY);
+      //forcePrintAsm_ = true;
+      //DEF_LOG(hex<<location()<<": canary inst: "<< asmIns_);
+    }
+    else if(tgt.first == InstPoint::SHSTK_CANARY_CHANGE) {
+      DEF_LOG("Instrumenting canary checks: "<<args);
+      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_CANARY_CHANGE);
+      forcePrintAsm_ = true;
+      DEF_LOG(hex<<location()<<": canary inst: "<< asmIns_);
+    }
     else if(tgt.first == InstPoint::SHSTK_CANARY_PROLOGUE) {
       DEF_LOG("Instrumenting canary checks: "<<args);
       asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_CANARY_PROLOGUE);
@@ -562,3 +605,4 @@ Instruction::instrument() {
       instAsmPre_ += generate_hook(tgt.second,args,mnemonic_);
   }
 }
+

@@ -320,16 +320,39 @@ public:
     return byte_array;
   }
 
+  static const std::string WHITESPACE;// = " \n\r\t\f\v";
+
+  static
+  string ltrim(const std::string &s)
+  {
+      size_t start = s.find_first_not_of(WHITESPACE);
+      return (start == std::string::npos) ? "" : s.substr(start);
+  }
+  
+  static 
+  string rtrim(const std::string &s)
+  {
+      size_t end = s.find_last_not_of(WHITESPACE);
+      return (end == std::string::npos) ? "" : s.substr(0, end + 1);
+  }
+  
+  static
+  string trim(const std::string &s) {
+      return rtrim(ltrim(s));
+  }
+
   static std::vector<std::string> split_string(std::string& s, const char *delimiter)
   {
      std::vector<std::string> tokens;
+     if(s.length() <= 0)
+       return tokens;
 
      std::string word;
 
-	 std::istringstream iss(s);
-	 while (std::getline(iss, word, delimiter[0])) {
-       tokens.push_back(word);
-	 }
+	   std::istringstream iss(s);
+	   while (std::getline(iss, word, delimiter[0])) {
+         tokens.push_back(word);
+	   }
      //char *token = strtok(const_cast<char*>(s.c_str()), delimiter);
      //while (token != nullptr)
      //{
@@ -475,6 +498,7 @@ public:
     return opcode;
   }
   static set <string> cf_ins_set;
+  static vector <string> gpr;
   static set <string> get_cf_ins_set() {
     return cf_ins_set;
   }
@@ -574,11 +598,26 @@ public:
         sym_bindings[addr] = label;
     }
 
-    int pos = op.find("(%rip)");
-    int offset_pos = op.rfind(".", pos);
+    auto pos = op.find("(%rip)");
+    auto offset_pos = op.rfind(".", pos);
+    if(offset_pos == string::npos) {
+      offset_pos = op.rfind("0x", pos);
+      if(offset_pos == string::npos) {
+        offset_pos = op.rfind(",", pos);
+        if(offset_pos == string::npos) {
+          offset_pos = op.rfind(" ", pos);
+          if(offset_pos == string::npos)
+            offset_pos = 0;
+        }
+      }
+    }
+    if(offset_pos != 0) {
+     if(op.substr(offset_pos - 1, 1) == "-") {
+       offset_pos = offset_pos - 1;
+     }
+   }
     op = op.replace(offset_pos, pos
-             - offset_pos, "("
-             + label + ")");
+             - offset_pos, label);
     //DEF_LOG("Symbolizing rltv access: "<<op<<" label: "<<label);
     return op;
   }

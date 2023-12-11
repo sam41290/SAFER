@@ -3,6 +3,7 @@
 
 #include "libutils.h"
 #include "instrument.h"
+#include "InsDictionary.h"
 
 /* Represents an assembly Instruction.
  * Contains Instruction specific properties and data members.
@@ -23,33 +24,22 @@
 
 using namespace std;
 namespace SBI {
+
 class Instruction : public Instrument//, public virtual ENCCLASS
 {
 private:
   uint64_t loc_;
   vector <uint8_t> insBinary_; //hex bytes of original Instruction
-  uint64_t target_ = 0;
-  bool isJump_ = false;
   bool forcePrintAsm_ = false;
-  bool isUnconditionalJmp_ = false;
-  bool isCall_ = false;
-  bool isLea_ = false;
-  bool isIndrctCf_ = false;
-  bool isPltJmp_ = false;
   int opCnt_;			//operand count
   string mnemonic_;
   string op1_;			//operands
-  string op2_;
-  string op3_;
-  uint64_t fallThrgh_ = 0;
   bool isFuncExit_ = false;
-  bool isRltvAccess_ = false;
   bool rltvOfftAdjusted_ = false;
   bool isHlt_ = false;
-  uint64_t ripRltvOfft_ = 0;
-  uint64_t constOp_ = 0;
-  uint64_t constPtr_ = 0;
+  bool isPltJmp_ = false;
   int raOffset_ = 0;
+  string frameReg_ = "%rsp";
   string label_;
   string asmIns_;
   string prefix_ = "";
@@ -71,13 +61,18 @@ private:
   bool canaryAdd_ = false;
   int fallctr_ = 0;
   //bool addrTransMust_ = false;
+  InsSemantics *sem_ = NULL;
 public:
-  Instruction() {}
+  Instruction() {
+    sem_ = new SBI::UNKNOWNINS();
+  }
+  InsSemantics *sem() { return sem_; }
   string fallSym() { return fallSym_; }
   void fallSym(string sym) { fallSym_ = sym; }
   string fallBBSym() { return fallBBSym_; }
   void fallBBSym(string sym) { fallBBSym_ = sym; }
   void raOffset(uint64_t offt) { raOffset_ = offt; }
+  void frameReg(string &reg) { frameReg_ = reg; }
   int raOffset() { return raOffset_; }
   void canaryCheck(bool chk) { canaryCheck_ = chk; }
   bool canaryCheck() { return canaryCheck_; }
@@ -101,26 +96,26 @@ public:
   void decode (bool to_decode) { decode_ = to_decode; }
   bool decode () { return decode_; }
   void
-  isJump(bool is_jump) { isJump_ = is_jump;}
+  isJump(bool is_jump) { sem_->isJump_ = is_jump;}
   bool isHlt() { return isHlt_; } 
   void mnemonic(string p_mnemonic) { mnemonic_ = p_mnemonic;}
   
-  void
-  isUnconditionalJmp(bool isUncdJmp) { isUnconditionalJmp_ = isUncdJmp; }
+  //void
+  //isUnconditionalJmp(bool isUncdJmp) { isUnconditionalJmp_ = isUncdJmp; }
+  //
+  //void
+  //isCall(bool isCall) { isCall_ = isCall;}
   
+  //void
+  //isIndirectCf(bool is_indirect_cf) { isIndrctCf_ = is_indirect_cf;}
+  //
   void
-  isCall(bool isCall) { isCall_ = isCall;}
-  
-  void
-  isIndirectCf(bool is_indirect_cf) { isIndrctCf_ = is_indirect_cf;}
-  
-  void
-  fallThrough(uint64_t fallThrough) { fallThrgh_ = fallThrough;}
+  fallThrough(uint64_t fallThrough) { sem_->fallThrgh_ = fallThrough;}
 
   void
   addFallThroughJump(uint64_t chkaddrs, string labelprefix) {
-    if(chkaddrs != fallThrgh_)
-      asmIns(asmIns_ + "\njmp " + labelprefix + to_string(fallThrgh_));
+    if(chkaddrs != sem_->fallThrgh_)
+      asmIns(asmIns_ + "\njmp " + labelprefix + to_string(sem_->fallThrgh_));
   }
 
   void
@@ -129,11 +124,11 @@ public:
   void
   op1(string p_op1) { op1_ = p_op1;}
   
-  void
-  op2(string p_op2) { op2_ = p_op2;}
-  
-  void
-  op3(string p_op3) { op3_ = p_op3;}
+  //void
+  //op2(string p_op2) { op2_ = p_op2;}
+  //
+  //void
+  //op3(string p_op3) { op3_ = p_op3;}
   
   void
   label(string p_label) { label_ = p_label;}
@@ -162,37 +157,37 @@ public:
   location() { return loc_;}
   
   uint64_t
-  target() { return target_;}
+  target() { return sem_->target_;}
 
-  void
-  target(uint64_t tgt) { target_ = tgt; }
+  //void
+  //target(uint64_t tgt) { target_ = tgt; }
   
   bool
-  isJump() { return isJump_;}
+  isJump() { return sem_->isJump_;}
   
   bool
-  isUnconditionalJmp() { return isUnconditionalJmp_;}
+  isUnconditionalJmp() { return sem_->isUnconditionalJmp_;}
   
   bool
-  isCall() { return isCall_;}
+  isCall() { return sem_->isCall_;}
   
   bool
-  isIndirectCf() { return isIndrctCf_;}
+  isIndirectCf() { return sem_->isIndrctCf_;}
   
   uint64_t
-  fallThrough() { return fallThrgh_;}
+  fallThrough() { return sem_->fallThrgh_;}
   
   bool
   isFuncExit() { return isFuncExit_;}
   
   bool
-  isRltvAccess() { return isRltvAccess_;}
+  isRltvAccess() { return sem_->isRltvAccess_;}
   
   uint64_t
-  ripRltvOfft() { return ripRltvOfft_;}
+  ripRltvOfft() { return sem_->ripRltvOfft_;}
 
   void
-  ripRltvOfft(uint64_t val) { ripRltvOfft_ = val; }
+  ripRltvOfft(uint64_t val) { sem_->ripRltvOfft_ = val; }
   
   int
   opCnt() { return opCnt_;}
@@ -200,11 +195,11 @@ public:
   string
   op1() { return op1_;}
   
-  string
-  op2() { return op2_;}
-  
-  string
-  op3() { return op3_;}
+  //string
+  //op2() { return op2_;}
+  //
+  //string
+  //op3() { return op3_;}
   
   string
   label() { return label_;}
@@ -225,13 +220,13 @@ public:
   void insSize(uint64_t s) { insSize_ = s; }
   
   void
-  isLea(bool isLea) { isLea_ = isLea; }
+  isLea(bool isLea) { sem_->isLea_ = isLea; }
   
   bool
-  isLea() { return isLea_; }
+  isLea() { return sem_->isLea_; }
 
-  uint64_t constOp() { return constOp_; }
-  uint64_t constPtr() { return constPtr_; }
+  uint64_t constOp() { return sem_->constOp_; }
+  uint64_t constPtr() { return sem_->constPtr_; }
   string
   mnemonic() { return mnemonic_;} 
   vector <uint8_t> insBinary() { return insBinary_;}
@@ -242,12 +237,14 @@ public:
   bool indirectCFWithReg();
   void print(string file_name,string lbl_sfx);
   void instrument();
-  void chkConstOp();
-  void isRltvAccess(int RIP);
-  void setRltvAccess(bool val) { isRltvAccess_ = val; }
-  void chkConstPtr();
+  //void chkConstOp();
+  //void isRltvAccess(int RIP);
+  void setRltvAccess(bool val) { sem_->isRltvAccess_ = val; }
+  //void chkConstPtr();
+  bool isCanaryPrologue() { return sem_->isCanaryPrologue(); }
+  bool isCanaryEpilogue() { return sem_->isCanaryEpilogue(); }
 private:
-  uint64_t calcTarget();
+  //uint64_t calcTarget();
   string prefixChk(char *mne);
 };
 }

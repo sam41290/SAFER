@@ -2,6 +2,255 @@
 
 using namespace SBI;
 
+vector <Instruction *> 
+Dfs::insPath(BasicBlock *entry, uint64_t target) { 
+  unordered_set <uint64_t> passed;
+  return insPathDfs(entry,target,passed);
+}
+
+vector <Instruction *> 
+Dfs::insPathDfs(BasicBlock *entry, uint64_t target, unordered_set <uint64_t> &passed) {
+  vector <Instruction *> path;
+  if(passed.find(entry->start()) == passed.end()) {
+    passed.insert(entry->start());
+    if(entry->isValidIns(target)) {
+      auto ins_list = entry->insList();
+      for(auto & ins : ins_list) {
+        path.push_back(ins);
+        if(ins->location() == target)
+          break;
+      }
+      return path;
+    }
+    else {
+      auto fall_bb = entry->fallThroughBB();
+      if(fall_bb != NULL) {
+        auto fall_path = insPathDfs(fall_bb, target,passed);
+        if(fall_path.size() > 0) {
+          path = entry->insList();
+          path.insert(path.end(),fall_path.begin(),fall_path.end());
+          return path;
+        }
+      }
+      auto tgt_bb = entry->targetBB();
+      if(tgt_bb != NULL) {
+        auto tgt_path = insPathDfs(tgt_bb, target, passed);
+        if(tgt_path.size() > 0) {
+          path = entry->insList();
+          path.insert(path.end(),tgt_path.begin(),tgt_path.end());
+          return path;
+        }
+      }
+    }
+  }
+  return path;
+}
+
+
+RegVal
+Dfs::updateState(RegVal &tgt, State &state, Operation &op,
+                 Instruction *ins, bool loop_update) {
+  if(op.op == OP::STORE) {
+    if(op.source1.op_ == OP::DEREF)
+       tgt.val = RegValType::UNKNOWN;
+    else if(op.source1.type_ == OperandType::REG) {
+      auto source_val = state.regState[(int)op.source1.regNum_];
+      tgt.val = source_val.val;
+      tgt.addend = source_val.addend;
+     
+    }
+    else if(op.source1.type_ == OperandType::CONSTANT) {
+      tgt.val = RegValType::CONSTANT;
+      tgt.addend = op.source1.constant_;
+    }
+  }
+  else if(op.op == OP::ADD) {
+    if((int)tgt.val > (int)RegValType::UNKNOWN) {
+      if(op.source1.op_ == OP::DEREF)
+        tgt.val = RegValType::UNKNOWN;
+      else if(loop_update)
+        tgt.val = RegValType::UNKNOWN;
+      else if(op.source1.type_ == OperandType::REG) {
+        auto source_val = state.regState[(int)op.source1.regNum_];
+        if((int)source_val.val >= (int)tgt.val)
+          tgt.val = source_val.val;
+        tgt.addend += source_val.addend;
+      }
+      else if(op.source1.type_ == OperandType::CONSTANT) {
+        tgt.addend += op.source1.constant_;
+      }
+    }
+  }
+  else if(op.op == OP::SUB) {
+    if((int)tgt.val > (int)RegValType::UNKNOWN) {
+      if(op.source1.op_ == OP::DEREF)
+         tgt.val = RegValType::UNKNOWN;
+      else if(loop_update)
+        tgt.val = RegValType::UNKNOWN;
+      else if(op.source1.type_ == OperandType::REG) {
+        auto source_val = state.regState[(int)op.source1.regNum_];
+        if((int)source_val.val >= (int)tgt.val)
+          tgt.val = source_val.val;
+        tgt.addend += source_val.addend;
+       
+      }
+      else if(op.source1.type_ == OperandType::CONSTANT) {
+        tgt.addend += -1 * (op.source1.constant_);
+      }
+    }
+  }
+  else if(op.op == OP::LEA) {
+    if(op.source1.type_ == OperandType::RLTV) {
+      if(op.source1.ripRltv()) {
+        tgt.val = RegValType::CONSTANT;
+        tgt.addend = ins->ripRltvOfft();
+      }
+      else {
+        auto source_val = state.regState[(int)op.source1.regNum_];
+        tgt.addend = op.source1.constant_ + source_val.addend;
+        tgt.val = source_val.val;
+      }
+    }
+  }
+  else if(op.op == OP::XOR) {
+    if(op.source1.regNum_ == op.target.regNum_){
+      tgt.val = RegValType::CONSTANT;
+      tgt.addend = ins->ripRltvOfft();
+    }
+    else
+      tgt.val = RegValType::UNKNOWN;
+  }
+  else if(op.op == OP::OR) {
+    if(op.source1.type_ == OperandType::CONSTANT &&
+       op.source1.constant_ == 1){
+      tgt.val = RegValType::CONSTANT;
+      tgt.addend = 1;
+    }
+    else
+      tgt.val = RegValType::UNKNOWN;
+  }
+  else if(op.op == OP::AND) {
+    if(op.source1.type_ == OperandType::CONSTANT &&
+       op.source1.constant_ == 0){
+      tgt.val = RegValType::CONSTANT;
+      tgt.addend = 0;
+    }
+    else
+      tgt.val = RegValType::UNKNOWN;
+  }
+  return tgt;
+}
+
+void
+Dfs::loopUpdate(State &state, vector <Instruction *> &ins_lst,
+                uint64_t loop_start, uint64_t loop_end) {
+  for(auto & ins : ins_lst) {
+    if(ins->location() == loop_end)
+      return;
+    else if(ins->location() >= loop_start) {
+      auto sem = ins->sem();
+      auto op_list = sem->OpList;
+      for(auto & op : op_list) {
+        if(op.target.type_ == OperandType::REG && op.target.regNum_ != GPR::NONE &&
+           op.target.op_ != OP::DEREF) {
+          auto v = state.regState[(int)op.target.regNum_];
+          state.regState[(int)op.target.regNum_] = updateState(v, state, op, ins, true);
+          if(state.regState[(int)GPR::REG_RSP].val == RegValType::UNKNOWN) {
+            unordered_map<int,RegVal> new_stack;
+            state.stackState = new_stack;
+          }
+        }
+      }
+    }
+  }
+}
+
+State
+Dfs::analyzeRegState(vector <Instruction *> &ins_list) {
+  State state;
+  unordered_set <uint64_t> processed_ins;
+  for(auto i = 0; i <= 16; i++) {
+    RegVal r;
+    if((GPR)i == GPR::REG_RSP)
+      r.val = RegValType::FRAME_PTR;
+    state.regState.push_back(r);
+  }
+  for(auto & ins : ins_list){
+    processed_ins.insert(ins->location());
+    auto sem = ins->sem();
+    auto op_list = sem->OpList;
+    for(auto & op : op_list) {
+      if(op.op == OP::UNKNOWN)
+        continue;
+      if(op.target.op_ == OP::DEREF && op.target.regNum_ == GPR::REG_RSP) {
+        auto offt = op.target.constant_;
+        RegVal v;
+        if(state.stackState.find(offt) != state.stackState.end()) {
+          v = state.stackState[offt];
+        }
+        state.stackState[offt] = updateState(v, state, op, ins, false);
+      }
+      else if(op.target.type_ == OperandType::REG && op.target.regNum_ != GPR::NONE &&
+         op.target.op_ != OP::DEREF) {
+        auto v = state.regState[(int)op.target.regNum_];
+        state.regState[(int)op.target.regNum_] = updateState(v, state, op, ins, false);
+        if(op.target.regNum_ == GPR::REG_RSP && op.source1.type_ == OperandType::CONSTANT &&
+           (op.op == OP::ADD || op.op == OP::SUB)) {
+          int addend = op.source1.constant_;
+          if(op.op == OP::ADD)
+            addend *= -1;
+          unordered_map<int,RegVal> new_stack;
+          for(auto & v : state.stackState) {
+            new_stack[v.first + addend] = v.second;
+          }
+          state.stackState = new_stack;
+        }
+      }
+      else if(op.op == OP::JUMP) {
+        auto tgt = ins->target();
+        if(tgt != 0 && processed_ins.find(tgt) != processed_ins.end())
+          loopUpdate(state, ins_list, tgt, ins->location());
+      }
+      DEF_LOG("ins: "<<hex<<ins->location()<<": "<<ins->asmIns());
+      DEF_LOG("GPR: "<<(int)op.target.regNum_<<" val: "<<(int)state.regState[(int)op.target.regNum_].val);
+    }
+  }
+  return state;
+}
+
+RAlocation
+Dfs::getRA(vector <Instruction *> &ins_list) {
+  RAlocation r;
+  auto state = analyzeRegState(ins_list);
+  int ctr = 0;
+  if(state.regState[(int)GPR::REG_RSP].val == RegValType::FRAME_PTR) {
+    r.reg = "%rsp";
+    r.offt = -1 * state.regState[(int)GPR::REG_RSP].addend;
+    DEF_LOG("Frame reg: "<< r.reg<<" offset"<<dec<<r.offt);
+    return r;
+  }
+  for(auto & rval : state.regState) {
+    //if((GPR)ctr == GPR::NONE)
+    //  continue;
+    DEF_LOG("GPR: "<<(int)ctr<<" val: "<<(int)rval.val);
+    if(rval.val == RegValType::FRAME_PTR && ctr < utils::gpr.size()) {
+      r.reg = utils::gpr[ctr];
+      r.offt = -1 * rval.addend;
+      DEF_LOG("Frame reg: "<< r.reg<<" offset"<<dec<<r.offt);
+      return r;
+    }
+    ctr++;
+  }
+  for(auto & v : state.stackState) {
+    if(v.second.val == RegValType::FRAME_PTR) {
+      r.reg = to_string(v.first) + "(%rsp)";
+      r.offt = -1 * v.second.addend;
+      DEF_LOG("Frame pointer stored on RSP: offset "<<v.first<<" frame pointer addend: "<<r.offt);
+    }
+  }
+  return r;
+}
+
 int
 Dfs::stackDecrement(vector <Instruction *> &ins_list) {
   int offt = 0;

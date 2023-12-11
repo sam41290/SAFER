@@ -313,12 +313,27 @@ public:
     else
       return "_" + to_string(start_) + "_unknown_code";
   }
+  Instruction *canaryPrologue() {
+    for(auto & ins : insList_) {
+      if(ins->isCanaryPrologue())
+        return ins;
+    }
+    return NULL;
+  }
+  Instruction *canaryEpilogue() {
+    for(auto & ins : insList_) {
+      if(ins->isCanaryEpilogue())
+        return ins;
+    }
+    return NULL;
+  }
 
   Instruction *getIns(uint64_t address);
   bool isCall();
   Instruction *lastIns();
   bool isValidIns(uint64_t address);
   BasicBlock *split (uint64_t address);
+  void splitNoNew(uint64_t address);
   void deleteIns(uint64_t address);
   void addIns(Instruction *ins);
   bool indirectCFWithReg();

@@ -369,34 +369,97 @@ Instrument::generate_hook(string hook_target, string args,
                 "movq 16(%rsp),%rdi\n" +
                 "movq %fs:0x78,%rsi\n" +
                 "cmpq (%rsi),%rdi\n" + args + "\n" +
-                "jne ." + hook_target + "\n" +
+                "je .safe_ret_" + to_string(counter) + "\n" +
+                "call " + hook_target + "\n" +
+                ".safe_ret_" + to_string(counter) + ":\n" +
                 "pop %rsi\n" +
                 "pop %rdi\n";
+    counter++;
   }
-  else if(h == HookType::SHSTK_CANARY_PROLOGUE) {
-    string ca_reg;
-
-    string ra_offt;
-    ca_reg = args.substr(0, args.find(","));
-    ra_offt = args.substr(args.find(",") + 1);
-    string extra_reg = "%r10";
-    if(ca_reg.find("r10") != string::npos) {
-      extra_reg = "%r9";
-    }
+  else if(h == HookType::SHSTK_FUNCTION_ENTRY) {
     inst_code = inst_code + 
                 "cmpq $0,%fs:0x78\n" +
                 "jg .shstk_ok_" + to_string(counter) + "\n" +
                 ".init_sh_" + to_string(counter) +  ":\n" +
                 "callq .init_shstk\n" +
                 ".shstk_ok_" + to_string(counter) +  ":\n" +
+                "push %r10\npush %r11\n" +
+                "mov 16(%rsp), %r10\n" +
+                "movq %fs:0x78,%r11\n" +
+                "movq %r10,(%r11)\n" +
+                "pop %r11\npop %r10\n";
+  }
+  else if(h == HookType::SHSTK_CANARY_CHANGE) {
+    string ca_reg = args;
+    inst_code = inst_code + 
                 "movq %fs:0x78," + ca_reg + "\n" +
                 "addq $8,%fs:0x78\n" +
-                "pushq " + extra_reg + "\n" +
-                "movq " + ra_offt + "(%rsp)," + extra_reg + "\n" +
-                "movq " + extra_reg + ",(" + ca_reg + ")\n" +
-                "xorq %fs:0x28," + ca_reg + "\n" +
-                "popq " + extra_reg + "\n";
-    counter++;
+                "xorq %fs:0x28," + ca_reg + "\n";
+  }
+  else if(h == HookType::SHSTK_CANARY_PROLOGUE) {
+    vector <string> words = utils::split_string(args,",");
+    if(words.size() >= 3) {
+      string ca_reg = words[0];
+      string ra_offt = words[1]; 
+      string frame_reg = words[2];
+      string extra_reg = "%r10";
+      string mov_ra = "";
+      if(ca_reg.find("r10") != string::npos) {
+        extra_reg = "%r9";
+      }
+      if(frame_reg.find("(%rsp)") != string::npos) {
+        auto pos = frame_reg.find("(");
+        string rsp_offt = frame_reg.substr(0, pos);
+        int rsp_offt_int = stoi(rsp_offt);
+        rsp_offt_int += 8;
+        mov_ra = "movq " + to_string(rsp_offt_int) + "(%rsp)," + extra_reg +
+          "\nmovq " + ra_offt + "(" + extra_reg + ")," + extra_reg;
+      }
+      else if(frame_reg.find("%rsp") != string::npos) {
+        int ra_offt_int = stoi(ra_offt);
+        ra_offt_int += 8;
+        mov_ra = "movq " + to_string(ra_offt_int) + "(" + frame_reg + ")," + extra_reg;
+      }
+      else {
+        mov_ra = "movq " + ra_offt + "(" + frame_reg + ")," + extra_reg;
+      }
+      inst_code = inst_code + 
+                  "cmpq $0,%fs:0x78\n" +
+                  "jg .shstk_ok_" + to_string(counter) + "\n" +
+                  ".init_sh_" + to_string(counter) +  ":\n" +
+                  "callq .init_shstk\n" +
+                  ".shstk_ok_" + to_string(counter) +  ":\n" +
+                  "movq %fs:0x78," + ca_reg + "\n" +
+                  "addq $8,%fs:0x78\n" +
+                  "pushq " + extra_reg + "\n" + mov_ra + "\n" +
+                  "movq " + extra_reg + ",(" + ca_reg + ")\n" +
+                  "xorq %fs:0x28," + ca_reg + "\n" +
+                  "popq " + extra_reg + "\n";
+      counter++;
+    }
+    else
+      LOG("not enough arguments for canary prologue instrumentation: "<<args);
+
+    //ca_reg = args.substr(0, args.find(","));
+    //ra_offt = args.substr(args.find(",") + 1);
+    //string extra_reg = "%r10";
+    //if(ca_reg.find("r10") != string::npos) {
+    //  extra_reg = "%r9";
+    //}
+    //inst_code = inst_code + 
+    //            "cmpq $0,%fs:0x78\n" +
+    //            "jg .shstk_ok_" + to_string(counter) + "\n" +
+    //            ".init_sh_" + to_string(counter) +  ":\n" +
+    //            "callq .init_shstk\n" +
+    //            ".shstk_ok_" + to_string(counter) +  ":\n" +
+    //            "movq %fs:0x78," + ca_reg + "\n" +
+    //            "addq $8,%fs:0x78\n" +
+    //            "pushq " + extra_reg + "\n" +
+    //            "movq " + ra_offt + "," + extra_reg + "\n" +
+    //            "movq " + extra_reg + ",(" + ca_reg + ")\n" +
+    //            "xorq %fs:0x28," + ca_reg + "\n" +
+    //            "popq " + extra_reg + "\n";
+    //counter++;
   }
   else if(h == HookType::SHSTK_CANARY_MOVE) {
     inst_code = inst_code + 
@@ -431,8 +494,10 @@ Instrument::generate_hook(string hook_target, string args,
      && h != HookType::SHSTK_CANARY_EPILOGUE
      && h != HookType::SHSTK_CANARY_PROLOGUE
      && h != HookType::SHSTK_CANARY_MOVE
+     && h != HookType::SHSTK_CANARY_CHANGE
      && h != HookType::SHSTK_FUNCTION_CALL
      && h != HookType::SHSTK_FUNCTION_RET
+     && h != HookType::SHSTK_FUNCTION_ENTRY
      && h != HookType::LEGACY_SHADOW_CALL
      && h != HookType::LEGACY_SHADOW_RET
      && h != HookType::LEGACY_SHADOW_INDRCT_CALL)

@@ -30,6 +30,32 @@ namespace SBI {
   //  uint64_t tgt_;
   //  vector <BasicBlock *> path_;
   //};
+  //
+
+
+  struct RAlocation {
+    string reg = "";
+    int offt = 0;
+  };
+
+  enum class RegValType {
+    UNDEFINED,
+    UNKNOWN,
+    CONSTANT,
+    FRAME_PTR
+  };
+
+  struct RegVal {
+    //GPR base = GPR::NONE;
+    RegValType val = RegValType::UNDEFINED;
+    int addend = 0;
+  };
+
+
+  struct State {
+    unordered_map<int,RegVal> stackState;
+    vector <RegVal> regState;
+  };
 
   enum class SEQTYPE {
     INTRAFN,
@@ -68,6 +94,8 @@ namespace SBI {
     int peepHoleStackDecrement(uint64_t addrs, BasicBlock *bb);
     int stackDecrement(vector <Instruction *> &ins_list);
     unordered_set <uint64_t> indRoots() { return indRoots_; }
+    RAlocation getRA(vector <Instruction *> &ins_list);
+    vector <Instruction *> insPath(BasicBlock *entry, uint64_t target);
   private:
     void psblExitDFS(BasicBlock *bb, stack <BasicBlock *> &calls,
                        unordered_set <uint64_t> &passed);
@@ -83,6 +111,13 @@ namespace SBI {
                      unordered_set <uint64_t> &valid_ind_path);
     void indTgtsDfs(BasicBlock *entry, 
                                      unordered_set <uint64_t> &passed);
+    State analyzeRegState(vector <Instruction *> &ins_list);
+    vector <Instruction *> insPathDfs(BasicBlock *entry, uint64_t target,
+        unordered_set <uint64_t> &passed);
+    RegVal updateState(RegVal &tgt, State &state, Operation &op, Instruction
+        *ins, bool loop_upd);
+    void loopUpdate(State &cur_state, vector <Instruction *> &ins_lst,
+                    uint64_t loop_start, uint64_t loop_end);
   };
 }
 
