@@ -364,16 +364,12 @@ Instrument::generate_hook(string hook_target, string args,
   }
   else if (h == HookType::SHSTK_FUNCTION_RET) {
     inst_code = inst_code + 
-                "push %rdi\n" +
-                "push %rsi\n" +
-                "movq 16(%rsp),%rdi\n" +
-                "movq %fs:0x78,%rsi\n" +
-                "cmpq (%rsi),%rdi\n" + args + "\n" +
+                "movq (%rsp),%r10\n" +
+                "movq %fs:0x78,%r11\n" +
+                "cmpq (%r11),%r10\n" + args + "\n" +
                 "je .safe_ret_" + to_string(counter) + "\n" +
                 "call " + hook_target + "\n" +
-                ".safe_ret_" + to_string(counter) + ":\n" +
-                "pop %rsi\n" +
-                "pop %rdi\n";
+                ".safe_ret_" + to_string(counter) + ":\n";
     counter++;
   }
   else if(h == HookType::SHSTK_FUNCTION_ENTRY) {
@@ -383,11 +379,9 @@ Instrument::generate_hook(string hook_target, string args,
                 ".init_sh_" + to_string(counter) +  ":\n" +
                 "callq .init_shstk\n" +
                 ".shstk_ok_" + to_string(counter) +  ":\n" +
-                "push %r10\npush %r11\n" +
                 "mov 16(%rsp), %r10\n" +
                 "movq %fs:0x78,%r11\n" +
-                "movq %r10,(%r11)\n" +
-                "pop %r11\npop %r10\n";
+                "movq %r10,(%r11)\n";
   }
   else if(h == HookType::SHSTK_CANARY_CHANGE) {
     string ca_reg = args;
