@@ -148,22 +148,30 @@ string
 Instrument::directCallShstkTramp() {
   string inst_code = "";
   static int counter;
-  inst_code += "cmpq $0,%fs:0x78\n";
-  inst_code += "jne .push_ra_" + to_string(counter) + "\n";
-  inst_code += "callq .init_shstk\n";
-  inst_code += ".push_ra_" + to_string(counter) + ":\n";
-  inst_code += "addq $16,%fs:0x78\n";
-  inst_code += "push %rax\n";
-  inst_code += "mov %fs:0x78,%rax\n";
-  inst_code += "push %rbx\n";
-  inst_code += "mov 16(%rsp),%rbx\n";
-  inst_code += "mov %rbx,-8(%rax)\n";
-  inst_code += "lea 16(%rsp),%rbx\n";
-  inst_code += "mov %rbx,-16(%rax)\n";
-  inst_code += "pop %rbx\n";
-  inst_code += "pop %rax\n";
-  counter++;
-  return inst_code;
+  //if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK)) {
+    inst_code += "cmpq $0,%fs:0x78\n";
+    inst_code += "jne .push_ra_" + to_string(counter) + "\n";
+    inst_code += "callq .init_shstk\n";
+    inst_code += ".push_ra_" + to_string(counter) + ":\n";
+    inst_code += "mov %fs:0x78,%r11\n";
+    inst_code += "mov 0(%rsp),%r10\n";
+    inst_code += "mov %r10,(%r11)\n";
+    inst_code += "addq $8,%fs:0x78\n";
+    counter++;
+    return inst_code;
+  //}
+  //else if(alreadyInstrumented(InstPoint::SHADOW_STACK)) {
+  //  inst_code += "cmpq $0,%fs:0x78\n";
+  //  inst_code += "jne .push_ra_" + to_string(counter) + "\n";
+  //  inst_code += "callq .init_shstk\n";
+  //  inst_code += ".push_ra_" + to_string(counter) + ":\n";
+  //  inst_code += "mov (%rsp), %r10\n";
+  //  inst_code += "movq %fs:0x78,%r11\n";
+  //  inst_code += "movq %r10,(%r11)\n";
+  //  counter++;
+  //  return inst_code;
+  //}
+  //return inst_code;
 }
 
 string
@@ -212,44 +220,54 @@ Instrument::generate_hook(string hook_target, string args,
     //counter++;
   }
   else if(h == HookType::LEGACY_SHADOW_INDRCT_CALL) {
-      inst_code += "mov %rax,%fs:0x88\n";
-      string op = hook_target;
-      op.replace(0,1,"");
-      inst_code += "mov " + op + ",%rax\n";
-      inst_code += "call .shadow_tramp\n"; 
-      inst_code += fall_sym + ":\n";
+      //inst_code += "mov %rax,%fs:0x88\n";
+      //string op = hook_target;
+      //op.replace(0,1,"");
+      //inst_code += "mov " + op + ",%rax\n";
+      //inst_code += "call .shadow_tramp\n"; 
+      //inst_code += fall_sym + ":\n";
   }
   else if(h ==  HookType::LEGACY_SHADOW_RET) {
-    inst_code += "cmpq $0,%fs:0x78\n";
-    inst_code += "jg .legacy_shadow_chk_" + to_string(counter) + "\n";
-    inst_code += "ret\n";
-    inst_code += ".legacy_shadow_chk_" + to_string(counter) + ":\n";
-    inst_code += "push %rdx\n";
-    inst_code += "mov %rax,%fs:0x88\n";
-    inst_code += "mov 8(%rsp),%rdx\n"; 
-    inst_code += "lea .loader_map_start(%rip),%rax\n"; 
-    inst_code += "cmp (%rax),%rdx\n";
-    inst_code += "jl  .ra_chk_" + to_string(counter) + "\n";
-    inst_code += "lea .loader_map_end(%rip),%rax\n" ;
-    inst_code += "cmp (%rax),%rdx\n";
-    inst_code += "jl  .ret_post_chk_" + to_string(counter) + "\n";
-    inst_code += ".ra_chk_" + to_string(counter) + ":\n";
-    inst_code += "mov %fs:0x78,%rax\n";
-    inst_code += "mov %rsp,%rdx\n";
-    inst_code += "add $8,%rdx\n";
-    inst_code += ".ra_chk_loop_" + to_string(counter) + ":\n";
-    inst_code += "cmp %rax,%fs:0x80\n";
-    inst_code += "je .ret_post_chk_" + to_string(counter) + "\n";
-    inst_code += "sub $16,%rax\n";
-    inst_code += "mov %rax,%fs:0x78\n";
-    inst_code += "cmp 0(%rax),%rdx\n";
-    inst_code += "jne .ra_chk_loop_" + to_string(counter) + "\n"; 
-    inst_code += "mov 8(%rsp),%rdx\n"; 
-    inst_code += "cmp 8(%rax),%rdx\n";
-    inst_code += "je .ret_post_chk_" + to_string(counter) + "\n"; 
-    inst_code += "nop\n";
-    inst_code += ".ret_post_chk_" + to_string(counter) + ":\n";
-    inst_code += "pop %rdx\nmov %fs:0x88,%rax\nret\n";
+    inst_code = inst_code + 
+                ".rep_pop_" + to_string(counter) + ":\n" +
+                "sub $8, %fs:0x78\n" +
+                "mov %fs:0x78,%r11\n" +
+                "mov (%rsp),%r10\n" +
+                "mov (%r11),%r11\n" +
+                "xor %r11,%r10\n" +
+                "jne .rep_pop_" + to_string(counter) + "\n" +
+                "ret\n";
+
+    //inst_code += "cmpq $0,%fs:0x78\n";
+    //inst_code += "jg .legacy_shadow_chk_" + to_string(counter) + "\n";
+    //inst_code += "ret\n";
+    //inst_code += ".legacy_shadow_chk_" + to_string(counter) + ":\n";
+    //inst_code += "push %rdx\n";
+    //inst_code += "mov %rax,%fs:0x88\n";
+    //inst_code += "mov 8(%rsp),%rdx\n"; 
+    //inst_code += "lea .loader_map_start(%rip),%rax\n"; 
+    //inst_code += "cmp (%rax),%rdx\n";
+    //inst_code += "jl  .ra_chk_" + to_string(counter) + "\n";
+    //inst_code += "lea .loader_map_end(%rip),%rax\n" ;
+    //inst_code += "cmp (%rax),%rdx\n";
+    //inst_code += "jl  .ret_post_chk_" + to_string(counter) + "\n";
+    //inst_code += ".ra_chk_" + to_string(counter) + ":\n";
+    //inst_code += "mov %fs:0x78,%rax\n";
+    //inst_code += "mov %rsp,%rdx\n";
+    //inst_code += "add $8,%rdx\n";
+    //inst_code += ".ra_chk_loop_" + to_string(counter) + ":\n";
+    //inst_code += "cmp %rax,%fs:0x80\n";
+    //inst_code += "je .ret_post_chk_" + to_string(counter) + "\n";
+    //inst_code += "sub $16,%rax\n";
+    //inst_code += "mov %rax,%fs:0x78\n";
+    //inst_code += "cmp 0(%rax),%rdx\n";
+    //inst_code += "jne .ra_chk_loop_" + to_string(counter) + "\n"; 
+    //inst_code += "mov 8(%rsp),%rdx\n"; 
+    //inst_code += "cmp 8(%rax),%rdx\n";
+    //inst_code += "je .ret_post_chk_" + to_string(counter) + "\n"; 
+    //inst_code += "nop\n";
+    //inst_code += ".ret_post_chk_" + to_string(counter) + ":\n";
+    //inst_code += "pop %rdx\nmov %fs:0x88,%rax\nret\n";
     counter++;
   }
   else if(h == HookType::RET_CHK) {
@@ -347,47 +365,67 @@ Instrument::generate_hook(string hook_target, string args,
       DEF_LOG("Return check code: "<<inst_code);
     }
   }
-  else if (h == HookType::SHSTK_FUNCTION_CALL) {
-    inst_code = inst_code + 
-                 "pushq %rdi\n" +
-                 "pushq %rax\n" +
-                 "cmpq $0,%fs:0x78\n" +
-                 "jne .shstk_ok_" + to_string(counter) + "\n" +
-                 "callq .init_shstk\n"
-                 ".shstk_ok_" + to_string(counter) +  ":\n" +
-                 "movq %fs:0x78,%rax\n" +
-                 "lea " + args + "(%rip),%rdi\n" +
-                 "movq %rdi,(%rax)\n" +
-                 "pop %rax\n" +
-                 "pop %rdi\n";
-    //counter++;
-  }
+  //else if (h == HookType::SHSTK_FUNCTION_CALL) {
+  //  inst_code = inst_code + 
+  //               "pushq %rdi\n" +
+  //               "pushq %rax\n" +
+  //               "cmpq $0,%fs:0x78\n" +
+  //               "jne .shstk_ok_" + to_string(counter) + "\n" +
+  //               "callq .init_shstk\n"
+  //               ".shstk_ok_" + to_string(counter) +  ":\n" +
+  //               "movq %fs:0x78,%rax\n" +
+  //               "lea " + args + "(%rip),%rdi\n" +
+  //               "movq %rdi,(%rax)\n" +
+  //               "pop %rax\n" +
+  //               "pop %rdi\n";
+  //  //counter++;
+  //}
+  //else if(h == HookType::SHSTK_DRCT_CALL) {
+  //  inst_code += "call " + hook_target + "\n";
+  //  inst_code += fall_sym + ":\n";
+  //}
+  //else if(h == HookType::SHSTK_INDRCT_CALL) {
+  //    inst_code += "mov %rax,%fs:0x88\n";
+  //    string op = hook_target;
+  //    op.replace(0,1,"");
+  //    inst_code += "mov " + op + ",%rax\n";
+  //    inst_code += "call .shadow_tramp\n"; 
+  //    inst_code += fall_sym + ":\n";
+  //}
   else if (h == HookType::SHSTK_FUNCTION_RET) {
     inst_code = inst_code + 
-                "movq (%rsp),%r10\n" +
-                "movq %fs:0x78,%r11\n" +
-                "cmpq (%r11),%r10\n" + args + "\n" +
-                "je .safe_ret_" + to_string(counter) + "\n" +
-                "call " + hook_target + "\n" +
-                ".safe_ret_" + to_string(counter) + ":\n";
+                "mov %fs:0x78,%r11\n" +
+                "mov (%r11),%r11\n" +
+                "mov %r11,(%rsp)\n";
+                //"movq (%rsp),%r10\n" +
+                //"mov %fs:0x78,%r11\n" +
+                //"cmpq (%r11),%r10\n" + args + "\n" +
+                //"jne .safe_ret_" + to_string(counter) + "\n" +
+                //"ret\n" +
+                //".safe_ret_" + to_string(counter) + ":\n" +
+                //"hlt\n";
     counter++;
   }
   else if(h == HookType::SHSTK_FUNCTION_ENTRY) {
-    inst_code = inst_code + 
-                "cmpq $0,%fs:0x78\n" +
-                "jg .shstk_ok_" + to_string(counter) + "\n" +
-                ".init_sh_" + to_string(counter) +  ":\n" +
-                "callq .init_shstk\n" +
+    inst_code = inst_code +
+                //"mov %fs:0x78, %r11\n"
+                //"cmpq $0,%r11\n" +
+                //"jg .shstk_ok_" + to_string(counter) + "\n" +
+                //".init_sh_" + to_string(counter) +  ":\n" +
+                //"callq .init_shstk\n" +
+                "mov %fs:0x78, %r11\n"
                 ".shstk_ok_" + to_string(counter) +  ":\n" +
-                "mov 16(%rsp), %r10\n" +
-                "movq %fs:0x78,%r11\n" +
+                "mov (%rsp), %r10\n" +
                 "movq %r10,(%r11)\n";
+    counter++;
   }
   else if(h == HookType::SHSTK_CANARY_CHANGE) {
     string ca_reg = args;
     inst_code = inst_code + 
                 "movq %fs:0x78," + ca_reg + "\n" +
-                "addq $8,%fs:0x78\n" +
+                //"add $8," + ca_reg + "\n" +
+                //"movq " + ca_reg + ",%fs:0x78\n" +
+                //"addq $8,%fs:0x78\n" +
                 "xorq %fs:0x28," + ca_reg + "\n";
   }
   else if(h == HookType::SHSTK_CANARY_PROLOGUE) {
@@ -398,6 +436,7 @@ Instrument::generate_hook(string hook_target, string args,
       string frame_reg = words[2];
       string extra_reg = "%r10";
       string mov_ra = "";
+      string mov_rsp = "";
       if(ca_reg.find("r10") != string::npos) {
         extra_reg = "%r9";
       }
@@ -408,27 +447,38 @@ Instrument::generate_hook(string hook_target, string args,
         rsp_offt_int += 8;
         mov_ra = "movq " + to_string(rsp_offt_int) + "(%rsp)," + extra_reg +
           "\nmovq " + ra_offt + "(" + extra_reg + ")," + extra_reg;
+        mov_rsp = "movq " + to_string(rsp_offt_int) + "(%rsp)," + extra_reg +
+          "\nlea " + ra_offt + "(" + extra_reg + ")," + extra_reg;
       }
       else if(frame_reg.find("%rsp") != string::npos) {
         int ra_offt_int = stoi(ra_offt);
         ra_offt_int += 8;
         mov_ra = "movq " + to_string(ra_offt_int) + "(" + frame_reg + ")," + extra_reg;
+        mov_rsp = "lea " + to_string(ra_offt_int) + "(" + frame_reg + ")," + extra_reg;
       }
       else {
         mov_ra = "movq " + ra_offt + "(" + frame_reg + ")," + extra_reg;
+        mov_rsp = "lea " + ra_offt + "(" + frame_reg + ")," + extra_reg;
       }
-      inst_code = inst_code + 
-                  "cmpq $0,%fs:0x78\n" +
+      inst_code = inst_code +
+                  "mov %fs:0x78," + ca_reg + "\n" +
+                  "cmpq $0," + ca_reg + "\n" +
                   "jg .shstk_ok_" + to_string(counter) + "\n" +
                   ".init_sh_" + to_string(counter) +  ":\n" +
                   "callq .init_shstk\n" +
+                  "mov %fs:0x78," + ca_reg + "\n" +
                   ".shstk_ok_" + to_string(counter) +  ":\n" +
-                  "movq %fs:0x78," + ca_reg + "\n" +
-                  "addq $8,%fs:0x78\n" +
+                  //"cmp %rsp,(" + ca_reg + ")\n" +
+                  //"je .add_copy_canary_" + to_string(counter) +  "\n" +
+                  //"cmp %rsp,-16(" + ca_reg + ")\n" +
+                  //"je .copy_canary_" +  to_string(counter) +  "\n" +
                   "pushq " + extra_reg + "\n" + mov_ra + "\n" +
                   "movq " + extra_reg + ",(" + ca_reg + ")\n" +
-                  "xorq %fs:0x28," + ca_reg + "\n" +
-                  "popq " + extra_reg + "\n";
+                  "popq " + extra_reg + "\n" +
+                  ".add_copy_canary_" +  to_string(counter) +  ":\n" +
+                  "add $8,%fs:0x78\n"
+                  ".copy_canary_" +  to_string(counter) +  ":\n" +
+                  "xorq %fs:0x28," + ca_reg + "\n";
       counter++;
     }
     else
@@ -461,9 +511,13 @@ Instrument::generate_hook(string hook_target, string args,
   }
   else if(h == HookType::SHSTK_CANARY_EPILOGUE) {
     inst_code = inst_code + 
-                "xorq %fs:0x28," + args + "\n" + 
+                "xorq %fs:0x28," + args + "\n" +
+                //"je .canary_ok_" + to_string(counter) + "\n" +
+                "sub $8," + args + "\n" + 
                 "movq " + args + ",%fs:0x78\n" +
                 "xor " + args + "," + args + "\n";
+                //".canary_ok_" + to_string(counter) + ":\n";
+    //counter++;
   }
   else {
     inst_code += save(h);
@@ -489,7 +543,8 @@ Instrument::generate_hook(string hook_target, string args,
      && h != HookType::SHSTK_CANARY_PROLOGUE
      && h != HookType::SHSTK_CANARY_MOVE
      && h != HookType::SHSTK_CANARY_CHANGE
-     && h != HookType::SHSTK_FUNCTION_CALL
+     //&& h != HookType::SHSTK_DRCT_CALL
+     //&& h != HookType::SHSTK_INDRCT_CALL
      && h != HookType::SHSTK_FUNCTION_RET
      && h != HookType::SHSTK_FUNCTION_ENTRY
      && h != HookType::LEGACY_SHADOW_CALL

@@ -371,6 +371,7 @@ namespace SBI {
     bool withinRoSection(uint64_t addrs);
     bool withinRWSection(uint64_t addrs);
     bool withinCodeSec(uint64_t addrs);
+    bool withinPltSec(uint64_t addrs);
     void populateRltvTgts();
     bool accessConflict(uint64_t addrs);
     bool validPtrAccess(Pointer *ptr, uint64_t loc);
