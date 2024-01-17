@@ -149,6 +149,7 @@ Instrument::directCallShstkTramp() {
   string inst_code = "";
   static int counter;
   //if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK)) {
+    inst_code += "endbr64\n";
     inst_code += "cmpq $0,%fs:0x78\n";
     inst_code += "jne .push_ra_" + to_string(counter) + "\n";
     inst_code += "callq .init_shstk\n";

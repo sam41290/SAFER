@@ -102,7 +102,7 @@ BasicBlock::splitNoNew(uint64_t address) {
     return;
   }
   uint64_t new_bb_start = address;
-  uint64_t new_bb_end = end_;
+  //uint64_t new_bb_end = end_;
 
   vector<Instruction *> newInsList1, newInsList2;
   vector<Instruction *> :: iterator splitPoint;
@@ -295,11 +295,6 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
   }
   else if(call_target)
     utils::printAlgn(16,file_name);
-  if(alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY)) {
-    string shstk_tramp = directCallShstkTramp();
-    string lbl = shStkTrampSym();
-    utils::printAsm(shstk_tramp, start_, lbl, SymBind::NOBIND, file_name);
-  }
   for(auto & it:insList_) {
     it->isCode(isCode());
     if((it->isJump() || it->isCall())) {
@@ -327,6 +322,12 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
         DEF_LOG("Call missing fall through: "<<hex<<it->location());
         it->fallBBSym(fallSym());
       }
+    }
+    if(it->location() == start_ && alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY)) {
+      string shstk_tramp = directCallShstkTramp();
+      string lbl = shStkTrampSym();
+      utils::printAsm(shstk_tramp, start_, lbl, SymBind::FORCEBIND, file_name);
+      it->isCode(false);
     }
     it->print(file_name,ins_lbl_sfx);
     //if(it->isCall()) {
@@ -399,8 +400,11 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
           else {
             for (auto & bb : rltvTgts_) {
               if(bb->start() == rip_rltv_offset) {
+                string lbl = bb->label();
+                if(bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY))
+                  lbl = bb->shStkTrampSym();
                 string op = utils::symbolizeRltvAccess(it->op1(),
-                     bb->label(),rip_rltv_offset,SymBind::FORCEBIND);
+                     lbl,rip_rltv_offset,SymBind::FORCEBIND);
                 it->asmIns(it->prefix() + it->mnemonic() + " " + op);
                 it->op1(op);
                 break;

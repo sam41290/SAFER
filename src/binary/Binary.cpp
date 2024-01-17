@@ -1233,8 +1233,8 @@ Binary::genInstAsm() {
     ofile<<atf_line_tt<<endl;
   }
   ifile.close();
-  string shstk_code = directCallShstkTramp();
-  ofile<<shadowTramp(shstk_code);
+  //string shstk_code = directCallShstkTramp();
+  //ofile<<shadowTramp(shstk_code);
 
   //ofile<<"jmp *.gtt(%rip)\n";
   string shstk_init_file(TOOL_PATH"src/instrument/init_shstk.s");
