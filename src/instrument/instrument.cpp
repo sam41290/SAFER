@@ -3,7 +3,7 @@
 
 const vector <string> savedReg_{"%rax","%rdi","%rsi","%rdx","%rcx","%r8","%r9","%r10","%r11"};
 const vector <string> atfSavedReg_{};//{"%rax","%rdi","%rsi"};
-const vector <string> syscallCheckSavedReg_{"%rax","%rdi", "%rsi", "%rdx"};
+//const vector <string> syscallCheckSavedReg_{"%rax","%rdi", "%rsi", "%rdx"};
 
 int ENCCLASS::decode_counter = 0;
 
@@ -616,7 +616,6 @@ Instrument::restore(HookType h) {
 
 string
 Instrument::getRegVal(string reg, HookType h) {
-
   vector <string> reg_list;
   if(h == HookType::ADDRS_TRANS)
     return reg;
@@ -632,7 +631,10 @@ Instrument::getRegVal(string reg, HookType h) {
     return val;
   }
   else if (reg.find ("rsp") != string::npos) {
+    DEF_LOG("Getting reg val: "<<reg);
     int pos = reg.find ("(");
+    if(pos == string::npos)
+      return val;
     uint64_t adjst = 0;
     if (pos != 0) {
       string off = reg.substr (0, pos);

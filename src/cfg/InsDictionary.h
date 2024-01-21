@@ -187,7 +187,7 @@ namespace SBI {
           reg_ = op1.substr(pos + 1,4); 
           if(offset_pos == string::npos) {
             base = 10;
-            DEF_LOG("Not sure if offset is hex....considering it decimal"<<op1);
+            //DEF_LOG("Not sure if offset is hex....considering it decimal"<<op1);
             offset_pos = op1.rfind(".", pos);
             if(offset_pos == string::npos) {
               offset_pos = op1.rfind(" ", pos);
@@ -298,11 +298,11 @@ namespace SBI {
       return false;
     }
     void init(vector <uint8_t> &hex_bytes, int location) {
-      DEF_LOG("Calling InsSemantics constructor");
+      //DEF_LOG("Calling InsSemantics constructor");
       fallThrgh_ = location + hex_bytes.size();
       for(auto & opr : OpList) {
         if(opr.source1.type_ == OperandType::CONSTANT){
-          DEF_LOG("constant source1: "<<hex<<opr.source1.constant_);
+          //DEF_LOG("constant source1: "<<hex<<opr.source1.constant_);
           if(opr.source1.op_ == OP::DEREF)
             constPtr_ = opr.source1.constant_;
           else
@@ -311,10 +311,10 @@ namespace SBI {
         else if(opr.source1.ripRltv()) {
           isRltvAccess_ = true;
           ripRltvOfft_ = opr.source1.constant_ + fallThrgh_;
-          DEF_LOG("RIP rltv source1: "<<hex<<ripRltvOfft_);
+          //DEF_LOG("RIP rltv source1: "<<hex<<ripRltvOfft_);
         }
         if(opr.source2.type_ == OperandType::CONSTANT){
-          DEF_LOG("constant source2: "<<hex<<opr.source2.constant_);
+          //DEF_LOG("constant source2: "<<hex<<opr.source2.constant_);
           if(opr.source2.op_ == OP::DEREF)
             constPtr_ = opr.source2.constant_;
           else
@@ -323,7 +323,7 @@ namespace SBI {
         else if(opr.source2.ripRltv()) {
           isRltvAccess_ = true;
           ripRltvOfft_ = opr.source2.constant_ + fallThrgh_;
-          DEF_LOG("RIP rltv source2: "<<hex<<ripRltvOfft_);
+          //DEF_LOG("RIP rltv source2: "<<hex<<ripRltvOfft_);
         }
         //if(opr.source3.type_ == OperandType::CONSTANT){
         //  DEF_LOG("constant source3: "<<hex<<opr.source3.constant_);
@@ -338,7 +338,7 @@ namespace SBI {
         //  DEF_LOG("RIP rltv source3: "<<hex<<ripRltvOfft_);
         //}
         if(opr.target.type_ == OperandType::CONSTANT){
-          DEF_LOG("constant target: "<<hex<<opr.target.constant_);
+          //DEF_LOG("constant target: "<<hex<<opr.target.constant_);
           if(opr.target.op_ == OP::DEREF)
             constPtr_ = opr.target.constant_;
           else
@@ -347,11 +347,11 @@ namespace SBI {
         else if(opr.target.ripRltv()) {
           isRltvAccess_ = true;
           ripRltvOfft_ = opr.target.constant_ + fallThrgh_;
-          DEF_LOG("RIP rltv target: "<<hex<<ripRltvOfft_);
+          //DEF_LOG("RIP rltv target: "<<hex<<ripRltvOfft_);
         }
         for(auto & un_op : opr.unknownOperands) {
           if(un_op.type_ == OperandType::CONSTANT){
-            DEF_LOG("constant unknown: "<<hex<<opr.source1.constant_);
+            //DEF_LOG("constant unknown: "<<hex<<opr.source1.constant_);
             if(un_op.op_ == OP::DEREF)
               constPtr_ = un_op.constant_;
             else
@@ -360,7 +360,7 @@ namespace SBI {
           else if(un_op.ripRltv()) {
             isRltvAccess_ = true;
             ripRltvOfft_ = un_op.constant_ + fallThrgh_;
-            DEF_LOG("RIP rltv unknown: "<<hex<<ripRltvOfft_);
+            //DEF_LOG("RIP rltv unknown: "<<hex<<ripRltvOfft_);
           }
         }
       }
@@ -372,7 +372,7 @@ namespace SBI {
     public:
       JUMP(string &asm_opcode, string &operand, vector <uint8_t> &hex_bytes, 
            int location, bool is_bnd) {
-        DEF_LOG("Calling JUMP constructor");
+        //DEF_LOG("Calling JUMP constructor");
         Operation o;
         isJump_ = true;
         if(asm_opcode == "jmpq")
@@ -681,7 +681,7 @@ namespace SBI {
     UNKNOWNINS() {}
     UNKNOWNINS(string & mne, string & op, vector <uint8_t> &hex_bytes, int
         location) {
-      DEF_LOG("Calling unknown constructor with params");
+      //DEF_LOG("Calling unknown constructor with params");
       Operation o;
       auto words = utils::split_string(op,",");
       for(auto & w : words) {

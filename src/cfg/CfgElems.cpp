@@ -2611,7 +2611,7 @@ CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
         auto bb_parents = bb->parents(); 
         for (auto & p_bb : bb_parents) {
           DEF_LOG("Checking if parent is call: "<<hex<<p_bb->start());
-          if ((p_bb->isCall() || p_bb->lastIns()->isUnconditionalJmp()) &&
+          if ((p_bb->isCall()/* || p_bb->lastIns()->isUnconditionalJmp()*/) &&
               p_bb->target() == bb->start()) {
             drct_call_func = true;
             DEF_LOG("Entry is call target..parent:"<<hex<<p_bb->start());

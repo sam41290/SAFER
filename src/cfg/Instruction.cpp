@@ -39,7 +39,7 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
   string asm_opcode = prefixChk(mne);
   string operand(op_str);
   //if(address == 0x139517)
-  DEF_LOG(hex<<address<<": "<<asm_opcode<<" "<<operand);
+  //DEF_LOG(hex<<address<<": "<<asm_opcode<<" "<<operand);
   set <string> cf_ins_set = utils::get_cf_ins_set();
   set <string> uncond_cf_ins_set = utils::get_uncond_cf_ins_set();
   if(asm_opcode.find(",") != string::npos) {
@@ -390,6 +390,7 @@ Instruction::setInstParams(HookType h) {
   instParams_.push_back("$" + to_string(loc_));
   paramIns_.push_back("mov");
   if(sem_->isIndrctCf_) {
+    DEF_LOG("Getting reg val: "<<asmIns_<<" "<<operand);
     //if(get_decode()) 
     //  instParams_[(int)InstArg::INDIRECT_TARGET] = getIcfReg(op1_);
     //else 
@@ -403,9 +404,11 @@ Instruction::setInstParams(HookType h) {
     instParams_.push_back("$0");
   paramIns_.push_back("mov");
   if(sem_->isLea_) {
+    DEF_LOG("Getting reg val: "<<asmIns_<<" "<<operand);
     size_t pos = operand.find (",");
     string pointer = operand.substr(0, pos);
-    string reg = operand.substr(pos + 2);
+    pos = operand.find("%",pos);
+    string reg = operand.substr(pos);
     instParams_.push_back(getRegVal(reg,h));
   }
   else

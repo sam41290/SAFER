@@ -43,11 +43,16 @@ main (int argc, char *args[]) {
   arglst4.push_back(InstArg::REG_RAX);
   b.registerInstrumentation(InstPoint::SYSCALL_CHECK,"SYSCHK",arglst4);
 
+
   if(RA_OPT == false) {
     vector<InstArg> arglst4;
     b.registerInstrumentation(InstPoint::RET_CHK,"GTF_stack",arglst4);
   }
 #endif
+  vector<InstArg> arglst5;
+  arglst5.push_back(InstArg::REG_RAX);
+  arglst5.push_back(InstArg::RIP);
+  b.registerInstrumentation(InstPoint::BASIC_BLOCK,"LOG",arglst5);
   SHSTK(b)
   b.rewrite();
   return 0;

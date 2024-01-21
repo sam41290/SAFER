@@ -207,8 +207,10 @@ Binary::hookPoints() {
   for(auto & f : funcMap_) {
     auto entries = f.second->allEntries();
     for(auto & e : entries) {
-      if(added.find(e) == added.end() && codeCFG_->definiteCode(e))
+      if(added.find(e) == added.end() && codeCFG_->definiteCode(e)) {
+        DEF_LOG("Adding hook point: "<<hex<<e);
         hookPoints_.push_back(e);
+      }
     }
   }
   hookPoints_.push_back(codeSegmentEnd_); //Pushing code segment end to ease space calculation.
@@ -278,6 +280,10 @@ Binary::calcTrampData() {
     }
     uint64_t space = next_ptr - hookPoints_[i];
     auto p = pointerMap_.find(hookPoints_[i]);
+    if(p == pointerMap_.end()) {
+      DEF_LOG("No pointer for hook point: "<<hex<<hookPoints_[i]);
+      continue;
+    }
     if(p->second->type() == PointerType::CP) {
       if(space >= 5) {
         DEF_LOG("Phase 1 Space found for hook: "<<hex<<hookPoints_[i]<<": "<<5);
@@ -1132,7 +1138,6 @@ Binary::genInstAsm() {
 
   ofstream ofile;
   ofile.open("inst_text.s", ofstream::out | ofstream::app);
-  /*
   ofile<<exeNameLabel()<<":\n";
   for(unsigned int i = 0; i < exeName.length(); i++)
     ofile<<".byte "<<(uint32_t)exeName[i]<<"\n";
@@ -1189,7 +1194,6 @@ Binary::genInstAsm() {
     prev_sec = sec_start;
     free(section_data);
   }
-  */
   ofile<<".align 16\n";
   ofile<<".GTF_stack:\n";
   //ofile<<"jmp *.dispatcher_stack(%rip)\n";
