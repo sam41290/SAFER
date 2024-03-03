@@ -39,7 +39,7 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
   string asm_opcode = prefixChk(mne);
   string operand(op_str);
   //if(address == 0x139517)
-  DEF_LOG(hex<<address<<": "<<asm_opcode<<" "<<operand);
+  //DEF_LOG(hex<<address<<": "<<asm_opcode<<" "<<operand);
   set <string> cf_ins_set = utils::get_cf_ins_set();
   set <string> uncond_cf_ins_set = utils::get_uncond_cf_ins_set();
   if(asm_opcode.find(",") != string::npos) {
@@ -390,6 +390,7 @@ Instruction::setInstParams(HookType h) {
   instParams_.push_back("$" + to_string(loc_));
   paramIns_.push_back("mov");
   if(sem_->isIndrctCf_) {
+    DEF_LOG("Getting reg val: "<<asmIns_<<" "<<operand);
     //if(get_decode()) 
     //  instParams_[(int)InstArg::INDIRECT_TARGET] = getIcfReg(op1_);
     //else 
@@ -403,9 +404,11 @@ Instruction::setInstParams(HookType h) {
     instParams_.push_back("$0");
   paramIns_.push_back("mov");
   if(sem_->isLea_) {
+    DEF_LOG("Getting reg val: "<<asmIns_<<" "<<operand);
     size_t pos = operand.find (",");
     string pointer = operand.substr(0, pos);
-    string reg = operand.substr(pos + 2);
+    pos = operand.find("%",pos);
+    string reg = operand.substr(pos);
     instParams_.push_back(getRegVal(reg,h));
   }
   else
@@ -464,8 +467,9 @@ Instruction::instrument() {
     vector<InstArg> allArgs= instArgs()[tgt.second];
     string args = "";
     if(tgt.first == InstPoint::ADDRS_TRANS) {
-      if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK))
-        continue;
+      //if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK) ||
+      //   alreadyInstrumented(InstPoint::SHSTK_FUNCTION_CALL))
+       // continue;
       args += "mov " + instParams_[(int)InstArg::INDIRECT_TARGET] + ",%rax\n";
     }
     else if(tgt.first == InstPoint::RET_CHK) {
@@ -481,10 +485,10 @@ Instruction::instrument() {
         args += "mov 0(%rsp),%rax\n";
       }
     }
-    else if (tgt.first == InstPoint::SHSTK_FUNCTION_CALL) {
-      args += fallSym();
-      DEF_LOG("call arg is: " << args);
-    }
+    //else if (tgt.first == InstPoint::SHSTK_FUNCTION_CALL) {
+    //  args += fallSym();
+    //  DEF_LOG("call arg is: " << args);
+    //}
     else if(tgt.first == InstPoint::SHSTK_CANARY_EPILOGUE) {
       DEF_LOG("operand 2 is : " << op1());
       args += op1().substr(op1().find(",") + 1);
@@ -554,20 +558,31 @@ Instruction::instrument() {
     else if(tgt.first == InstPoint::LEGACY_SHADOW_STACK) {
       //DEF_LOG("Instrumenting returns: "<<hex<<loc_);
       if(isCall()) {
-        if(sem_->isIndrctCf_)
-          asmIns_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_INDRCT_CALL,fallSym());
-        else
+        if(sem_->isIndrctCf_ == false)
+        //  instAsmPre_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_INDRCT_CALL,fallSym());
+        //else
           asmIns_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_CALL,fallSym());
       }
+      //else if(isJump())
+      //  instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_JMP);
       else
-        asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_RET);
+        instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_RET);
       forcePrintAsm_ = true;
     }
     else if(tgt.first == InstPoint::SYSCALL_CHECK)
       instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SYSCALL_CHECK);
-    else if (tgt.first == InstPoint::SHSTK_FUNCTION_CALL) {
-      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_FUNCTION_CALL);
-    }
+    //else if (tgt.first == InstPoint::SHSTK_FUNCTION_CALL) {
+    //  if(isCall()) {
+    //    //if(sem_->isIndrctCf_)
+    //    //  asmIns_ = generate_hook(op1(),args,"call",HookType::SHSTK_INDRCT_CALL,fallSym());
+    //    //else
+    //    if(sem_->isIndrctCf_ == false)
+    //      asmIns_ = generate_hook(op1(),args,"call",HookType::SHSTK_DRCT_CALL,fallSym());
+    //  }
+    //  else
+    //    asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_RET);
+    //  forcePrintAsm_ = true;
+    //}
     else if (tgt.first == InstPoint::SHSTK_FUNCTION_RET) {
       instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_FUNCTION_RET);
     }
@@ -579,7 +594,10 @@ Instruction::instrument() {
     }
     else if(tgt.first == InstPoint::SHSTK_FUNCTION_ENTRY) {
       DEF_LOG("Instrumenting function entry for shstk: "<<args);
-      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_FUNCTION_ENTRY);
+      if(asmIns_.find("endbr") != string::npos)
+        instAsmPost_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_FUNCTION_ENTRY);
+      else
+        instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_FUNCTION_ENTRY);
       //forcePrintAsm_ = true;
       //DEF_LOG(hex<<location()<<": canary inst: "<< asmIns_);
     }

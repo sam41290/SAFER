@@ -147,41 +147,6 @@ Binary::disassemble() {
   pointerMap_ = codeCFG_->pointers();
   funcMap_ = codeCFG_->funcMap();
   //ofstream ofile("tramp.s");
-  for(auto it = pointerMap_.begin(); it != pointerMap_.end(); it++) {
-    if(it->second->type() == PointerType::CP /*&& it->second->encodable() == true*/) {
-      string sym = codeCFG_->getSymbol(it->first);
-      manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
-                            ".8byte " + sym + " - " + ".elf_header_start",
-                            sym, 0);
-      if(FULL_ADDR_TRANS == false)
-        manager_->ptrsToEncode(it->first);
-    }
-    else if(it->second->type() != PointerType::DP){
-      string sym = codeCFG_->getSymbol(it->first);
-      if(sym != "") {
-        manager_->addAttEntry(it->first,".8byte " + to_string(it->first),
-                              ".8byte " + sym + " - " + ".elf_header_start",
-                              sym, 0);
-      }
-    }
-  }
-  unordered_set<uint64_t> added;
-  for(auto & x : all_call_sites) {
-    auto ptr = x.second.landing_pad;
-    if(added.find(ptr) == added.end()) {
-      added.insert(ptr);
-      string sym = codeCFG_->getSymbol(ptr);
-      if(sym != "") {
-        manager_->addAttEntry(ptr,".8byte " + sym + " - .elf_header_start",
-                              ".8byte " + sym + " - " + ".elf_header_start",
-                              sym, 1);
-        //if(RA_OPT == false)
-        //  manager_->addAttEntry(ptr,".8byte " + to_string(ptr),
-        //                      ".8byte " + sym + " - " + ".elf_header_start",
-        //                      sym, 0);
-      }
-    }
-  }
 
 
   /*
@@ -242,8 +207,10 @@ Binary::hookPoints() {
   for(auto & f : funcMap_) {
     auto entries = f.second->allEntries();
     for(auto & e : entries) {
-      if(added.find(e) == added.end() && codeCFG_->definiteCode(e))
+      if(added.find(e) == added.end() && codeCFG_->definiteCode(e)) {
+        DEF_LOG("Adding hook point: "<<hex<<e);
         hookPoints_.push_back(e);
+      }
     }
   }
   hookPoints_.push_back(codeSegmentEnd_); //Pushing code segment end to ease space calculation.
@@ -313,6 +280,10 @@ Binary::calcTrampData() {
     }
     uint64_t space = next_ptr - hookPoints_[i];
     auto p = pointerMap_.find(hookPoints_[i]);
+    if(p == pointerMap_.end()) {
+      DEF_LOG("No pointer for hook point: "<<hex<<hookPoints_[i]);
+      continue;
+    }
     if(p->second->type() == PointerType::CP) {
       if(space >= 5) {
         DEF_LOG("Phase 1 Space found for hook: "<<hex<<hookPoints_[i]<<": "<<5);
@@ -426,10 +397,54 @@ Binary::rewrite() {
 #endif
   if(disasm_only)
     exit(0);
-  genInstAsm();
   //install_segfault_handler();
   //check_segfault_handler();
   instrument();
+
+  for(auto & ptr : pointerMap_) {
+    string sym = "";
+    auto bb = codeCFG_->getBB(ptr.first);
+    if(bb != NULL && 
+      (bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY) ||
+       bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_TRAMP))) {
+      sym = bb->shStkTrampSym();
+    }
+    else
+      sym = codeCFG_->getSymbol(ptr.first);
+    if(ptr.second->type() == PointerType::CP /*&& it->second->encodable() == true*/) {
+      manager_->addAttEntry(ptr.first,".8byte " + to_string(ptr.first),
+                            ".8byte " + sym + " - " + ".elf_header_start",
+                            sym, 0);
+      if(FULL_ADDR_TRANS == false)
+        manager_->ptrsToEncode(ptr.first);
+    }
+    else if(ptr.second->type() != PointerType::DP){
+      if(sym != "") {
+        manager_->addAttEntry(ptr.first,".8byte " + to_string(ptr.first),
+                              ".8byte " + sym + " - " + ".elf_header_start",
+                              sym, 0);
+      }
+    }
+  }
+
+  unordered_set<uint64_t> added;
+  for(auto & x : all_call_sites) {
+    auto ptr = x.second.landing_pad;
+    if(added.find(ptr) == added.end()) {
+      added.insert(ptr);
+      string sym = codeCFG_->getSymbol(ptr);
+      if(sym != "") {
+        manager_->addAttEntry(ptr,".8byte " + sym + " - .elf_header_start",
+                              ".8byte " + sym + " - " + ".elf_header_start",
+                              sym, 1);
+        //if(RA_OPT == false)
+        //  manager_->addAttEntry(ptr,".8byte " + to_string(ptr),
+        //                      ".8byte " + sym + " - " + ".elf_header_start",
+        //                      sym, 0);
+      }
+    }
+  }
+  genInstAsm();
   string file_name = print_assembly();
   manager_->rewrite(file_name);
 #ifdef STATIC_TRANS
@@ -1125,7 +1140,6 @@ Binary::genInstAsm() {
 
   ofstream ofile;
   ofile.open("inst_text.s", ofstream::out | ofstream::app);
-  /*
   ofile<<exeNameLabel()<<":\n";
   for(unsigned int i = 0; i < exeName.length(); i++)
     ofile<<".byte "<<(uint32_t)exeName[i]<<"\n";
@@ -1182,7 +1196,6 @@ Binary::genInstAsm() {
     prev_sec = sec_start;
     free(section_data);
   }
-  */
   ofile<<".align 16\n";
   ofile<<".GTF_stack:\n";
   //ofile<<"jmp *.dispatcher_stack(%rip)\n";
@@ -1226,7 +1239,9 @@ Binary::genInstAsm() {
     ofile<<atf_line_tt<<endl;
   }
   ifile.close();
-  ofile<<shadowTramp();
+  //string shstk_code = directCallShstkTramp();
+  //ofile<<shadowTramp(shstk_code);
+
   //ofile<<"jmp *.gtt(%rip)\n";
   string shstk_init_file(TOOL_PATH"src/instrument/init_shstk.s");
   ifile.open(shstk_init_file);
@@ -1235,7 +1250,8 @@ Binary::genInstAsm() {
     ofile << shstk_line << endl;
   }
   ifile.close();
-  if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK)) {
+  if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK) ||
+     alreadyInstrumented(InstPoint::SHADOW_STACK)) {
     ofile<<codeCFG_->shStkTramps();
   }
   ofile<<".SYSCHK:\n";

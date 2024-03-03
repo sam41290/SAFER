@@ -103,7 +103,7 @@ cd ${TOOL_PATH}/${bin}_run
   #make clean
 #fi
 
-make clean
+#make clean
 make
 ./run.sh $binpath > ${binpath}.log
 cd ${wd}

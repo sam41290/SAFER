@@ -395,24 +395,12 @@ class GttAtt : public Encode {
       inst_code += "jmp .GTF_translate\n";
       return inst_code;
     }
-    string shadowTramp() {
+    string shadowTramp(string &shstk_code) {
+
       //Assume that rax has target
       string inst_code = "";
       inst_code += ".shadow_tramp:\n";
-      inst_code += "cmpq $0,%fs:0x78\n";
-      inst_code += "jne .push_ra\n";
-      inst_code += "callq .init_shstk\n";
-      inst_code += ".push_ra:\n";
-      inst_code += "addq $16,%fs:0x78\n";
-      inst_code += "push %rax\n";
-      inst_code += "mov %fs:0x78,%rax\n";
-      inst_code += "push %rbx\n";
-      inst_code += "mov 16(%rsp),%rbx\n";
-      inst_code += "mov %rbx,-8(%rax)\n";
-      inst_code += "lea 16(%rsp),%rbx\n";
-      inst_code += "mov %rbx,-16(%rax)\n";
-      inst_code += "pop %rbx\n";
-      inst_code += "pop %rax\n";
+      inst_code += shstk_code + "\n";
       inst_code += "cmp $0,%rax\njg .at_tramp\n";
       inst_code +=  "sub $16,%rsp\n";
       inst_code +=  "mov %rcx,0(%rsp)\n";
@@ -548,24 +536,11 @@ class MultInv : public Encode {
       inst_code += "jmp .GTF_translate\n";
       return inst_code;
     }
-    string shadowTramp() {
+    string shadowTramp(string &shstk_code) {
       //Assume that rax has target
       string inst_code = "";
       inst_code += ".shadow_tramp:\n";
-      inst_code += "cmpq $0,%fs:0x78\n";
-      inst_code += "jne .push_ra\n";
-      inst_code += "callq .init_shstk\n";
-      inst_code += ".push_ra:\n";
-      inst_code += "addq $16,%fs:0x78\n";
-      inst_code += "push %rax\n";
-      inst_code += "mov %fs:0x78,%rax\n";
-      inst_code += "push %rbx\n";
-      inst_code += "mov 16(%rsp),%rbx\n";
-      inst_code += "mov %rbx,-8(%rax)\n";
-      inst_code += "lea 16(%rsp),%rbx\n";
-      inst_code += "mov %rbx,-16(%rax)\n";
-      inst_code += "pop %rbx\n";
-      inst_code += "pop %rax\n";
+      inst_code += shstk_code + "\n";
       inst_code += "cmp $0,%rax\n";
       inst_code += "jg .at_tramp\n";
       inst_code += "push %rdx\n";

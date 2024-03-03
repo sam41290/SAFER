@@ -20,19 +20,19 @@ then
 elif [ $# -eq 3 ]
 then
     args=$2' '$3
-    argstogrep="${2}\n${3}"
+    argstogrep=${2}"\n"${3}
 elif [ $# -eq 4 ]
 then
     args=$2' '$3' '$4;
-    argstogrep=${2}'\n'${3}'\n'${4}
+    argstogrep=${2}"\n"${3}"\n"${4}
 elif [ $# -eq 5 ]
 then
 	args=$2' '$3' '$4' '$5;
-    argstogrep=${2}'\n'${3}'\n'${4}'\n'${5}
+    argstogrep=${2}"\n"${3}"\n"${4}"\n"${5}
 elif [ $# -eq 6 ]
 then
 	args=$2' '$3' '$4' '$5' '$6;
-    argstogrep=${2}'\n'${3}'\n'${4}'\n'${5}'\n'${6}
+    argstogrep=${2}"\n"${3}"\n"${4}"\n"${5}"\n"${6}
 fi
 
 echo "instrument args"

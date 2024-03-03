@@ -246,7 +246,7 @@ void *mymmap(uint64_t size){
   void *addr = NULL;
   uint64_t length = size;
   int prot = PROT_READ | PROT_WRITE;//PROT_READ;
-  int flags = MAP_PRIVATE | MAP_ANONYMOUS;//MAP_SHARED;
+  int flags = MAP_ANONYMOUS | MAP_SHARED | MAP_POPULATE;
     int fd = 0; int offset = 0;
     void* ret = NULL;
 

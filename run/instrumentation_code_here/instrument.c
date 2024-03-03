@@ -34,9 +34,9 @@ segfault_handler (int nSignum, siginfo_t * si, void *vcontext)
   //  context->uc_mcontext.gregs[REG_RIP]++;
 }
 
-void LOG(char *exe, uint64_t RIP, uint64_t tgt)
+void LOG(uint64_t tgt, uint64_t rip)
 {
-  myprintf("::::::%s ||RIP: %p target: %p\n", exe,RIP,tgt);
+  myprintf("RIP value: %p RAX value: %p\n", rip,tgt);
 }
 
 void LOG2(char *exe, uint64_t RIP, uint64_t tgt)

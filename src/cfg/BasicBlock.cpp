@@ -102,7 +102,7 @@ BasicBlock::splitNoNew(uint64_t address) {
     return;
   }
   uint64_t new_bb_start = address;
-  uint64_t new_bb_end = end_;
+  //uint64_t new_bb_end = end_;
 
   vector<Instruction *> newInsList1, newInsList2;
   vector<Instruction *> :: iterator splitPoint;
@@ -301,7 +301,9 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
       if(targetBB_ != NULL) {
         it->asmIns(it->mnemonic() + " " + targetBB_->label());
         it->op1(targetBB_->label());
-        if(it->isCall() && it->alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK)) {
+        if(it->isCall() && 
+           it->alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK) &&
+           targetBB_->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY)) {
           it->asmIns(it->mnemonic() + " " + targetBB_->shStkTrampSym());
           it->op1(targetBB_->shStkTrampSym());
         }
@@ -320,6 +322,12 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
         DEF_LOG("Call missing fall through: "<<hex<<it->location());
         it->fallBBSym(fallSym());
       }
+    }
+    if(it->location() == start_ && alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY)) {
+      string shstk_tramp = directCallShstkTramp();
+      string lbl = shStkTrampSym();
+      utils::printAsm(shstk_tramp, start_, lbl, SymBind::FORCEBIND, file_name);
+      it->isCode(false);
     }
     it->print(file_name,ins_lbl_sfx);
     //if(it->isCall()) {
@@ -392,8 +400,12 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
           else {
             for (auto & bb : rltvTgts_) {
               if(bb->start() == rip_rltv_offset) {
+                string lbl = bb->label();
+                if(bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY) ||
+                   bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_TRAMP))
+                  lbl = bb->shStkTrampSym();
                 string op = utils::symbolizeRltvAccess(it->op1(),
-                     bb->label(),rip_rltv_offset,SymBind::FORCEBIND);
+                     lbl,rip_rltv_offset,SymBind::FORCEBIND);
                 it->asmIns(it->prefix() + it->mnemonic() + " " + op);
                 it->op1(op);
                 break;
@@ -484,23 +496,23 @@ BasicBlock::instrument() {
         }
       }
     }
-    else if(p.first == InstPoint::LEGACY_SHADOW_STACK) {
-      for(auto & ins : insList_) {
-        if(CFValidity::validPrfx(ins) == false ||
-           CFValidity::validOpCode(ins) == false) {
-          continue;
-        }
-        if(ins->asmIns().find("ret") != string::npos) {
-          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
-        }
-        else if(ins->isCall() && ins->asmIns().find("syscall") == string::npos) {
-          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
-          ins->mnemonic("jmp");
-          ins->asmIns(ins->mnemonic() + " " + ins->op1());
-          ins->fallSym(ins->label() + lblSuffix() + "_fall");
-        }
-      }
-    }
+    //else if(p.first == InstPoint::LEGACY_SHADOW_STACK) {
+    //  for(auto & ins : insList_) {
+    //    if(CFValidity::validPrfx(ins) == false ||
+    //       CFValidity::validOpCode(ins) == false) {
+    //      continue;
+    //    }
+    //    if(ins->asmIns().find("ret") != string::npos) {
+    //      ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
+    //    }
+    //    else if(ins->isCall() && ins->asmIns().find("syscall") == string::npos) {
+    //      ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
+    //      ins->mnemonic("jmp");
+    //      ins->asmIns(ins->mnemonic() + " " + ins->op1());
+    //      ins->fallSym(ins->label() + lblSuffix() + "_fall");
+    //    }
+    //  }
+    //}
     else if(p.first == InstPoint::RET_CHK) {
       for(auto & ins : insList_) {
         if(CFValidity::validPrfx(ins) == false ||
@@ -543,19 +555,19 @@ BasicBlock::instrument() {
         }
       }
     }
-    else if(p.first == InstPoint::SHSTK_FUNCTION_CALL) {
-      for (auto &ins : insList_) {
-        if(CFValidity::validPrfx(ins) == false ||
-           CFValidity::validOpCode(ins) == false) {
-          continue;
-        }
-        if (ins->asmIns().find("call") != string::npos) {
-          ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
-          ins->fallSym(ins->label() + lblSuffix() + "_fall");
-          DEF_LOG("The call asm inst is: " << ins->asmIns());
-        }
-      }
-    }
+    //else if(p.first == InstPoint::SHSTK_FUNCTION_CALL) {
+    //  for (auto &ins : insList_) {
+    //    if(CFValidity::validPrfx(ins) == false ||
+    //       CFValidity::validOpCode(ins) == false) {
+    //      continue;
+    //    }
+    //    if (ins->asmIns().find("call") != string::npos) {
+    //      ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
+    //      ins->fallSym(ins->label() + lblSuffix() + "_fall");
+    //      DEF_LOG("The call asm inst is: " << ins->asmIns());
+    //    }
+    //  }
+    //}
     else if(p.first == InstPoint::SHSTK_FUNCTION_RET) {
       for (auto &ins : insList_) {
         if(CFValidity::validPrfx(ins) == false ||
