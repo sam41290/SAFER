@@ -50,7 +50,7 @@ exe=`basename $1`
 
 cp $1 ./tmp/${exe}
 
-export LD_LIBRARY_PATH=/usr/lib/ocaml:${HOME}/DASSA/src/SBD/analysis
+export LD_LIBRARY_PATH=/usr/lib/ocaml:${HOME}/SBI/src/SBD/analysis
 
 if [ "${disasm}" = "symtabledisasm" ]; then
   ./demo $1 ${disasm_only}

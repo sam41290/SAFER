@@ -90,7 +90,7 @@ eh_log(const LogData <List> &data) {
 }
 
 
-//#define DEBUG 0
+#define DEBUG 0
 
 
 #ifdef DEBUG
@@ -99,10 +99,10 @@ eh_log(const LogData <List> &data) {
 #else
 #define LOG(x)
 #define EH_LOG(x)
-#define DEF_LOG(x)
+//#define DEF_LOG(x)
 #endif
 
-//#define DEF_LOG(x)(log(__FILE__,__LINE__,LogData<None>() <<x))
+#define DEF_LOG(x)(log(__FILE__,__LINE__,LogData<None>() <<x))
 
 template <typename T1, typename T2>
   bool if_exists(T1 arg1, map <T1, T2> &arg2) {

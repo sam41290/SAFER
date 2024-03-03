@@ -1,6 +1,6 @@
 #!/bin/sh
 
-TOOL_PATH=/${HOME}/DASSA
+TOOL_PATH=/${HOME}/SBI
 
 if [ $# -lt 1 ]
 then
