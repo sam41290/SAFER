@@ -407,6 +407,10 @@ namespace SBI {
     }
     void instrument();
     void shadowStackInstrument(pair<InstPoint,string> &x);
+    void shadowStackInstrumentV2(pair<InstPoint,string> &x);
+    void shstkForDefEntries(BasicBlock *bb, pair<InstPoint,string> &x);
+    void shstkForIndrctTailCall(BasicBlock *entry, pair<InstPoint,string> &x);
+    bool findAndInstrumentCanaryProlog(BasicBlock *bb, pair<InstPoint,string> &x);
     void shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x);
     void instrument(uint64_t hook_point,string code);
     vector <JumpTable> jumpTables() { return jmpTables_; }
@@ -468,6 +472,7 @@ namespace SBI {
     int offsetFrmCanaryAddToRa(uint64_t add_loc, BasicBlock *bb);
     string shStkTramps();
   private:
+    bool shstkForCanaryProlog(BasicBlock *canary_bb, pair<InstPoint,string> &x);
     void readIndrctTgts(BasicBlock *bb,uint64_t fn_addrs);
     BasicBlock *readBB(ifstream & file);
     bool isDatainCode(uint64_t addrs);

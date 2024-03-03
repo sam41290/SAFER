@@ -150,14 +150,21 @@ Instrument::directCallShstkTramp() {
   static int counter;
   //if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK)) {
     inst_code += "endbr64\n";
+    //inst_code += "cmp $1, %fs:0x80\n";
+    //inst_code += "je .actual_entry_" + to_string(counter) + "\n";
     inst_code += "cmpq $0,%fs:0x78\n";
     inst_code += "jne .push_ra_" + to_string(counter) + "\n";
     inst_code += "callq .init_shstk\n";
     inst_code += ".push_ra_" + to_string(counter) + ":\n";
+    inst_code += "mov %r10, %fs:0x80\n";
+    inst_code += "mov %r11, %fs:0x88\n";
     inst_code += "mov %fs:0x78,%r11\n";
     inst_code += "mov 0(%rsp),%r10\n";
     inst_code += "mov %r10,(%r11)\n";
     inst_code += "addq $8,%fs:0x78\n";
+    inst_code += "mov %fs:0x80, %r10\n";
+    inst_code += "mov %fs:0x88, %r11\n";
+    inst_code += ".actual_entry_" + to_string(counter) + ":\n";
     counter++;
     return inst_code;
   //}
@@ -201,6 +208,7 @@ Instrument::generate_hook(string hook_target, string args,
     inst_code += decodeIcf(hook_target,args,mne);
   }
   else if(h == HookType::LEGACY_SHADOW_CALL) {
+    //inst_code += "movq $0, %fs:0x80\n";
     inst_code += "call " + hook_target + "\n";
     inst_code += fall_sym + ":\n";
     //inst_code += "jmp " + hook_target + "\n";
@@ -221,6 +229,7 @@ Instrument::generate_hook(string hook_target, string args,
     //counter++;
   }
   else if(h == HookType::LEGACY_SHADOW_INDRCT_CALL) {
+    //inst_code += "movq $0, %fs:0x80\n";
       //inst_code += "mov %rax,%fs:0x88\n";
       //string op = hook_target;
       //op.replace(0,1,"");
@@ -228,16 +237,27 @@ Instrument::generate_hook(string hook_target, string args,
       //inst_code += "call .shadow_tramp\n"; 
       //inst_code += fall_sym + ":\n";
   }
+  else if(h == HookType::LEGACY_SHADOW_JMP) {
+    //inst_code += "movq $1, %fs:0x80\n";
+  }
   else if(h ==  HookType::LEGACY_SHADOW_RET) {
     inst_code = inst_code + 
+                "mov %r10, %fs:0x80\n" +
+                "mov %r11, %fs:0x88\n" +
                 ".rep_pop_" + to_string(counter) + ":\n" +
                 "sub $8, %fs:0x78\n" +
                 "mov %fs:0x78,%r11\n" +
                 "mov (%rsp),%r10\n" +
                 "mov (%r11),%r11\n" +
                 "xor %r11,%r10\n" +
+                //"je .safe_ret_" + to_string(counter) + "\n" +
+                //"hlt\n" +
+                //".safe_ret_" + to_string(counter) + ":\n";// +
                 "jne .rep_pop_" + to_string(counter) + "\n" +
-                "ret\n";
+                "mov %fs:0x80, %r10\n" +
+                "mov %fs:0x88, %r11\n";
+                //"movq $0, %fs:0x80\n";
+                //"ret\n";
 
     //inst_code += "cmpq $0,%fs:0x78\n";
     //inst_code += "jg .legacy_shadow_chk_" + to_string(counter) + "\n";
@@ -393,18 +413,26 @@ Instrument::generate_hook(string hook_target, string args,
   //    inst_code += "call .shadow_tramp\n"; 
   //    inst_code += fall_sym + ":\n";
   //}
+  //else if(h == HookType::SHSTK_INDIRECT_JMP) {
+  //  //inst_code = inst_code + "movq $1, %fs:0x80\n";
+  //}
   else if (h == HookType::SHSTK_FUNCTION_RET) {
     inst_code = inst_code + 
+                "mov %r10, %fs:0x80\n" +
+                "mov %r11, %fs:0x88\n" +
                 "mov %fs:0x78,%r11\n" +
                 "mov (%r11),%r11\n" +
-                "mov %r11,(%rsp)\n";
-                //"movq (%rsp),%r10\n" +
+                //"mov %r11,(%rsp)\n";
+                "movq (%rsp),%r10\n" +
                 //"mov %fs:0x78,%r11\n" +
-                //"cmpq (%r11),%r10\n" + args + "\n" +
-                //"jne .safe_ret_" + to_string(counter) + "\n" +
-                //"ret\n" +
-                //".safe_ret_" + to_string(counter) + ":\n" +
-                //"hlt\n";
+                "cmpq %r11,%r10\n" + args + "\n" +
+                "jne .safe_ret_" + to_string(counter) + "\n" +
+                "mov %fs:0x80, %r10\n" +
+                "mov %fs:0x88, %r11\n" +
+                //"movq $0, %fs:0x80\n" +
+                "ret\n" +
+                ".safe_ret_" + to_string(counter) + ":\n" +
+                "hlt\n";
     counter++;
   }
   else if(h == HookType::SHSTK_FUNCTION_ENTRY) {
@@ -549,8 +577,10 @@ Instrument::generate_hook(string hook_target, string args,
      && h != HookType::SHSTK_FUNCTION_RET
      && h != HookType::SHSTK_FUNCTION_ENTRY
      && h != HookType::LEGACY_SHADOW_CALL
+     && h != HookType::LEGACY_SHADOW_JMP
      && h != HookType::LEGACY_SHADOW_RET
-     && h != HookType::LEGACY_SHADOW_INDRCT_CALL)
+     && h != HookType::LEGACY_SHADOW_INDRCT_CALL
+     && h != HookType::LEGACY_SHADOW_INDRCT_JMP)
     inst_code = inst_code + restore(h);
   //if(h == HookType::ADDRS_TRANS) {
   //  inst_code += mne + " *-40(%rsp)\n";

@@ -404,7 +404,9 @@ Binary::rewrite() {
   for(auto & ptr : pointerMap_) {
     string sym = "";
     auto bb = codeCFG_->getBB(ptr.first);
-    if(bb != NULL && bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY)) {
+    if(bb != NULL && 
+      (bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY) ||
+       bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_TRAMP))) {
       sym = bb->shStkTrampSym();
     }
     else
@@ -1248,10 +1250,10 @@ Binary::genInstAsm() {
     ofile << shstk_line << endl;
   }
   ifile.close();
-  //if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK) ||
-  //   alreadyInstrumented(InstPoint::SHADOW_STACK)) {
-  //  ofile<<codeCFG_->shStkTramps();
-  //}
+  if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK) ||
+     alreadyInstrumented(InstPoint::SHADOW_STACK)) {
+    ofile<<codeCFG_->shStkTramps();
+  }
   ofile<<".SYSCHK:\n";
   ofile<<"jmp *.syscall_checker(%rip)\n";
 

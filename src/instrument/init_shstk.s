@@ -16,9 +16,9 @@
   push %r15
   movq $0x9,%rax
   movq $0,%rdi
-  movq $0x800000,%rsi
+  movq $0xa00000,%rsi
   movq $0x3,%rdx
-  movq $0x22,%r10
+  movq $0x8021,%r10
   movq $-1,%r8
   movq $0,%r9
   syscall

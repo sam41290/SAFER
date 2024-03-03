@@ -63,7 +63,7 @@ Cfg::guessJumpTable() {
         DEF_LOG("8 byte val: "<<hex<<offt64<<" 4 byte val: "<<hex<<offt32);
         if(isValidIns(offt64)) {
           DEF_LOG("Potential target: "<<hex<<offt64);
-          newPointer(offt64,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt64);
+          newPointer(offt64,PointerType::UNKNOWN,PointerSource::STOREDCONST,offt64);
           i += 8;
         }
         else if(isValidIns((uint32_t)(offt32 + p.first))) {
@@ -79,7 +79,7 @@ Cfg::guessJumpTable() {
         }
         else if(isValidIns(offt32)) {
           DEF_LOG("Potential target: "<<hex<<offt32);
-          newPointer(offt32,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt32);
+          newPointer(offt32,PointerType::UNKNOWN,PointerSource::STOREDCONST,offt32);
           i += 4;
         }
         else
@@ -117,7 +117,7 @@ Cfg::guessJumpTable() {
         utils::READ_FROM_FILE(exePath_, (void *) &offt64, file_offt,stride);
         if(isValidIns(offt64)) {
           DEF_LOG("Potential target: "<<hex<<offt64);
-          newPointer(offt64,PointerType::UNKNOWN,PointerSource::JUMPTABLE,offt64);
+          newPointer(offt64,PointerType::UNKNOWN,PointerSource::STOREDCONST,offt64);
         }
         else if(isValidIns(offt64 + base)) {
           DEF_LOG("Potential target: "<<hex<<offt64 + base);

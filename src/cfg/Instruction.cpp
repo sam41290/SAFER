@@ -558,14 +558,15 @@ Instruction::instrument() {
     else if(tgt.first == InstPoint::LEGACY_SHADOW_STACK) {
       //DEF_LOG("Instrumenting returns: "<<hex<<loc_);
       if(isCall()) {
-        //if(sem_->isIndrctCf_)
-        //  asmIns_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_INDRCT_CALL,fallSym());
-        //else
         if(sem_->isIndrctCf_ == false)
+        //  instAsmPre_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_INDRCT_CALL,fallSym());
+        //else
           asmIns_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_CALL,fallSym());
       }
+      //else if(isJump())
+      //  instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_JMP);
       else
-        asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_RET);
+        instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_RET);
       forcePrintAsm_ = true;
     }
     else if(tgt.first == InstPoint::SYSCALL_CHECK)

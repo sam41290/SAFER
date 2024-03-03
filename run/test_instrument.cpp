@@ -49,10 +49,10 @@ main (int argc, char *args[]) {
     b.registerInstrumentation(InstPoint::RET_CHK,"GTF_stack",arglst4);
   }
 #endif
-  vector<InstArg> arglst5;
-  arglst5.push_back(InstArg::REG_RAX);
-  arglst5.push_back(InstArg::RIP);
-  b.registerInstrumentation(InstPoint::BASIC_BLOCK,"LOG",arglst5);
+  //vector<InstArg> arglst5;
+  //arglst5.push_back(InstArg::REG_RAX);
+  //arglst5.push_back(InstArg::RIP);
+  //b.registerInstrumentation(InstPoint::BASIC_BLOCK,"LOG",arglst5);
   SHSTK(b)
   b.rewrite();
   return 0;

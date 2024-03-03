@@ -401,7 +401,8 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
             for (auto & bb : rltvTgts_) {
               if(bb->start() == rip_rltv_offset) {
                 string lbl = bb->label();
-                if(bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY))
+                if(bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY) ||
+                   bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_TRAMP))
                   lbl = bb->shStkTrampSym();
                 string op = utils::symbolizeRltvAccess(it->op1(),
                      lbl,rip_rltv_offset,SymBind::FORCEBIND);
