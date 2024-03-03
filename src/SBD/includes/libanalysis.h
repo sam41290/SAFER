@@ -44,6 +44,8 @@ namespace analysis_new {
    void analyse();
    int uninit();
    bool preserved(const std::vector<std::string>& regs);
+   std::unordered_map<int32_t,int32_t> stack_height();
+
    // std::vector<std::tuple<int32_t,int32_t,int32_t,int32_t,int32_t,int32_t>> jump_table();
    JTable jump_table();
    void stop();

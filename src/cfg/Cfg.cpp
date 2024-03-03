@@ -389,6 +389,8 @@ Cfg::checkLockPrefix(BasicBlock *bb ,code_type t) {
     Instruction *last_ins = bb->lastIns();
     vector <Instruction *> fall_through_ins
       = disassembler_->getIns(fall_through,2);
+    if(fall_through_ins.size() <= 0)
+      return;
     if(fall_through_ins[0]->prefix().find("lock") != string::npos) {
       target = 0;
       bb->target(0);
@@ -1524,20 +1526,20 @@ Cfg::genCFG() {
 #endif
 
 #ifdef KNOWN_CODE_POINTER_ROOT
-#ifdef DISASMONLY
-  if(utils::file_exists("tmp/cfg.present")) {
-    LOG("Cfg already present. Skipping disassembly and reading cfg");
-    readCfg();
-    linkAllBBs();
-    classifyPtrs();
-  }
-  else {
-    LOG("Cfg not present. Starting disassembly");
-    cnsrvtvDisasm();
-  }
-#else
+//#ifdef DISASMONLY
+//  if(utils::file_exists("tmp/cfg.present")) {
+//    LOG("Cfg already present. Skipping disassembly and reading cfg");
+//    readCfg();
+//    linkAllBBs();
+//    classifyPtrs();
+//  }
+//  else {
+//    LOG("Cfg not present. Starting disassembly");
+//    cnsrvtvDisasm();
+//  }
+//#else
   cnsrvtvDisasm();
-#endif
+//#endif
 #ifdef CFGCONSISTENCYCHECK
   saveCnsrvtvCode();
   cfgConsistencyAnalysis();
