@@ -8,6 +8,7 @@ bool (*CFValidity::InsValidators_[4])(Instruction *);
 vector <InsValidityRules>  CFValidity::insRule_;
 unordered_set <uint64_t> CFValidity::invalidIns_;
 unordered_set <uint64_t> CFValidity::validIns_;
+//unordered_set <uint64_t> CFValidity::validCF_;
 
 extern bool compareBB(BasicBlock *A, BasicBlock *B);
 
@@ -96,7 +97,7 @@ CFValidity::validIns(vector <BasicBlock *> &bb_list) {
 
 bool 
 CFValidity::validCFTransfer(vector <BasicBlock *> &bbList) {
-  //DEF_LOG("Checking CF validity");
+  DEF_LOG("Checking CF validity");
   sort(bbList.begin(),bbList.end(),compareBB);
   bool valid = true;
   int size = bbList.size();
@@ -106,7 +107,8 @@ CFValidity::validCFTransfer(vector <BasicBlock *> &bbList) {
     if(bbList[i]->boundary() > bbList[i + 1]->start()) {
       auto ins = bbList[i]->getIns(bbList[i + 1]->start());
       if(ins == NULL) {
-        DEF_LOG("Boundary exceeds: "<<hex<<bbList[i + 1]->start());
+        DEF_LOG("Boundary exceeds: "<<hex<<bbList[i]->start()<<" - "
+                <<bbList[i]->boundary()<<bbList[i + 1]->start());
         valid = false;
         break;
       }
@@ -146,6 +148,7 @@ CFValidity::validCFTransfer(vector <BasicBlock *> &bbList) {
          last_ins->isIndirectCf()) {
         exit_point = true;
       }
+
       //DEF_LOG("BB: "<<hex<<bb->start()<<" last ins: "
       //    <<hex<<last_ins->location()<<" "
       //    <<last_ins->asmIns()<<" "<<last_ins->isIndirectCf()

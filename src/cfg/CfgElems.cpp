@@ -122,6 +122,7 @@ CfgElems::otherUseOfJmpTbl(JumpTable &j) {
 
 void
 CfgElems::chkJmpTblRewritability() {
+  DEF_LOG("Checking jump table rewritablility");
 #ifdef STATIC_TRANS
   for(auto & j : jmpTables_) {
     auto loc_ptr = ptr(j.location());
@@ -676,7 +677,9 @@ CfgElems::conflictingBBs(uint64_t addrs) {
   }
   auto bb = getBB(addrs);
   if(bb != NULL) {
-    for(auto i = bb->start(); i < bb->boundary(); i++) {
+    auto end = bb->boundary();
+    auto start = bb->start();
+    for(auto i = start; i < end; i++) {
       if(bb->noConflict(i) == false) {
         auto cnf_bb = getBB(i);
         if(cnf_bb != NULL)
@@ -1207,11 +1210,11 @@ void
 CfgElems::markAsDefCode(uint64_t addrs, bool force) {
   auto bb = getBB(addrs);
   if(bb == NULL) {
-    LOG("No BB for address: "<<hex<<addrs);
+    DEF_LOG("No BB for address: "<<hex<<addrs);
     if(force) {
       bb = getDataBlock(addrs);
       if(bb == NULL) {
-        LOG("No data BB for address: "<<hex<<addrs);
+        DEF_LOG("No data BB for address: "<<hex<<addrs);
         exit(0);
       }
     }
@@ -1339,8 +1342,8 @@ CfgElems::validEntry(uint64_t entry) {
 BBType
 CfgElems::getBBType(uint64_t bbAddrs) {
   //LOG("Getting bb type: "<<hex<<bbAddrs);
-  auto fn = is_within(bbAddrs,funcMap_);
-  BasicBlock *bb = fn->second->getBB(bbAddrs);
+  //auto fn = is_within(bbAddrs,funcMap_);
+  BasicBlock *bb = getBB(bbAddrs);
   if(bb != NULL)
     return bb->type();
   return BBType::NA;
@@ -1348,7 +1351,9 @@ CfgElems::getBBType(uint64_t bbAddrs) {
 
 BasicBlock *
 CfgElems::getBB(uint64_t addrs) {
-  //LOG("Getting BB: "<<hex<<addrs);
+  //DEF_LOG("Getting BB: "<<hex<<addrs);
+  if(disassembler_->invalid(addrs))
+    return NULL;
   if(bbCache_.find(addrs) != bbCache_.end())
     return bbCache_[addrs];
   auto fn = is_within(addrs,funcMap_);
@@ -1363,6 +1368,8 @@ CfgElems::getBB(uint64_t addrs) {
 
 BasicBlock *
 CfgElems::withinBB(uint64_t addrs) {
+  if(bbCache_.find(addrs) != bbCache_.end())
+    return bbCache_[addrs];
   auto fn = is_within(addrs,funcMap_);
   if(fn == funcMap_.end())
     return NULL;
@@ -1386,6 +1393,18 @@ CfgElems::isValidIns(uint64_t addrs) {
   return false;
 }
 
+bool
+CfgElems::disassembled(uint64_t addrs) {
+  //auto bb = withinBB(addrs);
+  //if(bb != NULL) {
+  //  if(bb->isValidIns(addrs))
+  //    return true;
+  //}
+  if(disassembled_.find(addrs) != disassembled_.end())
+    return true;
+  return false;
+}
+
 void
 CfgElems::addBBtoFn(BasicBlock *bb, PointerSource t) {
   uint64_t addrs = bb->start();
@@ -1395,7 +1414,7 @@ CfgElems::addBBtoFn(BasicBlock *bb, PointerSource t) {
   if(fn != funcMap_.end()) {
     if(bb->boundary() >= fn->first) {
       vector <Instruction *> insLst = bb->insList();
-      for(auto ins : insLst) {
+      for(auto & ins : insLst) {
         uint64_t loc = ins->location();
         if(loc >= fn->first) {
           BasicBlock *newbb = bb->split(loc);
@@ -1416,8 +1435,10 @@ CfgElems::addBBtoFn(BasicBlock *bb, PointerSource t) {
 void
 CfgElems::removeBB(BasicBlock *bb) {
   LOG("Removing BB: "<<hex<<bb->start()<<" "<<hex<<bb);
+  auto addrs = bb->start();
   auto fn = is_within(bb->start(),funcMap_);
   fn->second->removeBB(bb);
+  bbCache_[addrs] = NULL;
 }
 
 uint64_t 
@@ -1433,7 +1454,14 @@ CfgElems::isValidRoot(uint64_t addrs, code_type t) {
   if(fn == funcMap_.end())
     return 0;
   //LOG("Within function: "<<hex<<fn->first);
-  BasicBlock *bb = fn->second->getBB(addrs);
+  if(t == code_type::CODE && fn->second->misaligned(addrs))
+    return 0;
+  if(disassembled_.find(addrs) == disassembled_.end())
+    return 1;
+  if(bbCache_.find(addrs) != bbCache_.end() && bbCache_[addrs] != NULL)
+    return addrs;
+  DEF_LOG("Address already disassembled...splitting: "<<hex<<addrs);
+  BasicBlock *bb = fn->second->splitAndGet(addrs);
   if(bb == NULL) {
 #ifdef GROUND_TRUTH
     if(fn->second->misaligned(addrs)) {
@@ -1443,10 +1471,12 @@ CfgElems::isValidRoot(uint64_t addrs, code_type t) {
 #endif
     //if(t == code_type::GAP)
     //  return 1;
-    if(t == code_type::CODE && fn->second->misaligned(addrs))
-      return 0;
-    else if(t == code_type::CODE || 
-        fn->second->misaligned(addrs) == false) {
+    DEF_LOG("Could not find BB: "<<hex<<addrs);
+    //exit(0);
+    return 1;
+    /*
+    if(t == code_type::CODE || 
+      fn->second->misaligned(addrs) == false) {
 
       //Try to split an existing BB
       BasicBlock *bb = fn->second->splitAndGet(addrs);
@@ -1461,6 +1491,7 @@ CfgElems::isValidRoot(uint64_t addrs, code_type t) {
     }
     else
       return 1; //If misaligned and code type is unknown, Disassemble
+    */
   }
   else
     return bb->start();
@@ -1522,8 +1553,13 @@ CfgElems::createFn(bool is_call, uint64_t target_address,uint64_t ins_addrs,
   if(target_address != 0) {
     if(is_call) {
       auto f_it = is_within(target_address, funcMap_);
-      if(f_it == funcMap_.end())
+      if(f_it == funcMap_.end()) {
+        Function *f = new Function(target_address,target_address,false);
+        ADDENTRY(f,target_address,t);
+        funcMap_[target_address] = f;
+        LOG("call target function created");
         return;
+      }
       uint64_t end = f_it->second->end();
       LOG("Previous function: " <<hex <<f_it->first <<" - " <<end);
       if(f_it->first == target_address) {
@@ -1551,8 +1587,13 @@ CfgElems::createFn(bool is_call, uint64_t target_address,uint64_t ins_addrs,
       //yes, create a new function.
 
       auto f_it = is_within(ins_addrs, funcMap_);
-      if(f_it == funcMap_.end())
+      if(f_it == funcMap_.end()) {
+        Function *f = new Function(target_address,target_address,false);
+        ADDENTRY(f,target_address,t);
+        funcMap_[target_address] = f;
+        LOG("call target function created");
         return;
+      }
       LOG("Jmp ins function: "<<hex<<f_it->first);
       auto next_f_it = next_iterator(ins_addrs, funcMap_);
       if(next_f_it == funcMap_.end())
@@ -1937,7 +1978,9 @@ CfgElems::printDeadCode() {
         vector <string> all_orig_ins = bb->allAsm();
         for(string & asm_ins:all_orig_ins)
           ofile1 <<asm_ins <<endl;
-        for(auto i = bb->start(); i < bb->boundary(); i++)
+        auto start = bb->start();
+        auto end = bb->boundary();
+        for(auto i = start; i < end; i++)
           ofile3<<dec<<i<<endl;
       }
       else if(bb->source() == PointerSource::JUMPTABLE ||
@@ -1956,7 +1999,9 @@ CfgElems::printDeadCode() {
         vector <string> all_orig_ins = bb->allAsm();
         for(string & asm_ins:all_orig_ins)
           ofile1 <<asm_ins <<endl;
-        for(auto i = bb->start(); i < bb->boundary(); i++)
+        auto start = bb->start();
+        auto end = bb->boundary();
+        for(auto i = start; i < end; i++)
           ofile3<<dec<<i<<endl;
       }
       if(deadcode == false) {
@@ -1983,6 +2028,7 @@ CfgElems::printDeadCode() {
 void
 CfgElems::printOriginalAsm() {
   //To be used for debugging purpose
+  DEF_LOG("Printing assembly output");
   string key("/");
   size_t found = exePath_.rfind(key);
   string file_name = exePath_.substr(found + 1);
@@ -2159,7 +2205,7 @@ CfgElems::classifyPtrs() {
       }
     }
   }
-  //DEF_LOG("Classifying pointers complete");
+  DEF_LOG("Classifying pointers complete");
 }
 
 bool CfgElems::isCodePtr(Pointer * ptr) {
@@ -2226,19 +2272,18 @@ CfgElems::functions(set <uint64_t> &function_list, uint64_t section_start,
    */
   auto it = funcMap_.begin();
   while(it != funcMap_.end()) {
-      if(it->first>= section_start && it->first <section_end)
-	function_list.insert(it->first);
-      it++;
-    }
+    if(it->first>= section_start && it->first <section_end)
+      function_list.insert(it->first);
+    it++;
+  }
 }
 
 uint64_t CfgElems::dataBlkEnd() {
   uint64_t data_end = codeSegEnd_;
   if(rwSections_.size()> 0) {
-      section
-	sec = rwSections_[rwSections_.size() - 1];
-      data_end = sec.offset + sec.size;
-    }
+    section sec = rwSections_[rwSections_.size() - 1];
+    data_end = sec.offset + sec.size;
+  }
 
   return data_end;
 }
@@ -2345,8 +2390,6 @@ CfgElems::linkBBs(vector <BasicBlock *> &bbs) {
       }
       else {
         bb->targetBB(tgtbb);
-        if(tgtbb->start() == 0x1bcb10)
-          DEF_LOG("Parent: "<<hex<<bb->start()<<"->Child: "<<hex<<tgtbb->start());
         if(tgtbb->start() != bb->start()) 
           tgtbb->parent(bb);
       }
@@ -2471,9 +2514,6 @@ CfgElems::instrumentCanary() {
 void
 CfgElems::shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x) {
   auto ins_list = bb->insList();
-  //for(auto & ins : ins_list) {
-
-  //}
   bool canary_found = false;
   if(x.first == InstPoint::SHADOW_STACK) {
     for(auto &ins : ins_list) {
@@ -2558,7 +2598,6 @@ CfgElems::canaryCheckWindow(BasicBlock *bb) {
   }
   return window;
 }
-
 
 BasicBlock *canaryPrologueBB(BasicBlock *entry) {
   while(entry != NULL) {
@@ -2951,6 +2990,7 @@ CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
 //  }
 //}
 
+
 void
 CfgElems::instrument() {
   DEF_LOG("Instrumenting CFG");
@@ -3157,11 +3197,11 @@ CfgElems::dataSegmntEnd (uint64_t addrs)
     return next_code;
 
   uint64_t ro_data_end = 0;
-  map < uint64_t, Pointer * >&pointer_map = pointers ();
+  //map < uint64_t, Pointer * > pointer_map = pointers ();
 
-  auto ptr_it = pointer_map.lower_bound (addrs);
+  auto ptr_it = pointerMap_.lower_bound (addrs);
   ptr_it++;
-  if (ptr_it != pointer_map.end ()) {
+  if (ptr_it != pointerMap_.end ()) {
     if(ptr_it->second->source() == PointerSource::RIP_RLTV ||
        ptr_it->second->source() == PointerSource::CONSTMEM ||
        ptr_it->second->type() == PointerType::DP) {

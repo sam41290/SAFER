@@ -24,12 +24,11 @@ namespace SBI {
 
 
   class CFValidity : public virtual CfgElems {
-    static uint64_t memSpaceStart_;
-    static uint64_t memSpaceEnd_;
     static bool (*InsValidators_[4])(Instruction *);
     static vector <InsValidityRules> insRule_;
     static unordered_set <uint64_t> invalidIns_;
     static unordered_set <uint64_t> validIns_;
+//    static unordered_set <uint64_t> validCF_;
   public:
     CFValidity(uint64_t strt, uint64_t end, 
                const vector <InsValidityRules> &ins_rules) {
@@ -46,6 +45,8 @@ namespace SBI {
         return true;
       return false;
     }
+    static uint64_t memSpaceStart_;
+    static uint64_t memSpaceEnd_;
     static bool validIns(vector <BasicBlock *> &bb_list);
     static bool validOpCode(Instruction *ins);
     static bool validMem(Instruction *ins);

@@ -59,12 +59,12 @@ BasicBlock*
 Frame::withinBB(uint64_t addrs) {
   //LOG("Within BB for: "<<hex<<addrs);
   for(auto & bb:defCodeBBs_) {
-    if(addrs >= bb->start() && addrs < bb->boundary()
+    if(addrs >= bb->start() && addrs <= bb->end()
        && bb->isValidIns(addrs))
       return bb;
   }
   for(auto & bb:unknwnCodeBBs_)
-    if(addrs >= bb->start() && addrs < bb->boundary()
+    if(addrs >= bb->start() && addrs <= bb->end()
        && bb->isValidIns(addrs))
       return bb;
   for(auto & bb:defCodeBBs_) {
@@ -161,41 +161,57 @@ Frame::leaBBs() {
 
 bool 
 Frame::bbExists(uint64_t addrs) {
-  for(auto & bb:defCodeBBs_) 
-    if(addrs == bb->start())
-      return true;
-  for(auto & bb:unknwnCodeBBs_)
-    if(addrs == bb->start())
-      return true;
+  if(bbSet_.find(addrs) != bbSet_.end())
+    return true;
+  //for(auto & bb:defCodeBBs_) 
+  //  if(addrs == bb->start())
+  //    return true;
+  //for(auto & bb:unknwnCodeBBs_)
+  //  if(addrs == bb->start())
+  //    return true;
 
   return false;
 }
 
 BasicBlock *
 Frame::splitAndGet(uint64_t addrs) {
+  DEF_LOG("Splitting and getting: "<<hex<<addrs<<" Function: "<<hex<<start_);
   for(auto & bb:defCodeBBs_) {
     uint64_t start = bb->start();
+    if(start == addrs) {
+      DEF_LOG("Found bb: "<<hex<<start);
+      return bb;
+    }
+    if(start > addrs)
+      continue;
     uint64_t end = bb->boundary();
+    DEF_LOG("BB: "<<hex<<start<<"-"<<end);
+    if(end < addrs)
+      continue;
     if(addrs >= start && addrs < end) {
-      //LOG("Within BB: "<<hex<<bb->start());
-      if(bb->start() == addrs)
-        return bb;
       BasicBlock * newbb = bb->split(addrs);
       if(newbb != NULL) { 
+        DEF_LOG("Returning split bb: "<<hex<<bb->start()<<"->"<<newbb->start());
         addDefCodeBB(newbb);
         //bb->fallThroughBB(getBB(addrs));
+        return newbb;
       }
-      return newbb;
     }
   }
+  DEF_LOG("Looking in possible code");
   for(auto & bb : unknwnCodeBBs_) {
     uint64_t start = bb->start();
+    if(start == addrs) {
+      DEF_LOG("Found bb: "<<hex<<start);
+      return bb;
+    }
+    if(start > addrs)
+      continue;
     uint64_t end = bb->boundary();
-
+    if(end < addrs)
+      continue;
+    DEF_LOG("BB: "<<hex<<start<<"-"<<end);
     if(addrs >= start && addrs < end) {
-      //LOG("Within BB: "<<hex<<bb->start());
-      if(bb->start() == addrs)
-        return bb;
       BasicBlock * newbb = bb->split(addrs);
       if(newbb != NULL) {
         addUnknwnCodeBB(newbb);
@@ -217,6 +233,8 @@ Frame::getDataBlock(uint64_t addrs) {
 
 BasicBlock *
 Frame::getBB(uint64_t addrs) {
+  if(bbSet_.find(addrs) == bbSet_.end())
+    return NULL;
   for(auto & bb:defCodeBBs_) {
     if(addrs == bb->start())
       return bb;
@@ -269,13 +287,13 @@ Frame::splitBBs(uint64_t addrs, Frame *f, bool defCode,
 
 void
 Frame::splitFrame(uint64_t addrs, Frame *f) {
-  LOG("Splitting frame: "<<hex<<start_<<" at "<<hex<<addrs);
+  DEF_LOG("Splitting frame: "<<hex<<start_<<" at "<<hex<<addrs);
 
   splitBBs(addrs,f,true,defCodeBBs_);
-  LOG("Splitting def code complete");
+  DEF_LOG("Splitting def code complete");
   splitBBs(addrs,f,false,unknwnCodeBBs_);
 
-  LOG("Splitting Unknwn code complete");
+  DEF_LOG("Splitting Unknwn code complete");
 }
 
 bool

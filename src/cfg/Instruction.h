@@ -62,7 +62,10 @@ private:
   int fallctr_ = 0;
   //bool addrTransMust_ = false;
   InsSemantics *sem_ = NULL;
+  Instruction *fallIns_ = NULL;
 public:
+  Instruction *fallIns() { return fallIns_; }
+  void fallIns(Instruction *fall) { fallIns_ = fall; }
   Instruction() {
     sem_ = new SBI::UNKNOWNINS();
   }

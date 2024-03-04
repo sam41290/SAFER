@@ -23,11 +23,11 @@ enum class BBType
   MAY_BE_RETURNING,
   NA
 };
-
 #define BBTYPE(t) \
   ((t == SBI::BBType::NON_RETURNING) ? "non-returning" : "returning")
 #define CODETYPE(c) \
   ((c == code_type::CODE) ? "definite-code" : "may not be code")
+
 //enum class CFStatus {
 //  CONSISTENT,
 //  INCONSISTENT,
@@ -58,6 +58,7 @@ private:
   BasicBlock *fallThroughBB_ = NULL;
   BasicBlock *targetBB_ = NULL;
   BasicBlock *tramp_ = NULL;
+  Instruction *lastIns_ = NULL;
   uint64_t target_ = 0;
   uint64_t fallThrough_ = 0;
   bool isFuncExit_ = false;
@@ -219,18 +220,14 @@ public:
   vector <uint64_t> indTgtAddrs() { return indTgtAddrs_; }
   void indTgtAddrs(vector <uint64_t> &tgts) { indTgtAddrs_ = tgts; }
   void dump(string file) {
+
     ofstream ofile;
     ofile.open(file,ofstream::out | ofstream::app);
     ofile<<"start "<<dec<<start_<<" "<<dec<<end_<<endl;
     ofile<<"end "<<dec<<end_<<endl;
-    //ofile<<"type "<<dec<<(int)type_<<endl;
     if(isCall())
       ofile<<"calltype "<<dec<<BBTYPE(callType_)<<endl;
     ofile<<"codetype "<<dec<<CODETYPE(codeType_)<<endl;
-    //ofile<<"JTable";
-    //for(auto & j : belongsToJumpTable_)
-    //  ofile<<" "<<j;
-    //ofile<<endl;
     ofile<<"target "<<dec<<target_<<endl;
     ofile<<"fall "<<dec<<fallThrough_<<endl;
     for(auto ins : insList_) {
@@ -240,6 +237,7 @@ public:
       ofile<<"indrc_tgt "<<dec<<bb->start()<<endl;
     ofile<<"-------------------------------------------------------"<<endl;
     ofile.close();
+
   }
   void target(uint64_t tgt) { target_ = tgt; }
   uint64_t target() { return target_; };
@@ -269,7 +267,10 @@ public:
   void type(BBType t) { type_ = t; }
   BBType type() { return type_; }
   BasicBlock *targetBB() { return targetBB_; }
-  void insList(vector <Instruction *> insLst) { insList_ = insLst; }
+  void insList(vector <Instruction *> insLst) { 
+    insList_ = insLst; 
+    lastIns_ = insList_[insList_.size() - 1];
+  }
   vector <Instruction *> insList() { return insList_;}
   unordered_map <int64_t,int64_t> insSizes() {
     unordered_map <int64_t,int64_t> ins_sz;
@@ -313,20 +314,6 @@ public:
     else
       return "_" + to_string(start_) + "_unknown_code";
   }
-  Instruction *canaryPrologue() {
-    for(auto & ins : insList_) {
-      if(ins->isCanaryPrologue())
-        return ins;
-    }
-    return NULL;
-  }
-  Instruction *canaryEpilogue() {
-    for(auto & ins : insList_) {
-      if(ins->isCanaryEpilogue())
-        return ins;
-    }
-    return NULL;
-  }
 
   Instruction *getIns(uint64_t address);
   bool isCall();
@@ -354,6 +341,20 @@ public:
   void updateType();
   bool noConflict(uint64_t addrs);
   void addTrampToTgt();
+  Instruction *canaryPrologue() {
+    for(auto & ins : insList_) {
+      if(ins->isCanaryPrologue())
+        return ins;
+    }
+    return NULL;
+  }
+  Instruction *canaryEpilogue() {
+    for(auto & ins : insList_) {
+      if(ins->isCanaryEpilogue())
+        return ins;
+    }
+    return NULL;
+  }
 
 private:
   void inferType(unordered_set <uint64_t> &passed);

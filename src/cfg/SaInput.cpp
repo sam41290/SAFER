@@ -16,6 +16,7 @@ void addIns(map <uint64_t,string> &all_ins,vector <string> &allstr) {
       str = words[0] + " ret";
     if(words[1].find("ud2") != string::npos)
       str = words[0] + " hlt";
+    //DEF_LOG("Adding ins: "<<hex<<addrs<<" "<<str);
     all_ins[addrs] = str;
 
   }

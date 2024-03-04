@@ -1,6 +1,0 @@
-/bin/ld
-/lib/x86_64-linux-gnu/libbfd-2.34-system.so
-/lib/x86_64-linux-gnu/libc.so.6
-/lib/x86_64-linux-gnu/libctf.so.0
-/lib/x86_64-linux-gnu/libdl.so.2
-/lib/x86_64-linux-gnu/libz.so.1

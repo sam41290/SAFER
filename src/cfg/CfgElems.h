@@ -219,9 +219,10 @@ namespace SBI {
     unordered_map <uint64_t, long double> cftTgtsInGaps_;
     unordered_map <uint64_t, JumpType> cftsInGaps_;
     unordered_set <uint64_t> entryPropagated_;
-    unordered_map <uint64_t, BasicBlock *> bbCache_;
   public:
     DisasmEngn *disassembler_;
+    unordered_map <uint64_t, BasicBlock *> bbCache_;
+    unordered_set <uint64_t> disassembled_;
     exe_type type_;
     uint64_t entryPoint_ = 0;
     uint64_t codeSegEnd_ = 0;
@@ -249,13 +250,13 @@ namespace SBI {
       type_ = t; 
     }
     uint64_t sectionEnd(uint64_t addrs);
-    void picConstReloc(vector <Reloc> & r) { picConstReloc_ = r; }
+    void picConstReloc(vector <Reloc> r) { picConstReloc_ = r; }
     vector <Reloc> picConstReloc() { return picConstReloc_; }
-    void pcrelReloc(vector <Reloc> & r) { pcrelReloc_ = r; }
+    void pcrelReloc(vector <Reloc> r) { pcrelReloc_ = r; }
     vector <Reloc> pcrelReloc() { return pcrelReloc_; }
-    void xtraConstReloc(vector <Reloc> & r) { xtraConstReloc_ = r; }
+    void xtraConstReloc(vector <Reloc> r) { xtraConstReloc_ = r; }
     vector <Reloc> xtraConstReloc() { return xtraConstReloc_; }
-    void functions(map <uint64_t, Function *>&functions) {
+    void functions(map <uint64_t, Function *> functions) {
       funcMap_ = functions;
     }
     void newPointer(uint64_t val, PointerType t, PointerSource src, 
@@ -266,7 +267,7 @@ namespace SBI {
         PointerSource root,uint64_t storage) {
       ADDPOINTERWITHROOT(val,t,src,root,storage);
     }
-    void exitCall(set <uint64_t> &exit_call) {
+    void exitCall(set <uint64_t> exit_call) {
       exitCallPlt_ = exit_call;
     }
     bool exitCall(uint64_t addr) {
@@ -274,10 +275,10 @@ namespace SBI {
         return true;
       return false;
     }
-    void mayExitPlt(set <uint64_t> &exit_call) {
+    void mayExitPlt(set <uint64_t> exit_call) {
       mayExitPlt_ = exit_call;
     }
-    void allPltSlots(set <uint64_t> &all_plt) {
+    void allPltSlots(set <uint64_t> all_plt) {
       allPltSlots_ = all_plt;
     }
     bool isPlt(uint64_t slot) {
@@ -290,13 +291,13 @@ namespace SBI {
         return true;
       return false;
     }
-    void roSection(vector <section> &ro_data) {
+    void roSection(vector <section> ro_data) {
       roSections_ = ro_data;
     }
     void entryPoint(uint64_t epoint) {
       entryPoint_ = epoint;
     }
-    void rwSections(vector <section> &data_segment) {
+    void rwSections(vector <section> data_segment) {
       rwSections_ = data_segment;
       for (auto & sec : rwSections_) {
         if((sec.vma + sec.size) > dataSegmntEnd_)
@@ -309,7 +310,7 @@ namespace SBI {
       dataSegmntStart_ = data_seg;
     }
     uint64_t dataSegmntStart() { return dataSegmntStart_; }
-    void rxSections(vector <section> &rxSections) {
+    void rxSections(vector <section> rxSections) {
       rxSections_ = rxSections;
       for(auto sec : rxSections_) {
         if(sec.name == ".text")
@@ -323,7 +324,7 @@ namespace SBI {
     vector <section> roSections() {
       return roSections_;
     }
-    map <uint64_t, Pointer *>&pointers() {
+    map <uint64_t, Pointer *> pointers() {
       return pointerMap_;
     }
     set<uint64_t> invalidPtr() { return invalidPtr_; }
@@ -344,7 +345,7 @@ namespace SBI {
     }
     unsigned int ptrCnt() { return pointerMap_.size(); }
     void functions(set <uint64_t> &function_list, uint64_t section_start,
-      	      uint64_t section_end);
+      	           uint64_t section_end);
     bool definiteCode(uint64_t addrs);
     //bool assignLabeltoFn(string label, off_t func_addrs);
     BasicBlock *getBB(uint64_t addrs);
@@ -352,6 +353,7 @@ namespace SBI {
     bool conflictsDefCode(uint64_t addrs);
     BasicBlock *withinBB(uint64_t addrs);
     bool isValidAddress(uint64_t addrs);
+    bool disassembled(uint64_t address);
     bool isValidIns(uint64_t addrs);
     void printOriginalAsm();
     void printDeadCode();

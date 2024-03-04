@@ -3,12 +3,12 @@
 #include "disasm.h"
 #include <stack>
 #include <time.h>
+#include "../src/SBD/includes/libanalysis.h"
 
 using namespace SBI;
 
 bool disasm_only = false; 
 bool dump_cfg = false;
-
 extern map <uint64_t, call_site_info> all_call_sites;	//contains info
 //regarding try-catch blocks and landing pads.
 
@@ -27,7 +27,7 @@ section_ends(vector <uint64_t> & ends,vector <section> &secs, section_types t) {
 }
 
 Binary::Binary(string Binary_path) {
-  
+  analysis_new::start(1, TOOL_PATH"auto/output.auto"); 
   exePath_ = Binary_path;
   manager_ = new binary_class(exePath_);
   rxSections_ = manager_->sections(section_types::RorX);
@@ -62,6 +62,8 @@ Binary::Binary(string Binary_path) {
   picConstReloc_ = manager_->relocatedPtrs(rel::CONSTPTR_PIC);
   auto range = manager_->progMemRange();
   codeCFG_ = new Cfg(range.first, range.second,exePath_);
+  init();
+  /*
 #ifdef KNOWN_CODE_POINTER_ROOT
 #ifdef DISASMONLY
   if(utils::file_exists("tmp/cfg.present") == false) {
@@ -74,6 +76,7 @@ Binary::Binary(string Binary_path) {
 #else
   init();
 #endif
+*/
   set_codeCFG_params();
 }
 
@@ -137,16 +140,69 @@ Binary::set_codeCFG_params() {
   codeCFG_->picConstReloc(picConstReloc_);
 }
 
-void
-Binary::disassemble() {
-  //string key("/");
-  //size_t found = exePath_.rfind(key);
-  //string exeName = exePath_.substr(found + 1);
+Cfg *
+Binary::getCfgObject() {
+  auto range = manager_->progMemRange();
+  auto cfg = new Cfg(range.first, range.second,exePath_);
+  cfg->codeSegEnd(codeSegmentEnd_);
+  cfg->libcStartMain(libcStartMain_);
+  cfg->disassembler(disassembler_);
+  cfg->exePath(exePath_);
+  cfg->type(manager_->type());
+  cfg->dataSegmntStart(rwSections_[0].vma);
+  cfg->rxSections(rxSections_);
+  cfg->entryPoint(entryPoint_);
+  cfg->roSection(roSections_);
+  cfg->rwSections(rwSections_);
+  return cfg;
+}
 
-  codeCFG_->disassemble();
-  pointerMap_ = codeCFG_->pointers();
-  funcMap_ = codeCFG_->funcMap();
-  //ofstream ofile("tramp.s");
+void
+Binary::setUpATT() {
+
+  for(auto & ptr : pointerMap_) {
+    string sym = "";
+    auto bb = codeCFG_->getBB(ptr.first);
+    if(bb != NULL && 
+      (bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY) ||
+       bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_TRAMP))) {
+      sym = bb->shStkTrampSym();
+    }
+    else
+      sym = codeCFG_->getSymbol(ptr.first);
+    if(ptr.second->type() == PointerType::CP /*&& it->second->encodable() == true*/) {
+      manager_->addAttEntry(ptr.first,".8byte " + to_string(ptr.first),
+                            ".8byte " + sym + " - " + ".elf_header_start",
+                            sym, 0);
+      if(FULL_ADDR_TRANS == false)
+        manager_->ptrsToEncode(ptr.first);
+    }
+    else if(ptr.second->type() != PointerType::DP){
+      if(sym != "") {
+        manager_->addAttEntry(ptr.first,".8byte " + to_string(ptr.first),
+                              ".8byte " + sym + " - " + ".elf_header_start",
+                              sym, 0);
+      }
+    }
+  }
+
+  unordered_set<uint64_t> added;
+  for(auto & x : all_call_sites) {
+    auto ptr = x.second.landing_pad;
+    if(added.find(ptr) == added.end()) {
+      added.insert(ptr);
+      string sym = codeCFG_->getSymbol(ptr);
+      if(sym != "") {
+        manager_->addAttEntry(ptr,".8byte " + sym + " - .elf_header_start",
+                              ".8byte " + sym + " - " + ".elf_header_start",
+                              sym, 1);
+        //if(RA_OPT == false)
+        //  manager_->addAttEntry(ptr,".8byte " + to_string(ptr),
+        //                      ".8byte " + sym + " - " + ".elf_header_start",
+        //                      sym, 0);
+      }
+    }
+  }
 
 
   /*
@@ -163,12 +219,22 @@ Binary::disassemble() {
     }
   }
   */
+}
 
+void
+Binary::optimizeEH() {
 #ifdef OPTIMIZED_EH_METADATA
   mark_leaf_functions();
   reduce_eh_metadata();
 #endif
-  //DEF_LOG("Disassembly complete..printing assembly");
+}
+
+void
+Binary::disassemble() {
+  codeCFG_->disassemble();
+  pointerMap_ = codeCFG_->pointers();
+  funcMap_ = codeCFG_->funcMap();
+  DEF_LOG("Disassembly complete....printing assembly output");
   codeCFG_->printOriginalAsm();
   codeCFG_->printDeadCode();
   if(dump_cfg)
@@ -207,10 +273,8 @@ Binary::hookPoints() {
   for(auto & f : funcMap_) {
     auto entries = f.second->allEntries();
     for(auto & e : entries) {
-      if(added.find(e) == added.end() && codeCFG_->definiteCode(e)) {
-        DEF_LOG("Adding hook point: "<<hex<<e);
+      if(added.find(e) == added.end() && codeCFG_->definiteCode(e))
         hookPoints_.push_back(e);
-      }
     }
   }
   hookPoints_.push_back(codeSegmentEnd_); //Pushing code segment end to ease space calculation.
@@ -391,60 +455,17 @@ Binary::calcTrampData() {
 void
 Binary::rewrite() {
   disassemble();
-
 #ifdef DISASMONLY
   exit(0);
 #endif
   if(disasm_only)
     exit(0);
+  setUpATT();
+  optimizeEH();
+  genInstAsm();
   //install_segfault_handler();
   //check_segfault_handler();
   instrument();
-
-  for(auto & ptr : pointerMap_) {
-    string sym = "";
-    auto bb = codeCFG_->getBB(ptr.first);
-    if(bb != NULL && 
-      (bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY) ||
-       bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_TRAMP))) {
-      sym = bb->shStkTrampSym();
-    }
-    else
-      sym = codeCFG_->getSymbol(ptr.first);
-    if(ptr.second->type() == PointerType::CP /*&& it->second->encodable() == true*/) {
-      manager_->addAttEntry(ptr.first,".8byte " + to_string(ptr.first),
-                            ".8byte " + sym + " - " + ".elf_header_start",
-                            sym, 0);
-      if(FULL_ADDR_TRANS == false)
-        manager_->ptrsToEncode(ptr.first);
-    }
-    else if(ptr.second->type() != PointerType::DP){
-      if(sym != "") {
-        manager_->addAttEntry(ptr.first,".8byte " + to_string(ptr.first),
-                              ".8byte " + sym + " - " + ".elf_header_start",
-                              sym, 0);
-      }
-    }
-  }
-
-  unordered_set<uint64_t> added;
-  for(auto & x : all_call_sites) {
-    auto ptr = x.second.landing_pad;
-    if(added.find(ptr) == added.end()) {
-      added.insert(ptr);
-      string sym = codeCFG_->getSymbol(ptr);
-      if(sym != "") {
-        manager_->addAttEntry(ptr,".8byte " + sym + " - .elf_header_start",
-                              ".8byte " + sym + " - " + ".elf_header_start",
-                              sym, 1);
-        //if(RA_OPT == false)
-        //  manager_->addAttEntry(ptr,".8byte " + to_string(ptr),
-        //                      ".8byte " + sym + " - " + ".elf_header_start",
-        //                      sym, 0);
-      }
-    }
-  }
-  genInstAsm();
   string file_name = print_assembly();
   manager_->rewrite(file_name);
 #ifdef STATIC_TRANS
@@ -1140,6 +1161,7 @@ Binary::genInstAsm() {
 
   ofstream ofile;
   ofile.open("inst_text.s", ofstream::out | ofstream::app);
+  /*
   ofile<<exeNameLabel()<<":\n";
   for(unsigned int i = 0; i < exeName.length(); i++)
     ofile<<".byte "<<(uint32_t)exeName[i]<<"\n";
@@ -1196,6 +1218,7 @@ Binary::genInstAsm() {
     prev_sec = sec_start;
     free(section_data);
   }
+  */
   ofile<<".align 16\n";
   ofile<<".GTF_stack:\n";
   //ofile<<"jmp *.dispatcher_stack(%rip)\n";
@@ -1239,9 +1262,7 @@ Binary::genInstAsm() {
     ofile<<atf_line_tt<<endl;
   }
   ifile.close();
-  //string shstk_code = directCallShstkTramp();
-  //ofile<<shadowTramp(shstk_code);
-
+  //ofile<<shadowTramp();
   //ofile<<"jmp *.gtt(%rip)\n";
   string shstk_init_file(TOOL_PATH"src/instrument/init_shstk.s");
   ifile.open(shstk_init_file);
@@ -1262,15 +1283,11 @@ Binary::genInstAsm() {
 
 void
 Binary::instrument() {
-  DEF_LOG("Adding instrumentation");
   vector<string> instFuncs = instFunctions();
-  if(instFuncs.size() <= 0) {
-    DEF_LOG("No registered instrumentation....returning");
+  if(instFuncs.size() <= 0)
     return;
-  }
   vector<pair<InstPoint,string>> targetPos = targetPositions();
   for(auto & p : targetPos) {
-    DEF_LOG("Adding instrumentation to binary: "<<(int)p.first);
     codeCFG_->registerInstrumentation(p.first,p.second,instArgs()[p.second]);
   }
   //codeCFG_->instrument();
