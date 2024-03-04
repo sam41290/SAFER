@@ -53,8 +53,12 @@ public:
   void populate_ptr_sym_table();
   //void assignLabeltoFn(string label, string func_name);
   void get_section_asm(string sec_name, string sec_file);
+  uint64_t codeSegmentStart() { return codeSegmentStart_; }
+  uint64_t codeSegmentEnd() { return codeSegmentEnd_; }
   //string printPsblData();
   Cfg *codeCfg() { return codeCFG_; }
+  Cfg *getCfgObject();
+  string exePath() { return exePath_; }
 private:
   void init();
   void hookPoints();
@@ -88,6 +92,8 @@ private:
   void printSections();
   void stitchSections(section_types t,string file_name, bool align);
   void printOldCodeAndData(string file_name);
+  void setUpATT();
+  void optimizeEH();
 };
 }
 #endif

@@ -36,8 +36,8 @@ using namespace std;
   ins->isRltvAccess() ? ins->ripRltvOfft() \
   : ((type_ == exe_type::NOPIE) ? ins->constOp() : 0)
 
-#define NEWBB(bb,bbend, ins_list,fall,tgt,isLea)\
-  bb->end(bbend); bb->insList(ins_list);\
+#define NEWBB(bb,bbend,fall,tgt,isLea)\
+  bb->end(bbend);\
   bb->fallThrough(fall); \
   bb->target(tgt);\
   bb->isLea(isLea);
@@ -60,7 +60,9 @@ class Cfg:public PointerAnalysis
   Rand *randomizer_;
   PointerSource rootSrc_ = PointerSource::NONE;
   uint64_t currentRoot_;
+  Cfg *supersetCfg_ = NULL;
 public:
+  bool preDisasmConfig_ = false;
     Cfg(uint64_t memstrt, uint64_t memend,string exepath);
    ~Cfg() {};
   void rootSrc(PointerSource src) { rootSrc_ = src; } 
@@ -69,8 +71,28 @@ public:
   void disassemble();
   void functionRanges();
   void printFunc(uint64_t function, string file_name);
-private:
   void cnsrvtvDisasm();
+  void superset();
+  Cfg *supersetCfg() { return supersetCfg_; }
+  static unordered_set <uint64_t> validCFSet_;
+  void preDisasmConfig();
+  //bool preDisasmConfig() { return preDisasmConfig_; }
+  bool cfcheck (uint64_t addrs) {
+    if(validCFSet_.find(addrs) != validCFSet_.end()) return true;
+    auto bb = getBB(addrs);
+    if(bb != NULL) {
+      auto bb_list = bbSeq(bb);
+      if(validCF(bb_list)) {
+        for(auto & bb2: bb_list) {
+          auto ins_lst = bb2->insList();
+          for(auto & ins : ins_lst) validCFSet_.insert(ins->location());
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+private:
   void randomizer();
   void createBB(BasicBlock *bb, vector <Instruction *>
       &ins_list,uint64_t chunk_end,
@@ -100,6 +122,7 @@ private:
   void handleLoopIns(vector <BasicBlock *> &bb_list);
   void reAddFallThrough(vector <BasicBlock *> &bb_list);
   void guessJumpTable();
+  bool processIns(Instruction *ins, BasicBlock *bb, code_type t);
 };
 }
 #endif

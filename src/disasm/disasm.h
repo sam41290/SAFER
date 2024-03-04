@@ -10,9 +10,11 @@ using namespace std;
 using namespace SBI;
 #define OBJDUMP disassembleObj
 #define CAPSTONE disassembleCaps
+#define LIBOPCODES disassembleLibOpcodes
 
-#define DISASENGN CAPSTONE
+//#define DISASENGN CAPSTONE
 //#define DISASENGN OBJDUMP
+#define DISASENGN disassembleLibOpcodes
 
 #define INVALIDINS(str,bytes,loc,ind,size,inslst) \
   if(str.find("(bad)") != string::npos || \
@@ -30,6 +32,7 @@ class DisasmEngn {
   string bname_;
   //csh handle_;
   unordered_map <uint64_t, Instruction *> insCache_;
+  unordered_set <uint64_t> invalid_;
   //unordered_map <uint64_t, vector <Instruction *>> insSeq_;
   vector <uint64_t> sectionEnds_;
   unordered_set <uint64_t> gaps_;
@@ -40,18 +43,33 @@ public:
     bname_ = bname;
     sectionEnds_ = sec_ends;
     std::sort(sectionEnds_.begin(),sectionEnds_.end());
+    //csh handle_;
+    //if (cs_open (CS_ARCH_X86, CS_MODE_64, &handle_) != CS_ERR_OK) {
+    //  LOG("Error opening capstone handle");
+    //  exit(0);
+    //}
+    //cs_option (handle_, CS_OPT_SYNTAX, CS_OPT_SYNTAX_ATT);
   }
-  void disassembleCaps (uint8_t *bytes, int size, uint64_t start,
-  		       vector <Instruction *> &ins_list);
-  void disassembleObj (uint8_t *bytes, int size, uint64_t start,
-  		      vector <Instruction *> &ins_list);
+  bool invalid (uint64_t addrs) {
+    if(invalid_.find(addrs) != invalid_.end())
+      return true;
+    return false;
+  }
   
-  vector <Instruction *> readIns(uint64_t start, uint64_t end);
   vector <Instruction *> getIns(uint64_t start, int ins_cnt);
-  void createInsCache(uint64_t code_start, uint64_t code_end);
 private:
   void handle_gaps (uint8_t * bytes, uint64_t addrs, int index, uint64_t size,
          vector <Instruction *> &ins_list);
   uint64_t disasmEnd(uint64_t start, uint64_t size);
+  void disassembleCaps (uint8_t *bytes, int size, uint64_t start,
+  		       vector <Instruction *> &ins_list);
+  void disassembleObj (uint8_t *bytes, int size, uint64_t start,
+  		      vector <Instruction *> &ins_list);
+  void disassembleLibOpcodes (uint8_t *bytes, size_t size, uint64_t start,
+  		       vector <Instruction *> &ins_list);
+  vector <Instruction *> readIns(uint64_t start, uint64_t end);
+  void createInsCache(uint64_t code_start, uint64_t code_end);
+  void superSetCache(uint64_t start, uint64_t end);
+  uint8_t *getBytes(uint64_t start, uint64_t end);
 };
 #endif

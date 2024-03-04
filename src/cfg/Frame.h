@@ -34,6 +34,7 @@ class Frame
   vector <BasicBlock *> unknwnCodeBBs_;	
   vector <BasicBlock *> defDataInCode_;
   unordered_map <uint64_t, bool> overlapping_;
+  unordered_set <uint64_t> bbSet_;
 public:
   Frame(){}
   Frame(uint64_t p_start, uint64_t p_end, bool p_dummy);
@@ -46,9 +47,10 @@ public:
   bool hasUnknwnCode() { return (unknwnCodeBBs_.size() > 0); }
   void addDefCodeBB(BasicBlock *bb) { 
     if(bbExists(bb->start()) == false) {
-      LOG("Adding bb: "<<hex<<bb->start()<<" "<<bb);
+      DEF_LOG("Adding bb: "<<hex<<bb->start()<<" "<<bb<<" Function: "<<start_);
       defCodeBBs_.push_back(bb);
       bb->frame(start_);
+      bbSet_.insert(bb->start());
     }
     else
       LOG("BB exists...not adding again");
@@ -56,9 +58,10 @@ public:
   void saveCnsrvtvCode() { cnsrvtvDefCode_ =   defCodeBBs_; }
   void addUnknwnCodeBB (BasicBlock *bb) { 
     if(bbExists(bb->start()) == false) {
-      LOG("Adding bb: "<<hex<<bb->start()<<" "<<bb);
+      DEF_LOG("Adding bb: "<<hex<<bb->start()<<" "<<bb<<" Function: "<<start_);
       unknwnCodeBBs_.push_back(bb);
       bb->frame(start_);
+      bbSet_.insert(bb->start());
     }
     else
       LOG("BB exists...not adding again");

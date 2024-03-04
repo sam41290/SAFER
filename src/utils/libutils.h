@@ -90,7 +90,7 @@ eh_log(const LogData <List> &data) {
 }
 
 
-//#define DEBUG 0
+#define DEBUG 0
 
 
 #ifdef DEBUG

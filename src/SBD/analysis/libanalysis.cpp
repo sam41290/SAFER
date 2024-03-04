@@ -117,10 +117,9 @@ bool analysis_new::preserved(const vector<string>& regs) {
    for (auto r: regs) {
       auto id = get_id(ARCH::from_string(r));
       for (auto scc: f->scc_list()) {
-         vector<Insn*> insns;
          for (auto b: scc->block_list())
          if (b->last()->ret()) {
-            insns.push_back(b->last());
+            vector<Insn*> insns{b->last()};
             auto vec = f->track(TRACK::BEFORE, id, {f,scc,b,nullptr}, insns);
             auto const& aval = vec.front();
             auto const& val = ABSVAL(BaseLH,aval);
@@ -180,6 +179,26 @@ analysis_new::JTable analysis_new::jump_table() {
                );
    }
    return res;
+}
+
+
+std::unordered_map<int32_t,int32_t> analysis_new::stack_height() {
+  std::unordered_map<int32_t,int32_t> res;
+    for (auto scc: f->scc_list())
+    for (auto b: scc->block_list())
+    if (b->last()->jump() && b->last()->indirect()) {
+        auto id = get_id(ARCH::stack_ptr);
+        auto vec = f->track(TRACK::BEFORE, id, {f,scc,b,nullptr}, vector<Insn*>{b->last()});
+        auto const& aval = vec.front();
+        auto const& val = ABSVAL(BaseLH,aval);
+        if (!val.top() && !val.notlocal()) {
+           auto base = val.base();
+           auto const& range = val.range();
+           if (base == id.i() && range.lo() == range.hi())
+             res[b->last()->offset()] = range.lo();
+        }
+    }
+    return res;
 }
 
 

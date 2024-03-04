@@ -20,6 +20,7 @@ BasicBlock(uint64_t p_start, uint64_t p_end,PointerSource src,
   insList_ = p_ins;
   source_ = src;
   rootSrc_ = root;
+  lastIns_ = insList_[insList_.size() - 1];
 }
 
 BasicBlock::
@@ -34,7 +35,7 @@ BasicBlock(uint64_t start, uint64_t end, PointerSource src,
 
 Instruction *
 BasicBlock::getIns(uint64_t address) {
-  for(auto ins : insList_)
+  for(auto & ins : insList_)
     if(ins->location() == address)
       return ins;
   return NULL;
@@ -43,13 +44,17 @@ BasicBlock::getIns(uint64_t address) {
 
 Instruction *
 BasicBlock::lastIns() {
-  return insList_[insList_.size() - 1];
+  return lastIns_;//insList_[insList_.size() - 1];
 }
 
 uint64_t
 BasicBlock::boundary() {
   Instruction *last_ins = lastIns();
-  return last_ins->location() + last_ins->insSize();
+  auto fall = last_ins->fallThrough();
+  if(fall != 0)
+    return fall;
+  else
+    return last_ins->location() + last_ins->insSize();
 }
 
 void
@@ -61,6 +66,8 @@ BasicBlock::deleteIns(uint64_t address) {
     }
     it++;
   }
+  if(lastIns_ != NULL && address == lastIns_->location())
+    lastIns_ = insList_[insList_.size() - 1];
 }
 
 
@@ -85,7 +92,8 @@ void
 BasicBlock::addIns(Instruction *ins) {
   isLea_ = ins->isLea();
   insList_.push_back(ins);
-  sort(insList_.begin(), insList_.end(),compareIns);
+  //sort(insList_.begin(), insList_.end(),compareIns);
+  lastIns_ = insList_[insList_.size() - 1];
 }
 
 void
@@ -130,6 +138,7 @@ BasicBlock::splitNoNew(uint64_t address) {
     target_ = 0;
     mergedBBs_.clear();
     insList_ = newInsList1;
+    lastIns_ = insList_[insList_.size() - 1];
     end_ = lastIns()->location();
     indirectTgts_.clear();
   }
@@ -204,6 +213,7 @@ BasicBlock::split(uint64_t address) {
     //}
     //LOG("is code set");
     insList_ = newInsList1;
+    lastIns_ = insList_[insList_.size() - 1];
     end_ = lastIns()->location();
     indirectTgts_.clear();
 

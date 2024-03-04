@@ -12,16 +12,72 @@ extern map <uint64_t, call_site_info> all_call_sites;
 extern exception_handler eh_frame;
 extern map <uint64_t, cfi_table> unwinding_info;
 
+unordered_set <uint64_t> Cfg::validCFSet_;
+
 Cfg::Cfg(uint64_t memstrt, uint64_t memend,string exepath):
      CFValidity(memstrt,memend,INSVALIDITY),
      PointerAnalysis(memstrt,memend,exepath) {}
 
 void
-Cfg::disassemble() {
+Cfg:: superset() {
+  /* This is the code to execute a superset disassembly of all addresses in the
+   * memory of a program
+   */
+  supersetCfg_ = new Cfg(CFValidity::memSpaceStart_,CFValidity::memSpaceEnd_,exePath_);
+  supersetCfg_->codeSegEnd(codeSegEnd_);
+  supersetCfg_->libcStartMain(libcStrtMain_);
+  supersetCfg_->disassembler(disassembler_);
+  supersetCfg_->exePath(exePath_);
+  supersetCfg_->type(type_);
+  supersetCfg_->dataSegmntStart(dataSegmntStart_);
+  supersetCfg_->rxSections(rxSections());
+  supersetCfg_->entryPoint(entryPoint_);
+  supersetCfg_->roSection(roSections());
+  supersetCfg_->rwSections(rwSections());
+  //supersetCfg_->functions(funcMap());
+
+  auto rx_sections = supersetCfg_->rxSections();
+
+  for(auto & sec : rx_sections) {
+    if(sec.sec_type == section_types::RX) {
+      auto start = sec.vma;
+      auto end = sec.vma + sec.size;
+
+      //auto p = new Pointer(start,PointerType::UNKNOWN,PointerSource::CONSTOP); 
+      supersetCfg_->createFn(true,start,start,code_type::UNKNOWN);
+
+      while(start < end) {
+        DEF_LOG("Superset disassembly: "<<hex<<start);
+        if(supersetCfg_->disassembled(start) == false)
+          supersetCfg_->addToCfg(start, PointerSource::CONSTOP);
+        else
+          DEF_LOG("Already disassembled");
+        start++;
+      }
+    }
+  }
+  supersetCfg_->linkAllBBs();
+  for(auto & sec : rx_sections) {
+    if(sec.sec_type == section_types::RX) {
+      auto start = sec.vma;
+      auto end = sec.vma + sec.size;
+
+      while(start < end) {
+        supersetCfg_->cfcheck(start);
+        start++;
+      }
+    }
+  }
+
+
+}
+
+void
+Cfg::preDisasmConfig() {
   classifyPtrs();
   auto ptr_map = pointers(); 
   for(auto & ptr : ptr_map) {
-    LOG("Creating function for pointer "<<hex<<ptr.second->address());
+    DEF_LOG("Creating function for pointer "<<hex<<ptr.second->address()<<" code type: "<<dec<<(int)ptr.second->type());
     createFuncFrPtr(ptr.second);
   }
 
@@ -38,6 +94,12 @@ Cfg::disassemble() {
 
   all_const_relocs.insert(all_const_relocs.end(),xtra_reloc.begin(), xtra_reloc.end());
   allConstRelocs(all_const_relocs);
+  preDisasmConfig_ = true;
+}
+
+void
+Cfg::disassemble() {
+  if(!preDisasmConfig_) preDisasmConfig();
   genCFG();
   //classifyPtrs();
   populateRltvTgts();
@@ -264,6 +326,7 @@ Cfg::scanPsblPtrs() {
 bool
 Cfg::processFallThrough(BasicBlock *bb, PointerSource t) {
   uint64_t fall = bb->fallThrough();
+  DEF_LOG("Processing fall through: "<<hex<<bb->start()<<"-"<<bb->end()<<"->"<<hex<<fall<<" BB type: "<<dec<<(int)bb->callType());
   if(bb->isCall() && bb->callType() == BBType::MAY_BE_RETURNING && ISCODE(t) == code_type::CODE
      && ISCODE(PointerSource::POSSIBLE_RA) != code_type::CODE) {
     if(fall != 0) {
@@ -315,7 +378,7 @@ Cfg::processFallThrough(BasicBlock *bb, PointerSource t) {
         }
       }
 #else
-      LOG("Ignoring fall through since BB is MAY_BE_RETURNING: "<<
+      DEF_LOG("Ignoring fall through since BB is MAY_BE_RETURNING: "<<
           hex<<bb->start()<<"->"<<hex<<bb->fallThrough());
       newPointer(bb->fallThrough(), PointerType::UNKNOWN,
           PointerSource::POSSIBLE_RA,rootSrc_,bb->end());
@@ -326,13 +389,13 @@ Cfg::processFallThrough(BasicBlock *bb, PointerSource t) {
   }
   else if(bb->isCall() && bb->callType() == BBType::MAY_BE_RETURNING 
           && fall != 0 && withinFn(bb->fallThrough()) == false) {
-    LOG("Ignoring fall through since BB is MAY_BE_RETURNING: "<<
+    DEF_LOG("Ignoring fall through since BB is MAY_BE_RETURNING: "<<
         hex<<bb->start()<<"->"<<hex<<bb->fallThrough());
     newPointer(bb->fallThrough(), PointerType::UNKNOWN,
         PointerSource::POSSIBLE_RA,rootSrc_,bb->end());
   }
   else if(fall != 0) {
-    LOG("processing fall through: "<<hex<<fall<<" bb "<<hex<<bb->start());
+    DEF_LOG("processing fall through: "<<hex<<fall<<" bb "<<hex<<bb->start());
     if(INVALID_CODE_PTR(fall)) {
       //bb->fallThrough(0);
       return false;
@@ -350,12 +413,12 @@ Cfg::processFallThrough(BasicBlock *bb, PointerSource t) {
 bool
 Cfg::processTarget(BasicBlock *bb, PointerSource t) {
   uint64_t tgt = bb->target();
+  DEF_LOG("Processing target: "<<hex<<bb->start()<<"->"<<tgt);
   if(tgt != 0) {
-    LOG("Processing target: "<<hex<<tgt);
     if(addToCfg(tgt,t) == false) {
       //The jump target conflicts. Delete the current basic block.
       invalidPtr(tgt);
-      LOG("invalid target: " <<hex <<bb->target());
+      DEF_LOG("invalid target: " <<hex <<bb->target());
       return false;
     }
     BBType tgt_type = getBBType(tgt);//tgtbb->type();
@@ -389,6 +452,8 @@ Cfg::checkLockPrefix(BasicBlock *bb ,code_type t) {
     Instruction *last_ins = bb->lastIns();
     vector <Instruction *> fall_through_ins
       = disassembler_->getIns(fall_through,2);
+    if(fall_through_ins.size() <= 0)
+      return;
     if(fall_through_ins[0]->prefix().find("lock") != string::npos) {
       target = 0;
       bb->target(0);
@@ -405,7 +470,9 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
   /* Performs DFS along Cfg and adds the given address and the following basic
    * blocks in to the Cfg
    */
-  LOG("Processing address: " <<hex <<addrs<<" code type: "<<(int)t);
+  DEF_LOG("Processing address: " <<hex <<addrs<<" code type: "<<dec<<(int)t);
+  if(disassembler_->invalid(addrs))
+    return false;
   if(INVALID_CODE_PTR(addrs))
     return false;
   uint64_t chunk_end = isValidRoot(addrs,ISCODE(t));
@@ -416,6 +483,10 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
     LOG("basic block at " <<hex <<addrs <<" already exists!!!");
     //processFallThrough(bb,t);
     bb = getBB(addrs);
+    //if(bb == NULL) {
+    //  DEF_LOG("Cannot find bb to process fall through: "<<hex<<addrs);
+    //  exit(0);
+    //}
     if(processFallThrough(bb,t) == false) {
       auto ins = bb->lastIns();
       if(ins->isCall() == false && ins->isJump() == false) {
@@ -427,11 +498,14 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
   }
   else {
     LOG("Chunk Start: " <<hex <<addrs <<" Chunk end: " <<hex <<chunk_end);
-    vector <Instruction *> ins_list = disassembler_->getIns(addrs, 1000);
+    auto ins_list = disassembler_->getIns(addrs, 1000);
     if(ins_list.size() == 0) {
-      LOG("No instruction found");
+      DEF_LOG("No instruction found");
+      invalidPtr(addrs);
       return false;
     }
+    bb = new BasicBlock(addrs,t,rootSrc_);
+    createBB(bb,ins_list, chunk_end, ISCODE(t));
 #ifdef GROUND_TRUTH
     if(t == PointerSource::JUMPTABLE) {
       if(ins_list[0]->asmIns().find(".byte") != string::npos) {
@@ -440,8 +514,7 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
       }
     }
 #endif
-    bb = new BasicBlock(addrs,t,rootSrc_);
-    createBB(bb,ins_list, chunk_end, ISCODE(t));
+    bbCache_[bb->start()] = bb;
     checkLockPrefix(bb,ISCODE(t));
     addBBtoFn(bb,t);
     if(t == PointerSource::CALL_TGT_1) {
@@ -449,31 +522,31 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
       auto first_ins = ins_list[0];
       auto bytes = first_ins->insBinary();
       if(bytes.size() == 0) {
-        LOG("invalid instruction at addrs: "<<hex<<addrs);
+        DEF_LOG("invalid instruction at addrs: "<<hex<<addrs);
         removeBB(bb);
         invalidPtr(addrs);
         return false;
       }
       for(auto & ins : ins_list) {
         if(validOpCode(ins) == false) {
-          LOG("invalid instruction at addrs: "<<hex<<addrs);
+          DEF_LOG("invalid instruction at addrs: "<<hex<<addrs);
           removeBB(bb);
           invalidPtr(addrs);
           return false;
         }
       }
-      for(auto i = bb->start(); i < bb->boundary(); i++) {
-        if(bb->isValidIns(i) == false) {
-          auto cnf_bb = getBB(i);
-          if(cnf_bb != NULL && 
-            (cnf_bb->source() == PointerSource::KNOWN_CODE_PTR ||
-             cnf_bb->source() == PointerSource::CALL_TGT_2)) {
-            removeBB(bb);
-            invalidPtr(addrs);
-            return false;
-          }
-        }
-      }
+      //for(auto i = bb->start(); i < bb->boundary(); i++) {
+      //  if(bb->isValidIns(i) == false) {
+      //    auto cnf_bb = getBB(i);
+      //    if(cnf_bb != NULL && 
+      //      (cnf_bb->source() == PointerSource::KNOWN_CODE_PTR ||
+      //       cnf_bb->source() == PointerSource::CALL_TGT_2)) {
+      //      removeBB(bb);
+      //      invalidPtr(addrs);
+      //      return false;
+      //    }
+      //  }
+      //}
     }
     if(processTarget(bb,t) == false) {
       removeBB(bb);
@@ -492,6 +565,7 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
   if(bb->target() != 0) {
     auto tgt_bb = getBB(bb->target());
     if(tgt_bb == NULL) {
+      DEF_LOG("Invalid target..removing BB: "<<hex<<bb->start());
       removeBB(bb);
       invalidPtr(addrs);
       return false;
@@ -502,6 +576,7 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
     if(fall_bb == NULL) {
       auto ins = bb->lastIns();
       if(ins->isCall() == false && ins->isJump() == false) {
+        DEF_LOG("Invalid fall..removing BB: "<<hex<<bb->start());
         removeBB(bb);
         invalidPtr(addrs);
         return false;
@@ -510,7 +585,7 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
   }
   BBType tgt_type;
   BBType fall_through_type;
-  LOG("Finalizing: "<<hex<<addrs<<" - "<<hex<<bb);
+  DEF_LOG("Finalizing: "<<hex<<addrs<<" - "<<hex<<bb);
   if(bb->type() ==  BBType::NA) {
 
 
@@ -523,7 +598,7 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
       tgt_type = getBBType(bb->target());//bb->targetBB()->type();
     else
       tgt_type = BBType::NA;
-    LOG("Tgt type: "<<(int)tgt_type<<" fall type: "<<(int)fall_through_type);
+    DEF_LOG("Tgt type: "<<(int)tgt_type<<" fall type: "<<(int)fall_through_type);
     
     if(bb->fallThrough() == 0 && bb->target() == 0)
       bb->type(BBType::RETURNING);
@@ -550,79 +625,73 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
       bb->type(BBType::NON_RETURNING);
   }
 
-  LOG("BB created: "<<hex<<bb->start()<<" target: "<<hex<<bb->target()<<" fall: "
-      <<hex<<bb->fallThrough()<<" "<<hex<<bb->targetBB()<<" "
-      <<bb->fallThroughBB()<<" type: "<<(int)bb->type());
+  DEF_LOG("BB created: "<<hex<<bb->start()<<" target: "<<hex<<bb->target()<<" fall: "
+      <<hex<<bb->fallThrough()<<" "<<" type: "<<(int)bb->type()<<" call type: "<<(int)bb->callType());
 
   return true;
 }
 
+bool
+Cfg::processIns(Instruction *ins, BasicBlock *bb, code_type t) {
+  disassembled_.insert(ins->location());
+  checkForPtr(ins);
+  if(ins->isUnconditionalJmp() || ins->isCall()) {
+    processIndrctJmp(ins, bb,t);
+    if(ins->target() != 0)
+      createFn(ins->isCall(), ins->target(),ins->location(),t);
+    return true;
+  }
+  else if (ins->isJump() || ins->isHlt())
+    return true;
 
+  return false;
+}
 
 void
-Cfg::createBB(BasicBlock *bb,vector <Instruction *> &ins_list, uint64_t
-    chunk_end, 
-    code_type t) {
+Cfg::createBB(BasicBlock *bb,vector <Instruction *> &ins_list, uint64_t chunk_end, code_type t) {
   /* Input: list of instructions.
    * Traverses the list until a control flow transfer is encountered or end of
    * the list is reached. 
    * Creates a basic block and adds to the map.
    */
-  LOG("populating instructions in BB: "<<hex<<bb->start());
+  //DEF_LOG("populating instructions in BB: "<<hex<<bb->start());
   uint64_t end = 0;
-  vector <Instruction *> basic_block_ins;
+  //vector <Instruction *> basic_block_ins;
 
   //bool is_non_returning_bb = false;
   uint64_t fall_through = 0;
   bool isLea = false;
+  uint64_t target = 0;
   for(auto & ins:ins_list) {
     if(getBB(ins->location()) != NULL) {
       LOG("BB at "<<hex<<ins->location()<<" already exists. Breaking!!");
+      if(end == 0) {
+        DEF_LOG("Creating new bb for a previously existing bb.."<<hex<<bb->start());
+        exit(0);
+      }
       break;
     }
-    checkForPtr(ins);
     fall_through = ins->fallThrough();
+    target = ins->target();
+    //basic_block_ins.push_back(ins);
+    bb->addIns(ins);
+    end = ins->location();
     if(isLea == false)
       isLea = ins->isLea();
-    LOG("instruction location: " <<hex <<ins->location() <<
+    if(ins->isHlt() ||
+      (ins->isUnconditionalJmp() && ins->isCall() == false)) {
+      fall_through = 0;
+    }
+    DEF_LOG("instruction location: " <<hex <<ins->location() <<
      " Call value: " <<ins->isCall() <<" jump value: " <<ins->isJump()
      <<" fall: "<<hex<<fall_through);
-    if((ins->isJump() != false && ins->isUnconditionalJmp() == false)
-    && ins->isCall() == false) {
-      //conditional jump 
-      basic_block_ins.push_back(ins);
-      NEWBB(bb,ins->location(),basic_block_ins,
-          fall_through,ins->target(),isLea);
-      return;
-    }
-    else if(ins->isJump() != false || ins->isCall() != false)	{
-      //unconditional jump or call 
-      basic_block_ins.push_back(ins);
-      if(ins->isCall() == false)
-        fall_through = 0;
-
-      NEWBB(bb,ins->location(),basic_block_ins,
-          fall_through,ins->target(),isLea);
-      createFn(ins->isCall(), ins->target(),
-        	   ins->location(),t);
-      
-      //LOG("Function created");
-      processIndrctJmp(ins, bb,t);
-      //LOG("RIP rltv processing done");
-      return;
-    }
-    else {
-      basic_block_ins.push_back(ins);
-      end = ins->location();
-    }
-    if(ins->isHlt()) {
-      fall_through = 0;
+    if(processIns(ins, bb, t))
       break;
-    }
   }
-  LOG("No jump found");
   //end = ins_list[ins_count - 1].get_location();
-  NEWBB(bb, end, basic_block_ins, fall_through, 0,isLea);
+  DEF_LOG("Creating new bb: "<<hex<<bb->start()<<"-"<<end<<" fall: "<<fall_through<<" target: "<<target);
+  NEWBB(bb, end, fall_through, target,isLea);
+
   return;
 }
 
@@ -644,6 +713,7 @@ Cfg::processAllRoots() {
       disasmRoots_.pop();
       if(ptr(start) != NULL){
         auto p = ptr(start);
+        DEF_LOG("Root: "<<hex<<start<<" ptr type: "<<dec<<(int)(p->type()));
         if(p->type() != PointerType::CP && 
            p->source() != PointerSource::GAP_PTR &&
            p->source() != PointerSource::PIC_RELOC &&
@@ -668,7 +738,7 @@ Cfg::processAllRoots() {
             rootSrc_ = ptr(start)->rootSrc();
           else
             rootSrc_ = ptr(start)->source();
-          //DEF_LOG("Disassembling root: "<<hex<<start);
+          DEF_LOG("Disassembling root: "<<hex<<start);
           addToCfg(start,ptr(start)->source());
         }
         else
@@ -865,6 +935,7 @@ Cfg::EHDisasm() {
 
 }
 
+
 void
 Cfg::possibleCodeDisasm() {
   LOG("Disassembling possible code");
@@ -947,6 +1018,7 @@ Cfg::scanForCalls(int call_cnt) {
 
 #include <math.h>
 
+extern bool disasm_only; 
 
 void
 Cfg::cnsrvtvDisasm() {
@@ -959,10 +1031,11 @@ Cfg::cnsrvtvDisasm() {
   disassembleGaps();
   preCachedJumpTables();
   possibleCodeDisasm();
+  if(disasm_only)
+    addHintBasedEntries();
 #ifdef DISASMONLY
   addHintBasedEntries();
 #endif
-
   //propagateAllRoots();
   //updateBBTypes();
   //phase1NonReturningCallResolution();
@@ -1248,6 +1321,7 @@ Cfg::disassembleGaps() {
         while(true) {
           auto next_addr = last_ins->location() + last_ins->insSize();
           auto ins_list = disassembler_->getIns(next_addr, 200);
+          if(ins_list.size() == 0) break;
           bool cf_found = false;
           for(auto & ins : ins_list) {
             linear_scan.push_back(ins);
@@ -1524,26 +1598,26 @@ Cfg::genCFG() {
 #endif
 
 #ifdef KNOWN_CODE_POINTER_ROOT
-#ifdef DISASMONLY
-  if(utils::file_exists("tmp/cfg.present")) {
-    LOG("Cfg already present. Skipping disassembly and reading cfg");
-    readCfg();
-    linkAllBBs();
-    classifyPtrs();
-  }
-  else {
-    LOG("Cfg not present. Starting disassembly");
-    cnsrvtvDisasm();
-  }
-#else
+//#ifdef DISASMONLY
+//  if(utils::file_exists("tmp/cfg.present")) {
+//    LOG("Cfg already present. Skipping disassembly and reading cfg");
+//    readCfg();
+//    linkAllBBs();
+//    classifyPtrs();
+//  }
+//  else {
+//    LOG("Cfg not present. Starting disassembly");
+//    cnsrvtvDisasm();
+//  }
+//#else
   cnsrvtvDisasm();
-#endif
+//#endif
 #ifdef CFGCONSISTENCYCHECK
   saveCnsrvtvCode();
   cfgConsistencyAnalysis();
   //dump();
-//#else
-//  dump();
+#else
+  //dump();
 #endif
   classifyPtrs();
   chkJmpTblRewritability();
@@ -1758,7 +1832,7 @@ Cfg::printFunc(uint64_t fstart, string file_name) {
     randomizer_->print(defbbs, file_name, fstart);
   //DEF_LOG("Printing psbl code bbs");
   if (psbl_code.size() > 0) {
-    //DEF_LOG("First bb: "<<hex<<psbl_code[0]->start());
+    DEF_LOG("First bb: "<<hex<<psbl_code[0]->start());
     randomizer_->print(psbl_code, file_name, fstart);
   }
 #endif
@@ -1821,10 +1895,10 @@ Cfg::processIndrctJmp(Instruction *call_ins, BasicBlock *bb,code_type t) {
   if(call_ins->isRltvAccess()) {
     // Special handling for LINUX to add the address of main,
     // __libc_csu_init and __libc_csu_fini.
-    //LOG("Jump slot: "<<hex<<call_ins->ripRltvOfft());
+    DEF_LOG("Jump slot: "<<hex<<call_ins->ripRltvOfft());
     uint64_t jump_slot = call_ins->ripRltvOfft();
     if(call_ins->isCall()  && jump_slot == libcStrtMain_ && t==code_type::CODE) {
-      LOG("libc_Start_main call at: "<<hex<<call_ins->location());
+      DEF_LOG("libc_Start_main call at: "<<hex<<call_ins->location());
       vector <Instruction *> insList = bb->insList();
       if(insList.size() >= 4) {
         int ind = insList.size() - 2;
@@ -1839,11 +1913,11 @@ Cfg::processIndrctJmp(Instruction *call_ins, BasicBlock *bb,code_type t) {
       }
     }
     if(exitCall(jump_slot)) {
-      LOG("exit call found. Marking bb: "<<hex<<bb->start()<<" non returning");
+      DEF_LOG("exit call found. Marking bb: "<<hex<<bb->start()<<" non returning");
       bb->type(BBType::NON_RETURNING);
     }
     else if(mayExitCall(jump_slot)) {
-      LOG("may exit call found. Marking bb: "<<hex<<bb->start()<<" may be returning");
+      DEF_LOG("may exit call found. Marking bb: "<<hex<<bb->start()<<" may be returning");
       bb->type(BBType::MAY_BE_RETURNING);
     }
     if(isPlt(jump_slot))
