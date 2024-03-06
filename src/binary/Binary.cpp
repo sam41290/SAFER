@@ -460,12 +460,12 @@ Binary::rewrite() {
 #endif
   if(disasm_only)
     exit(0);
+  instrument();
   setUpATT();
   optimizeEH();
   genInstAsm();
   //install_segfault_handler();
   //check_segfault_handler();
-  instrument();
   string file_name = print_assembly();
   manager_->rewrite(file_name);
 #ifdef STATIC_TRANS

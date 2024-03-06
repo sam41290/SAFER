@@ -456,6 +456,8 @@ void
 Instruction::instrument() {  
   vector<pair<InstPoint,string>> targetPos = targetPositions();
   for(auto & tgt:targetPos) {
+    if(tgt.first == InstPoint::SHSTK_IGNORE_TAIL_CALL)
+      continue;
     HookType h = HookType::GENERAL_INST;
     if(tgt.first == InstPoint::ADDRS_TRANS)
       h = HookType::ADDRS_TRANS;
