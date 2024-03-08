@@ -1025,7 +1025,7 @@ Cfg::cnsrvtvDisasm() {
   //scanForCalls(2);
   processAllRoots();
   linkAllBBs();
-  updateBBTypes();
+  //updateBBTypes();
   classifyPtrs();
   DEF_LOG("Disassembling possible code");
   disassembleGaps();
@@ -1037,10 +1037,10 @@ Cfg::cnsrvtvDisasm() {
   addHintBasedEntries();
 #endif
   //propagateAllRoots();
-  //updateBBTypes();
   //phase1NonReturningCallResolution();
   //analyze();
   linkAllBBs();
+  updateBBTypes();
 
 
 

@@ -685,6 +685,14 @@ BasicBlock::inferType(unordered_set <uint64_t> &passed) {
     if(fallThroughBB_ != NULL && passed.find(fallThrough_) == passed.end())
       fallThroughBB_->inferType(passed);
     auto ins = lastIns();
+    if(start() == 0x21853 || start() == 0x21820 || start() == 0x21c50 || start() == 0xa5b7d || start() == 0x21c8c) {
+      DEF_LOG("Infering return type BB: "<<hex<<start());
+      if(targetBB_ != NULL)
+        DEF_LOG("Target: "<<hex<<target()<<" type: "<<(int)targetBB_->type());
+      if(fallThroughBB_ != NULL) {
+        DEF_LOG("Fall: "<<hex<<fallThrough()<<" type: "<<(int)fallThroughBB_->type());
+      }
+    }
     if(isCall()) {
       if(callType_ == BBType::NON_RETURNING) {
         type_ = BBType::NON_RETURNING;
@@ -732,6 +740,7 @@ BasicBlock::inferType(unordered_set <uint64_t> &passed) {
       else
         type(tgt_type);
     }
+    else if(fallThroughBB_ != NULL) type(fallThroughBB_->type());
   }
   //LOG("BB Type: "<<hex<<start_<<"-"<<(int)type());
 }
