@@ -2541,10 +2541,15 @@ CfgElems::shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x) {
             last_ins->registerInstrumentation(InstPoint::SHSTK_FUNCTION_RET,x.second,instArgs()[x.second]);
           }
           else if(last_ins->isUnconditionalJmp() && last_ins->isCall() == false && 
-                  last_ins->target() != 0 &&
-                  withinPltSec(last_ins->target())) {
-            last_ins->registerInstrumentation(InstPoint::SHSTK_IGNORE_TAIL_CALL,x.second,instArgs()[x.second]);
-            DEF_LOG("Registering legacy shadow stack ignore instrumentation for direct jump: "<<hex<<last_ins->location());
+                  last_ins->target() != 0) {
+            if(withinPltSec(last_ins->target())) {
+              last_ins->registerInstrumentation(InstPoint::SHSTK_IGNORE_TAIL_CALL,x.second,instArgs()[x.second]);
+              DEF_LOG("Registering legacy shadow stack ignore instrumentation for direct jump: "<<hex<<last_ins->location());
+            }
+            else {
+              last_ins->registerInstrumentation(InstPoint::LEGACY_SHADOW_CALL,x.second,instArgs()[x.second]);
+              DEF_LOG("Registering legacy shadow stack ignore instrumentation for direct jump: "<<hex<<last_ins->location());
+            }
           }
         }
         auto tgt_bb = bb->targetBB();
@@ -2558,10 +2563,15 @@ CfgElems::shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x) {
             last_ins->registerInstrumentation(InstPoint::SHSTK_FUNCTION_RET,x.second,instArgs()[x.second]);
           }
           else if(last_ins->isUnconditionalJmp() && last_ins->isCall() == false && 
-                  last_ins->target() != 0 &&
-                  withinPltSec(last_ins->target())) {
-            last_ins->registerInstrumentation(InstPoint::SHSTK_IGNORE_TAIL_CALL,x.second,instArgs()[x.second]);
-            DEF_LOG("Registering legacy shadow stack ignore instrumentation for direct jump: "<<hex<<last_ins->location());
+                  last_ins->target() != 0) {
+            if(withinPltSec(last_ins->target())) {
+              last_ins->registerInstrumentation(InstPoint::SHSTK_IGNORE_TAIL_CALL,x.second,instArgs()[x.second]);
+              DEF_LOG("Registering legacy shadow stack ignore instrumentation for direct jump: "<<hex<<last_ins->location());
+            }
+            else {
+              last_ins->registerInstrumentation(InstPoint::LEGACY_SHADOW_CALL,x.second,instArgs()[x.second]);
+              DEF_LOG("Registering legacy shadow stack ignore instrumentation for direct jump: "<<hex<<last_ins->location());
+            }
           }
         }
         break;
@@ -2571,8 +2581,8 @@ CfgElems::shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x) {
   auto last_ins = bb->lastIns();
   if(last_ins->asmIns().find("ret") != string::npos) {
     if(last_ins->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_RET) == false &&
-       last_ins->alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK) == false) {
-      last_ins->registerInstrumentation(InstPoint::LEGACY_SHADOW_STACK,x.second,instArgs()[x.second]);
+       last_ins->alreadyInstrumented(InstPoint::LEGACY_SHADOW_RET) == false) {
+      last_ins->registerInstrumentation(InstPoint::LEGACY_SHADOW_RET,x.second,instArgs()[x.second]);
       DEF_LOG("Registering legacy shadow stack return instrumentation: "<<hex<<last_ins->location());
     }
   }
@@ -2585,9 +2595,9 @@ CfgElems::shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x) {
   //}
   else if(last_ins->isUnconditionalJmp() && last_ins->isCall() == false && bb->target() != 0 &&
           withinPltSec(bb->target()) && withinPltSec(last_ins->location()) == false &&
-          last_ins->alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK) == false &&
+          last_ins->alreadyInstrumented(InstPoint::LEGACY_SHADOW_RET) == false &&
           last_ins->alreadyInstrumented(InstPoint::SHSTK_IGNORE_TAIL_CALL) == false) {
-      last_ins->registerInstrumentation(InstPoint::LEGACY_SHADOW_STACK,x.second,instArgs()[x.second]);
+      last_ins->registerInstrumentation(InstPoint::LEGACY_SHADOW_RET,x.second,instArgs()[x.second]);
       DEF_LOG("Registering legacy shadow stack return instrumentation for direct jump: "<<hex<<last_ins->location());
   }
 }
@@ -2721,7 +2731,7 @@ CfgElems::shstkForIndrctTailCall(BasicBlock *entry, pair<InstPoint,string> &x) {
 
           //Instrument if the stack is preserved before indirect jump
 
-          last_ins->registerInstrumentation(InstPoint::LEGACY_SHADOW_STACK,x.second,instArgs()[x.second]);
+          last_ins->registerInstrumentation(InstPoint::LEGACY_SHADOW_RET,x.second,instArgs()[x.second]);
           DEF_LOG("Registering legacy shadow stack return instrumentation for indirect jump: "<<hex<<last_ins->location());
         }
       }
@@ -2784,7 +2794,7 @@ CfgElems::shadowStackInstrumentV2(pair<InstPoint,string> &x) {
     for(auto & bb : bbs) {
       auto last_ins = bb->lastIns();
       if(last_ins->isCall())
-        last_ins->registerInstrumentation(InstPoint::LEGACY_SHADOW_STACK,x.second,instArgs()[x.second]);
+        last_ins->registerInstrumentation(InstPoint::LEGACY_SHADOW_CALL,x.second,instArgs()[x.second]);
       shstkForCanaryProlog(bb, x);
       shadowStackRetInst(bb,x);
     }
@@ -2792,7 +2802,7 @@ CfgElems::shadowStackInstrumentV2(pair<InstPoint,string> &x) {
     for(auto & bb : bbs2) {
       auto last_ins = bb->lastIns();
       if(last_ins->isCall())
-        last_ins->registerInstrumentation(InstPoint::LEGACY_SHADOW_STACK,x.second,instArgs()[x.second]);
+        last_ins->registerInstrumentation(InstPoint::LEGACY_SHADOW_CALL,x.second,instArgs()[x.second]);
       shstkForCanaryProlog(bb, x);
       shadowStackRetInst(bb,x);
     }

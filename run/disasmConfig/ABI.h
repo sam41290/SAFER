@@ -1,4 +1,4 @@
-#define ACCEPT_THRESHOLD 1.79769e+308//powl(2,50)
+#define ACCEPT_THRESHOLD powl(2,20)
 #define REJECT_THRESHOLD 0 //powl(2,10)
 #define CODE_SCORE 6
 
