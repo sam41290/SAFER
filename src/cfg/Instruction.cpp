@@ -557,34 +557,15 @@ Instruction::instrument() {
         asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::RET_CHK);
       forcePrintAsm_ = true;
     }
-    else if(tgt.first == InstPoint::LEGACY_SHADOW_STACK) {
-      //DEF_LOG("Instrumenting returns: "<<hex<<loc_);
-      if(isCall()) {
-        if(sem_->isIndrctCf_ == false)
-        //  instAsmPre_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_INDRCT_CALL,fallSym());
-        //else
-          asmIns_ = generate_hook(op1(),args,"call",HookType::LEGACY_SHADOW_CALL,fallSym());
-      }
-      //else if(isJump())
-      //  instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_JMP);
-      else
-        instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_RET);
+    else if(tgt.first == InstPoint::LEGACY_SHADOW_CALL) {
+      asmIns_ = generate_hook(op1(),args,mnemonic_,HookType::LEGACY_SHADOW_CALL,fallSym());
+    }
+    else if(tgt.first == InstPoint::LEGACY_SHADOW_RET) {
+      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_RET);
       forcePrintAsm_ = true;
     }
     else if(tgt.first == InstPoint::SYSCALL_CHECK)
       instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SYSCALL_CHECK);
-    //else if (tgt.first == InstPoint::SHSTK_FUNCTION_CALL) {
-    //  if(isCall()) {
-    //    //if(sem_->isIndrctCf_)
-    //    //  asmIns_ = generate_hook(op1(),args,"call",HookType::SHSTK_INDRCT_CALL,fallSym());
-    //    //else
-    //    if(sem_->isIndrctCf_ == false)
-    //      asmIns_ = generate_hook(op1(),args,"call",HookType::SHSTK_DRCT_CALL,fallSym());
-    //  }
-    //  else
-    //    asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_RET);
-    //  forcePrintAsm_ = true;
-    //}
     else if (tgt.first == InstPoint::SHSTK_FUNCTION_RET) {
       instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_FUNCTION_RET);
     }
