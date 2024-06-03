@@ -1,0 +1,229 @@
+CFG API:
+---------------------------------------------------------------------------------
+
+* One class for target program (Class Binary)
+  1. Sample code to rewrite a program:
+    
+    #include "Binary.h"
+
+    using namespace std;
+
+    int main(int argc, char *args[]) {
+      string binary_path(args[1]);
+      Binary b(binary_path);
+
+      b.disassemble(); //disassemble and generate CFG
+
+      // Add any instrumentation
+
+      b.rewrite(); //rewrite binary
+      return 0;
+    }
+
+* Accessing the CFG:
+  + auto cfg = b.codeCfg(); //Returns a pointer to cfg
+  + auto bb = cfg->getBB(addr) //Returns a pointer to a basic block
+  + auto ins = cfg->getIns(addr) //Returns a pointer to instruction object.
+  + Instruction semantics:
+    a. Control flow: isCall(), isJump(), isUnconditionalJmp(), isIndirectVf(), isFuncExit()
+    b. IP relative: isRltvAccess(), ripRltvOfft()
+    c. canary access: isCanaryPrologue(), isCanaryEpilogue()
+
+
+
+INSTRUMENTATION API:
+---------------------------------------------------------------------------------
+
+* Three types of instrumentation:
+  1. Instrument inline: User supplies assembly code snippet. User must take care
+     of register saves and restores required.
+  2. Instrument via call: User writes instrumentation code as functions in high
+     level language. Instrumentation code is compiled to a shared library. The
+     library is imported at the runtime by our custom loader. SAFER adds
+     trampoline calls into the shared library. Register save/restore will be
+     taken care of by SAFER.
+
+  3. Predefined instrumentations: These are instrumentations such as "SHADOW
+     STACK", "CFI" and "CODE RANDOMIZATION". User need not provide any code as
+     part of instrumentation. The instrumentation code is already available in
+     SAFER in optimized form and will be automatically added.
+
+* Instrumentation via call:
+
+  This API allows user to write complex instrumentation code using high level
+  language (C). The instrumentation code is built into a separate shared library
+  that is imported at the load-time. This provides the flexibility of using
+  complex and thread safe data structures without having to worry about
+  implementing them directly on program executable.
+
+  This instrumentation can be achieved in two ways:
+  
+  + Generic instrumentation: Apply instrumentation across all instances of
+    a target (e.g., Basic blocks) in the binary.
+  + Targetted instrumentation: Apply instrumentation a specific function
+    identified by its name.
+  
+  1. Generic instrumentation:
+     
+     a. Instrument across all instances of an instrumentation point.
+        
+        enum class InstPoint
+        {
+          BASIC_BLOCK,
+          INSTRUCTION,
+          FUNCTION_ENTRY,
+          SYSCALL,
+          CALL,
+          RET,
+          INDIRECT_CF };
+
+      b. Instrumentation pos: Instrument before (PRE) or after (POST) the target
+         object.
+
+         enum class InstPos {
+           PRE,
+           POST
+         };
+
+      c. Registering instrumentation for generic positions:
+         
+         Use "registerInstrumentation" function of the binary class. For
+         example, to instrument all basic blocks in a binary file "/bin/ls":
+
+             Binary b("/bin/ls");
+             b.registerInstrumentation(InstPoint::BASIC_BLOCK, InstPos::PRE, "inst_function") 
+
+        "inst_function" is the name of the function that contains the
+        instrumentation code. This function must be defined by user in
+        "SBI/run/instrumentation_code_here/instrument.c" file. User must build
+        this file independently by running "make" in the same directory. The
+        code builds into a shared library (libinstrument.so) that will be loaded
+        at the runtime by our custome loader. After building, the user must
+        place this library in "${HOME}/instrumented_lib" directory.
+
+        + Passing arguments to instrumentation function:
+
+          SAFER provides an API to pass program context as arguments to the
+          instrumentation functions. The user can choose a list of registers,
+          RSP value, RIP (instruction pointer) value, binary file name, indirect
+          target and RIP relative computed pointers.
+
+          enum class InstArg {
+            NONE = 0,
+            RIP,
+            INDIRECT_TARGET,
+            LEA_VAL,
+            REG_R8,
+            REG_R9,
+            REG_R10,
+            REG_R11,
+            REG_R12,
+            REG_R13,
+            REG_R14,
+            REG_R15,
+            REG_RDI,
+            REG_RSI,
+            REG_RBP,
+            REG_RBX,
+            REG_RDX,
+            REG_RAX,
+            REG_RCX,
+            REG_RSP,
+            EFLAGS,
+            EXENAME //helps in tracking which module is currently executing.
+          };
+
+          For example, to pass register RAX value, RIP value and the current
+          module name as arguments:
+
+          vector<InstArg> arglst;
+          arglst.push_back(InstArg::REG_RAX);
+          arglst.push_back(InstArg::RIP);
+          arglst.push_back(InstArg::EXENAME);
+          b.registerInstrumentation(InstPoint::BASIC_BLOCK,InstPos::PRE,"LOG",arglst);
+
+        This instrumentation will add trampoline calls to instrumentation
+        function present in libinstrument.so. The calls immitate the PLT code
+        inserted by the compiler. See below an example.
+
+        .............................................
+         //Trampoline for the instrumentation function added in a custom PLT
+            region of binary. 
+        .LOG:  jmp * custom_got_fp_LOG(%rip)
+       
+        .............................................
+        //Below instrumentation is added before every basic block
+
+        //Save flags all callee saved registers.
+        pushf
+        sub $72,%rsp
+        mov %rax,64(%rsp)
+        mov %rdi,56(%rsp)
+        mov %rsi,48(%rsp)
+        mov %rdx,40(%rsp)
+        mov %rcx,32(%rsp)
+        mov %r8,24(%rsp)
+        mov %r9,16(%rsp)
+        mov %r10,8(%rsp)
+        mov %r11,0(%rsp)
+
+        //Populate argument registers based on the list provided by user.
+        lea .exename(%rip),%rdx
+        mov $16384,%rsi
+        mov 64(%rsp),%rdi
+        call .LOG  //Call the trampoline for instrumentation function
+
+        //Restore all register and flags and continue execution.
+        mov 0(%rsp),%r11
+        mov 8(%rsp),%r10
+        mov 16(%rsp),%r9
+        mov 24(%rsp),%r8
+        mov 32(%rsp),%rcx
+        mov 40(%rsp),%rdx
+        mov 48(%rsp),%rsi
+        mov 56(%rsp),%rdi
+        mov 64(%rsp),%rax
+        add $72,%rsp
+        popf
+  
+  2. Targetted instrumentation: User can target a specific function instead of
+     instrumenting everyting across the binary. For example, a user trying to
+     track memory allocation and deallocation may only want to instrument only
+     "malloc" and "free" instead of all function entries:
+
+     To instrument a given function:
+
+        b.registerInstrumentation("malloc","inst_function",argslst);
+
+
+* Instrument inline: Some instrumentations are less complex and can be written
+  directly using assembly language and can be inlined. This helps in having
+  a performance friendly instrumentation. For example, an instrumentation to
+  count basic blocks in a program does not need any complex data structures and
+  can be written using 3-4 lines of assembly code. To register such inlined
+  instrumentation, user can use below function call:
+
+     b.registerInlineInstrumentation("asm_str",InstPos::PRE,InstPoint::BASIC_BLOCK);
+  
+  To instrument a specific basic block identified by its address:
+     
+     auto cfg = b.codeCfg();
+     auto bb = b.getBB(address);
+     bb->registerInlineInstrumentation("asm_str", InstPos::PRE);
+
+
+  Note that, in case of inlined instrumentation, the platform (SAFER) does not
+  take care of saving and restoring required registers and flags. The user must
+  take care of this while writting the assembly code snippet.
+
+
+* In built instrumentation: Certain instrumentations are in-built into SAFER.
+  User does not have to provide instrumentation code and does not have to
+  specify where to instrument. For example, adding shadow stack onto a program.
+  The optimized instrumentation code is already in-built into SAFER and it knows
+  where to add them. To add shadow stack on to a program:
+
+    b.registerInbuiltInstrumentation(InstPoint::SHADOW_STACK);
+
+
+
