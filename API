@@ -225,5 +225,30 @@ INSTRUMENTATION API:
 
     b.registerInbuiltInstrumentation(InstPoint::SHADOW_STACK);
 
+FUTURE DIRECTION:
+--------------------------------------------------------------------------------
 
+1. Optimizing register save/restores:
+
+   Static analysis can help us determine if certain registers and flags are live
+   at a given instrumentation point and can help in optimizing register
+   save/restore. This will help in improving performance cost.
+
+2. Selective instrumentation:
+
+   a. SELECTIVETAINT (USENIX 2021) uses static analysis to reduce the set of
+   tainted instructions and improve efficiency of static binary instrumentation
+   based data flow tracking. SAFER can be matured to use static analysis to
+   reduce the target set for a given instrumentation. For example, while
+   implementing a coverage-guided fuzzer, we need not instrument all basic
+   blocks to track coverage. 
+
+   b. Certain instrumentation do not require instrumenting all portions of code.
+   For example, a sandboxing system that tracks all system calls will only
+   instrument functions with system calls. As of now, SAFER's design mandates
+   relocating/moving all functions to new code region even though they may not
+   contain any interesting instrumentation point. If we can further develop
+   SAFER to selectively instrument and relocate only interesting functions while
+   still ensuring correctness and safety guarentee, then it can help in
+   improving performance cost.
 
