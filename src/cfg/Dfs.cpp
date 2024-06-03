@@ -46,6 +46,105 @@ Dfs::insPathDfs(BasicBlock *entry, uint64_t target, unordered_set <uint64_t> &pa
   return path;
 }
 
+extern unordered_set <string> calleeSaved;
+
+void
+Dfs::savedRegAtPrologue(BasicBlock *prolog_bb) {
+
+  //Must only be called for basic blocks that are the function entry points
+  //For each instruction in the basic block, checks what registers 
+  //(i) have been saved and
+  //(ii) have not been defined for use.
+  //
+  //That is, it creates a list of free registers 
+
+  unordered_map <uint64_t, vector <string>> saved_reg_map;
+  auto ins_list = prolog_bb->insList();
+  Instruction *prev_ins = NULL;
+  for(auto & ins : ins_list) {
+
+    auto sem = ins->sem();
+    auto op_list = sem->OpList;
+    unordered_set <string> defined_reg;
+    for(auto & o : op_list) {
+      if(o.target.type_ == OperandType::REG &&
+         calleeSaved.find(o.target.reg_) != calleeSaved.end()) {
+        //defined_reg.insert(o.target.reg_);
+        return;
+      }
+    }
+    vector<string> reg_list;
+    if(prev_ins != NULL) {
+      auto prev_ins_free_reg = prev_ins->prologFreeReg();
+      for(auto & reg : prev_ins_free_reg) {
+        if(defined_reg.find(reg) == defined_reg.end())
+          reg_list.push_back(reg);
+      }
+    }
+    ins->prologFreeReg(reg_list);
+    for(auto & o : op_list) {
+      if(o.op == OP::STORE && o.source1.type_ == OperandType::REG &&
+         calleeSaved.find(o.source1.reg_) != calleeSaved.end())
+        ins->prologFreeReg(o.source1.reg_);
+    }
+    prev_ins = ins;
+  }
+}
+
+void
+Dfs::restoredRegAtEpilogue(BasicBlock *epilog_bb) {
+
+  //Must only be called for basic blocks that are the function exits (i.e., they
+  //must end with a return)
+  //For each instruction in the basic block, checks what registers are yet to be
+  //restored
+  //
+  //That is, it creates a list of free registers for each instruction right
+  //before the RET.
+
+  unordered_map <uint64_t, vector <string>> saved_reg_map;
+  auto ins_list = epilog_bb->insList();
+  int cnt = ins_list.size() - 1;
+
+  Instruction *prev_ins = NULL;
+  unordered_set <string> used_reg;
+  for(int i = cnt; i >= 0; i--) {
+    auto ins = ins_list[i];
+    if(ins->asmIns().find("ret") != string::npos)
+      continue;
+    auto sem = ins->sem();
+    auto op_list = sem->OpList;
+    for(auto & o : op_list) {
+      if(o.source1.type_ == OperandType::REG &&
+         calleeSaved.find(o.source1.reg_) != calleeSaved.end()) {
+        used_reg.insert(o.source1.reg_);
+        return;
+      }
+    }
+    vector<string> reg_list;
+    if(prev_ins != NULL) {
+      auto prev_ins_free_reg = prev_ins->epilogFreeReg();
+      for(auto & reg : prev_ins_free_reg) {
+        if(used_reg.find(reg) == used_reg.end())
+          reg_list.push_back(reg);
+      }
+    }
+    //ins->epilogFreeReg(reg_list);
+    bool restore_found = false;
+    for(auto & o : op_list) {
+      if(o.op == OP::STORE && o.target.type_ == OperandType::REG &&
+         calleeSaved.find(o.target.reg_) != calleeSaved.end() &&
+         used_reg.find(o.target.reg_) == used_reg.end()) {
+        ins->epilogFreeReg(o.target.reg_);
+        restore_found = true;
+      }
+    }
+    if(restore_found == false) return;
+    for(auto & r : reg_list)
+      ins->epilogFreeReg(r);
+    prev_ins = ins;
+  }
+}
 
 RegVal
 Dfs::updateState(RegVal &tgt, State &state, Operation &op,

@@ -305,6 +305,23 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
   }
   else if(call_target)
     utils::printAlgn(16,file_name);
+
+
+  uint64_t shadow_ret_inst_pt = 0, free_reg = 0;
+
+  if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_RET)) {
+    int cnt = insList_.size() - 1;
+    shadow_ret_inst_pt = insList_[cnt]->location();
+    for(int i = cnt - 1; i >= 0; i--) {
+      if(insList_[i]->epilogFreeReg().size() > free_reg) {
+        shadow_ret_inst_pt = insList_[i]->location();
+        free_reg = insList_[i]->epilogFreeReg().size();
+      }
+      if(free_reg == 2)
+        break;
+    }
+  }
+
   for(auto & it:insList_) {
     it->isCode(isCode());
     if((it->isJump() || it->isCall())) {
@@ -333,11 +350,31 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
         it->fallBBSym(fallSym());
       }
     }
-    if(it->location() == start_ && alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY)) {
+    if(it->location() == start_ && 
+      (alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY) ||
+       alreadyInstrumented(InstPoint::SHSTK_FUNCTION_PTR))) {
       string shstk_tramp = directCallShstkTramp();
       string lbl = shStkTrampSym();
       utils::printAsm(shstk_tramp, start_, lbl, SymBind::FORCEBIND, file_name);
       it->isCode(false);
+    }
+
+
+    if(shadow_ret_inst_pt != 0 && it->location() == shadow_ret_inst_pt) {
+      auto free_reg_list = it->epilogFreeReg();
+      string shadow_ret_asm = "", reg1 = "", reg2 = "";
+      DEF_LOG("Adding shadow ret check: "<<hex<<shadow_ret_inst_pt);
+      DEF_LOG("free_reg: "<<free_reg<<"-"<<free_reg_list.size());
+      if(free_reg == 1) {
+        reg1 = free_reg_list[0];
+      }
+      else if(free_reg == 2) {
+        reg1 = free_reg_list[0];
+        reg2 = free_reg_list[1];
+      }
+      shadow_ret_asm = shadowRetInst(reg1, reg2, free_reg);
+      it->instAsmPre(shadow_ret_asm);
+      //utils::printAsm(shadow_ret_asm, shadow_ret_inst_pt, "", SymBind::NOBIND, file_name);
     }
     it->print(file_name,ins_lbl_sfx);
     //if(it->isCall()) {
@@ -412,7 +449,8 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
               if(bb->start() == rip_rltv_offset) {
                 string lbl = bb->label();
                 if(bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY) ||
-                   bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_TRAMP))
+                   bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_TRAMP) ||
+                   bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_PTR))
                   lbl = bb->shStkTrampSym();
                 string op = utils::symbolizeRltvAccess(it->op1(),
                      lbl,rip_rltv_offset,SymBind::FORCEBIND);
@@ -464,31 +502,27 @@ vector <uint64_t> BasicBlock::allInsLoc() {
 
 void
 BasicBlock::instrument() {
-  vector<pair<uint64_t,string>> tgtAddrs = targetAddrs();
-  map<string,vector<InstArg>>allargs = instArgs();
-  for(auto & tgt : tgtAddrs) {
-    for(auto & ins_it : insList_) {
-      if(CFValidity::validPrfx(ins_it) == false ||
-         CFValidity::validOpCode(ins_it) == false) {
-        continue;
-      }
-      if(ins_it->location() == tgt.first) {
-        ins_it->registerInstrumentation(InstPoint::BASIC_BLOCK,
-          tgt.second,allargs[tgt.second]);
-      //ins_it->second.instrument();
+  auto targetPos = targetPositions();
+  for(auto & p : targetPos) {
+
+    if(p.first == InstPoint::CUSTOM || p.first == InstPoint::BASIC_BLOCK) {
+      if(p.second.pos_ == InstPos::PRE)
+        insList_[0]->registerInstrumentation(InstPoint::CUSTOM,p.second);
+      else {
+        auto last_ins = lastIns();
+        auto x = p.second;
+        x.pos_ = InstPos::PRE;
+        last_ins->registerInstrumentation(InstPoint::CUSTOM,x);
       }
     }
-  }
-  vector<pair<InstPoint,string>> targetPos = targetPositions();
-  for(auto & p : targetPos) {
-    if(p.first == InstPoint::INDIRECT_CF) {
+    else if(p.first == InstPoint::INDIRECT_CF) {
       auto ins_it = lastIns();
       if(CFValidity::validPrfx(ins_it) == false ||
          CFValidity::validOpCode(ins_it) == false) {
         continue;
       }
       if(ins_it->isIndirectCf()) {
-        ins_it->registerInstrumentation(p.first,p.second,allargs[p.second]);
+        ins_it->registerInstrumentation(p.first,p.second);
       }
     }
     else if(p.first == InstPoint::ADDRS_TRANS) {
@@ -502,27 +536,10 @@ BasicBlock::instrument() {
           ins->encode(true);
         if((ins->isIndirectCf() && ins->atRequired())) {
           DEF_LOG("Adding instrumentation to basic block: "<<hex<<ins->location()<<" "<<(int)p.first);
-          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
+          ins->registerInstrumentation(p.first,p.second);
         }
       }
     }
-    //else if(p.first == InstPoint::LEGACY_SHADOW_STACK) {
-    //  for(auto & ins : insList_) {
-    //    if(CFValidity::validPrfx(ins) == false ||
-    //       CFValidity::validOpCode(ins) == false) {
-    //      continue;
-    //    }
-    //    if(ins->asmIns().find("ret") != string::npos) {
-    //      ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
-    //    }
-    //    else if(ins->isCall() && ins->asmIns().find("syscall") == string::npos) {
-    //      ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
-    //      ins->mnemonic("jmp");
-    //      ins->asmIns(ins->mnemonic() + " " + ins->op1());
-    //      ins->fallSym(ins->label() + lblSuffix() + "_fall");
-    //    }
-    //  }
-    //}
     else if(p.first == InstPoint::RET_CHK) {
       for(auto & ins : insList_) {
         if(CFValidity::validPrfx(ins) == false ||
@@ -530,16 +547,16 @@ BasicBlock::instrument() {
           continue;
         }
         if(ins->asmIns().find("ret") != string::npos) {
-          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
+          ins->registerInstrumentation(p.first,p.second);
         }
         else if(ins->isCall() && ins->asmIns().find("syscall") == string::npos) {
-          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
+          ins->registerInstrumentation(p.first,p.second);
           ins->mnemonic("jmp");
           ins->asmIns(ins->mnemonic() + " " + ins->op1());
           ins->fallSym(ins->label() + lblSuffix() + "_fall");
         }
         else if(ins->isPltJmp())
-          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
+          ins->registerInstrumentation(p.first,p.second);
       }
     }
     else if(p.first == InstPoint::SYSCALL_CHECK) {
@@ -549,35 +566,9 @@ BasicBlock::instrument() {
           continue;
         }
         if(ins->asmIns().find("syscall") != string::npos)
-          ins->registerInstrumentation(p.first,p.second,allargs[p.second]);
+          ins->registerInstrumentation(p.first,p.second);
       }
     }
-    else if(p.first == InstPoint::LEA_INS_PRE ||
-            p.first == InstPoint::LEA_INS_POST){
-      for(auto it:insList_) {
-        if(CFValidity::validPrfx(it) == false ||
-           CFValidity::validOpCode(it) == false) {
-          continue;
-        }
-        if(it->isLea()) {
-          it->registerInstrumentation(p.first,p.second,allargs[p.second]);
-          //ins.second.instrument();
-        }
-      }
-    }
-    //else if(p.first == InstPoint::SHSTK_FUNCTION_CALL) {
-    //  for (auto &ins : insList_) {
-    //    if(CFValidity::validPrfx(ins) == false ||
-    //       CFValidity::validOpCode(ins) == false) {
-    //      continue;
-    //    }
-    //    if (ins->asmIns().find("call") != string::npos) {
-    //      ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
-    //      ins->fallSym(ins->label() + lblSuffix() + "_fall");
-    //      DEF_LOG("The call asm inst is: " << ins->asmIns());
-    //    }
-    //  }
-    //}
     else if(p.first == InstPoint::SHSTK_FUNCTION_RET) {
       for (auto &ins : insList_) {
         if(CFValidity::validPrfx(ins) == false ||
@@ -585,7 +576,7 @@ BasicBlock::instrument() {
           continue;
         }
         if (ins->asmIns().find("ret") != string::npos) {
-          ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
+          ins->registerInstrumentation(p.first, p.second);
           DEF_LOG("The ret asm inst is: " << ins->asmIns());
         }
       }
@@ -599,7 +590,7 @@ BasicBlock::instrument() {
         if (ins->asmIns().find("%fs:0x28") != string::npos &&
             ins->asmIns().find("mov") != string::npos) {
           ins->canaryAdd(true);
-          ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
+          ins->registerInstrumentation(p.first, p.second);
           DEF_LOG("The canary asm inst is: " << ins->asmIns());
         }
       }
@@ -613,7 +604,7 @@ BasicBlock::instrument() {
         if (ins->asmIns().find("%fs:0x28") != string::npos &&
             ins->asmIns().find("xor") != string::npos) {
           ins->canaryCheck(true);
-          ins->registerInstrumentation(p.first, p.second, allargs[p.second]);
+          ins->registerInstrumentation(p.first, p.second);
           DEF_LOG("The canary asm inst is:" << ins->asmIns());
         }
       }

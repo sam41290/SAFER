@@ -12,6 +12,7 @@ Reference:
 #define TYPE_TO_ASM_DIRECTIVE(s) \
   ((s == 4) ? ".4byte" : (s == 8) ? ".8byte" : (s == 2) ? ".2byte" : ".byte")
 #define PT_SBI_ATT  0x80000000
+#define PT_SBI_CGOT 0x90000000
 #define R_X86_64_SBIENC0 44
 #define R_X86_64_ISBIENC0 45
 /*

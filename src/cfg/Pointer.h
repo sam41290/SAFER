@@ -153,7 +153,8 @@ enum class PointerSource
   RIP_RLTV,
   PIC_RELOC,
   EHFIRST,
-  KNOWN_CODE_PTR
+  KNOWN_CODE_PTR,
+  EH_LANDING_PTR
 };
 
 /*

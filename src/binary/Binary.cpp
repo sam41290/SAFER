@@ -78,6 +78,19 @@ Binary::Binary(string Binary_path) {
 #endif
 */
   set_codeCFG_params();
+  #ifdef STATIC_TRANS
+    cout<<"Ignoring address translation instrumentation"<<endl;
+  #else
+    registerInbuiltInstrumentation(InstPoint::ADDRS_TRANS);
+ 
+    vector<InstArg> arglst4;
+    registerInbuiltInstrumentation(InstPoint::SYSCALL_CHECK);
+ 
+ 
+    if(RA_OPT == false) {
+      registerInbuiltInstrumentation(InstPoint::RET_CHK);
+    }
+  #endif
 }
 
 void
@@ -165,7 +178,8 @@ Binary::setUpATT() {
     auto bb = codeCFG_->getBB(ptr.first);
     if(bb != NULL && 
       (bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY) ||
-       bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_TRAMP))) {
+       bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_TRAMP) ||
+       bb->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_PTR))) {
       sym = bb->shStkTrampSym();
     }
     else
@@ -541,12 +555,12 @@ Binary::populate_ptr_reloc_ptr() {
 
     uint64_t ptr = call_site_it->first;
     LOG("EH call site: " <<hex <<ptr);
-    ADDPOINTER(ptr, PointerType::CP, PointerSource::KNOWN_CODE_PTR,100);
+    ADDPOINTER(ptr, PointerType::CP, PointerSource::EH_LANDING_PTR,100);
     //Passing storage location = 100 for all known code pointers
     ptr = call_site_it->second.landing_pad;
     if(ptr != 0) {
       LOG("landing pad: " <<ptr);
-      ADDPOINTER(ptr, PointerType::CP,PointerSource::KNOWN_CODE_PTR,100);
+      ADDPOINTER(ptr, PointerType::CP,PointerSource::EH_LANDING_PTR,100);
       //Passing storage location = 100 for all known code pointers
     }
     call_site_it++;
@@ -905,10 +919,10 @@ Binary::printOldCodeAndData(string file_name) {
           i += sec_size;
       }
       else if(interp_sec) {
-#ifdef STATIC_TRANS
-        utils::printAsm(".byte " + to_string((uint32_t)data[i]) + "\n",addr, label, b, file_name);
-        i++;
-#else
+//#ifdef STATIC_TRANS
+//        utils::printAsm(".byte " + to_string((uint32_t)data[i]) + "\n",addr, label, b, file_name);
+//        i++;
+//#else
         string interp((char *)(data + i));
         interp.replace(interp.find("x86-64"),6,"xsafer");
         auto len = interp.length();
@@ -921,7 +935,7 @@ Binary::printOldCodeAndData(string file_name) {
         label = "." + to_string(addr + j);
         utils::printAsm(".byte " + to_string((uint32_t)0) + "\n",addr + j, label, b, file_name);
         i += sec_size;
-#endif
+//#endif
       }
       else {
         utils::printAsm(".byte " + to_string((uint32_t)data[i]) + "\n",addr, label, b, file_name);
@@ -1117,7 +1131,7 @@ Binary::install_segfault_handler() {
 
   string label = "fill_sigaction";
   uint64_t sigaction_addrs = manager_->symbolVal("sigaction");	//get address of sigaction in GLIBC
-  string inst_code = generate_hook(label,"","",HookType::SEGFAULT, "",sigaction_addrs);
+  string inst_code = generate_hook(label,"","",InstPoint::CUSTOM,HookType::SEGFAULT, "",sigaction_addrs);
 
   LOG("Installing signal handler at libcStartMain_" <<hex <<hook_point);
 
@@ -1132,28 +1146,28 @@ Binary::genInstAsm() {
    * and generates asm to be re-assembled along with the target Binary.
    */
 
-  string inst_Binary_path(INST_CODE_PATH "tutorial");
-  /*
-   * One way to add instrumentation code is to disassembly the instrumentation
-   * Binary and add asm.
-   * However, diasassembly is not feasible because of one global
-   * exception_handler which is used by the target Binary.
-   *
-   * Will fix this soon.
-   *
-   Binary inst_Binary(inst_Binary_path);
-   inst_Binary.populate_ptr_sym_table();
-   inst_Binary.disassemble();
-   inst_Binary.assignLabeltoFn(label,instrumentation_func_name);
-   inst_Binary.get_section_asm(".text","inst_text.s");
-   inst_Binary.get_section_asm(".rodata","inst_rodata.s");
-   */
+  //string inst_Binary_path(INST_CODE_PATH "tutorial");
+  ///*
+  // * One way to add instrumentation code is to disassembly the instrumentation
+  // * Binary and add asm.
+  // * However, diasassembly is not feasible because of one global
+  // * exception_handler which is used by the target Binary.
+  // *
+  // * Will fix this soon.
+  // *
+  // Binary inst_Binary(inst_Binary_path);
+  // inst_Binary.populate_ptr_sym_table();
+  // inst_Binary.disassemble();
+  // inst_Binary.assignLabeltoFn(label,instrumentation_func_name);
+  // inst_Binary.get_section_asm(".text","inst_text.s");
+  // inst_Binary.get_section_asm(".rodata","inst_rodata.s");
+  // */
 
-  /*
-   * Another approach is to just obtain the hex bytes and put it in target
-   * Binary asm.
-   * Need to keep the offsets same so that the code works fine.
-   */
+  ///*
+  // * Another approach is to just obtain the hex bytes and put it in target
+  // * Binary asm.
+  // * Need to keep the offsets same so that the code works fine.
+  // */
 
   string key("/");
   size_t found = exePath_.rfind(key);
@@ -1161,6 +1175,10 @@ Binary::genInstAsm() {
 
   ofstream ofile;
   ofile.open("inst_text.s", ofstream::out | ofstream::app);
+  ofile<<exeNameLabel()<<":\n";
+  for(unsigned int i = 0; i < exeName.length(); i++)
+    ofile<<".byte "<<(uint32_t)exeName[i]<<"\n";
+  ofile<<".byte 0\n";
   /*
   ofile<<exeNameLabel()<<":\n";
   for(unsigned int i = 0; i < exeName.length(); i++)
@@ -1219,6 +1237,12 @@ Binary::genInstAsm() {
     free(section_data);
   }
   */
+  auto inst_functions = instFunctions();
+  for(auto & inst_fn : inst_functions) {
+    ofile<<".align 16\n";
+    ofile<<"."<<inst_fn<<":\n";
+    ofile<<"jmp * custom_got_fp_"<<inst_fn<<"(%rip)\n";
+  }
   ofile<<".align 16\n";
   ofile<<".GTF_stack:\n";
   //ofile<<"jmp *.dispatcher_stack(%rip)\n";
@@ -1283,18 +1307,20 @@ Binary::genInstAsm() {
 
 void
 Binary::instrument() {
-  vector<string> instFuncs = instFunctions();
-  if(instFuncs.size() <= 0)
-    return;
-  vector<pair<InstPoint,string>> targetPos = targetPositions();
+  //vector<string> instFuncs = instFunctions();
+  //if(instFuncs.size() <= 0)
+  //  return;
+  auto targetPos = targetPositions();
   for(auto & p : targetPos) {
-    codeCFG_->registerInstrumentation(p.first,p.second,instArgs()[p.second]);
+    codeCFG_->registerInstrumentation(p.first,p.second);
   }
   //codeCFG_->instrument();
-  vector<pair<string,string>> targetFuncs = targetFunctions();
+  auto targetFuncs = targetFunctions();
   for(auto & f : targetFuncs) {
     uint64_t address = manager_->symbolVal(f.first);
-    codeCFG_->registerInstrumentation(address,f.second,instArgs()[f.second]);
+    auto bb = codeCFG_->getBB(address);
+    if(bb != NULL)
+      bb->registerInstrumentation(InstPoint::CUSTOM, f.second);
   }
   codeCFG_->instrument();
 }
@@ -1562,6 +1588,30 @@ string Binary::print_assembly() {
     utils::printAlgn(8, "new_code.s");
   utils::append_files("att.s", "new_code.s");
 #endif
+  section cgot_sec("custom_got",0,0,0,8);
+  cgot_sec.start_sym=".custom_got_start";
+  cgot_sec.end_sym=".custom_got_end";
+  cgot_sec.sec_type = section_types::RX;
+  cgot_sec.additional = true;
+  cgot_sec.is_cgot = true;
+  manager_->newSection(cgot_sec);
+  vector<string> instFuncs = instFunctions();
+  // output it into the custom got section
+  string cgot_asm = "";
+  // cgot_asm += ".align 16\n";
+  for (auto &fn: instFuncs) {
+    if (fn == "GTF_reg" || fn == "SYSCHK") {
+      continue;
+    }
+    size_t length = fn.length();
+
+    cgot_asm += ".word " + to_string(length + 1) + ";\n";
+    cgot_asm += ".asciz \"" + fn + "\"\n";
+    cgot_asm += "custom_got_fp_" + fn + ": .word 0, 0, 0, 0\n";
+  }
+  utils::printAsm(cgot_asm,0,cgot_sec.start_sym,SymBind::NOBIND,"cgot.s");
+  utils::printLbl(cgot_sec.end_sym,"cgot.s");
+  utils::append_files("cgot.s", "new_code.s");
   //}
     //ADD ATT TRAMPS
 

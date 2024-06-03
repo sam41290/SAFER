@@ -96,6 +96,8 @@ namespace SBI {
     unordered_set <uint64_t> indRoots() { return indRoots_; }
     RAlocation getRA(vector <Instruction *> &ins_list);
     vector <Instruction *> insPath(BasicBlock *entry, uint64_t target);
+    void savedRegAtPrologue(BasicBlock *prolog_bb);
+    void restoredRegAtEpilogue(BasicBlock *epilog_bb);
   private:
     void psblExitDFS(BasicBlock *bb, stack <BasicBlock *> &calls,
                        unordered_set <uint64_t> &passed);

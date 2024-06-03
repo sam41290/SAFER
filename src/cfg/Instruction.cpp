@@ -381,7 +381,7 @@ Instruction::print(string file_name, string lbl_sfx) {
 }
 
 void
-Instruction::setInstParams(HookType h) {
+Instruction::setInstParams(InstPoint h) {
   string operand = op1_;
   instParams_.clear();
   paramIns_.clear();
@@ -454,20 +454,23 @@ Instruction::setInstParams(HookType h) {
 
 void
 Instruction::instrument() {  
-  vector<pair<InstPoint,string>> targetPos = targetPositions();
+  auto targetPos = targetPositions();
   for(auto & tgt:targetPos) {
     if(tgt.first == InstPoint::SHSTK_IGNORE_TAIL_CALL)
       continue;
-    HookType h = HookType::GENERAL_INST;
-    if(tgt.first == InstPoint::ADDRS_TRANS)
-      h = HookType::ADDRS_TRANS;
-    else if(tgt.first == InstPoint::RET_CHK)
-      h = HookType::RET_CHK;
-    else if(tgt.first == InstPoint::SYSCALL_CHECK)
-      h = HookType::SYSCALL_CHECK;
-    setInstParams(h);
-    vector<InstArg> allArgs= instArgs()[tgt.second];
+
+    if(tgt.second.instType_ == HookType::INLINE_INST) {
+      if(tgt.second.pos_ == InstPos::PRE)
+        instAsmPre_ += tgt.second.instCode_;
+      else
+        instAsmPost_ += tgt.second.instCode_;
+      continue;
+    }
+
+    setInstParams(tgt.first);
+    vector<InstArg> allArgs= tgt.second.args_;
     string args = "";
+
     if(tgt.first == InstPoint::ADDRS_TRANS) {
       //if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK) ||
       //   alreadyInstrumented(InstPoint::SHSTK_FUNCTION_CALL))
@@ -538,72 +541,73 @@ Instruction::instrument() {
           break;
       }
     }
-    if(tgt.first == InstPoint::LEA_INS_POST)
-      instAsmPost_ += generate_hook(tgt.second,args,mnemonic_);
-    else if(tgt.first == InstPoint::ADDRS_TRANS) {
+    if(tgt.first == InstPoint::ADDRS_TRANS) {
       DEF_LOG("Address translation: "<<hex<<location());
-      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::ADDRS_TRANS);
+      asmIns_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
       forcePrintAsm_ = true;
     }
     else if(tgt.first == InstPoint::RET_CHK) {
       //DEF_LOG("Instrumenting returns: "<<hex<<loc_);
       if(isCall()) {
         //string fall_sym = label() + "_fall_" + to_string(fallctr_);
-        instAsmPre_ = generate_hook(op1(),args,"call",HookType::RET_CHK,fallSym());
+        instAsmPre_ = generate_hook(op1(),args,"call",tgt.first, tgt.second.instType_);
       }
       else if(isPltJmp())
-        instAsmPre_ = generate_hook(op1(),args,mnemonic_,HookType::RET_CHK);
+        instAsmPre_ = generate_hook(op1(),args,mnemonic_,tgt.first, tgt.second.instType_);
       else
-        asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::RET_CHK);
+        asmIns_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
       forcePrintAsm_ = true;
     }
     else if(tgt.first == InstPoint::LEGACY_SHADOW_CALL) {
-      asmIns_ = generate_hook(op1(),args,mnemonic_,HookType::LEGACY_SHADOW_CALL,fallSym());
+      asmIns_ = generate_hook(op1(),args,mnemonic_,tgt.first, tgt.second.instType_,fallSym());
     }
     else if(tgt.first == InstPoint::LEGACY_SHADOW_RET) {
-      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::LEGACY_SHADOW_RET);
+      instAsmPre_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
       forcePrintAsm_ = true;
     }
     else if(tgt.first == InstPoint::SYSCALL_CHECK)
-      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SYSCALL_CHECK);
+      instAsmPre_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
     else if (tgt.first == InstPoint::SHSTK_FUNCTION_RET) {
-      instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_FUNCTION_RET);
+      instAsmPre_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
     }
     else if(tgt.first == InstPoint::SHSTK_CANARY_EPILOGUE) {
       DEF_LOG("Instrumenting canary checks: "<<args);
-      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_CANARY_EPILOGUE);
+      asmIns_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
       forcePrintAsm_ = true;
       DEF_LOG("canary inst: "<<asmIns_);
     }
     else if(tgt.first == InstPoint::SHSTK_FUNCTION_ENTRY) {
       DEF_LOG("Instrumenting function entry for shstk: "<<args);
       if(asmIns_.find("endbr") != string::npos)
-        instAsmPost_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_FUNCTION_ENTRY);
+        instAsmPost_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
       else
-        instAsmPre_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_FUNCTION_ENTRY);
+        instAsmPre_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
       //forcePrintAsm_ = true;
       //DEF_LOG(hex<<location()<<": canary inst: "<< asmIns_);
     }
     else if(tgt.first == InstPoint::SHSTK_CANARY_CHANGE) {
       DEF_LOG("Instrumenting canary checks: "<<args);
-      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_CANARY_CHANGE);
+      asmIns_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
       forcePrintAsm_ = true;
       DEF_LOG(hex<<location()<<": canary inst: "<< asmIns_);
     }
     else if(tgt.first == InstPoint::SHSTK_CANARY_PROLOGUE) {
       DEF_LOG("Instrumenting canary checks: "<<args);
-      asmIns_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_CANARY_PROLOGUE);
+      asmIns_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
       forcePrintAsm_ = true;
       DEF_LOG(hex<<location()<<": canary inst: "<< asmIns_);
     }
     else if(tgt.first == InstPoint::SHSTK_CANARY_MOVE) {
       DEF_LOG("Instrumenting canary checks: "<<args);
-      instAsmPost_ = generate_hook(tgt.second,args,mnemonic_,HookType::SHSTK_CANARY_MOVE);
+      instAsmPost_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
       //forcePrintAsm_ = true;
       DEF_LOG(hex<<location()<<": canary inst: "<< asmIns_);
     }
+    else if(tgt.first == InstPoint::SHSTK_INDIRECT_JMP) {
+      instAsmPre_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
+    }
     else
-      instAsmPre_ += generate_hook(tgt.second,args,mnemonic_);
+      instAsmPre_ = generate_hook(tgt.second.instCode_,args,mnemonic_,tgt.first, tgt.second.instType_);
   }
 }
 
