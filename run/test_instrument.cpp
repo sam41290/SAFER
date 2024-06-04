@@ -31,11 +31,11 @@ main (int argc, char *args[]) {
 
   cout << binary_path << endl;
   Binary b (binary_path);
-  vector<InstArg> arglst;
-  arglst.push_back(InstArg::REG_RAX);
-  arglst.push_back(InstArg::RIP);
-  arglst.push_back(InstArg::EXENAME);
-  b.registerInstrumentation(InstPoint::BASIC_BLOCK,InstPos::PRE,"LOG",arglst);
+  //vector<InstArg> arglst;
+  //arglst.push_back(InstArg::REG_RAX);
+  //arglst.push_back(InstArg::RIP);
+  //arglst.push_back(InstArg::EXENAME);
+  //b.registerInstrumentation(InstPoint::BASIC_BLOCK,InstPos::PRE,"LOG",arglst);
   SHSTK(b)
   b.rewrite();
   return 0;
