@@ -30,7 +30,7 @@ SaInput::dumpIndrctTgt(string fname, unordered_map<int64_t, vector<int64_t>> ind
     ofile<<x.first<<": ";
     for(auto & t : x.second)
       ofile<<t<<" ";
-    ofile<<endl;
+    ofile<<"\n";
   }
   ofile.close();
 }
@@ -40,7 +40,7 @@ SaInput::dumpInsSizes(string file_name,unordered_map<int64_t,int64_t> &sizes) {
   ofstream ofile;
   ofile.open(file_name);
   for(auto & s : sizes) {
-    ofile<<s.first<<" "<<s.second<<endl;
+    ofile<<s.first<<" "<<s.second<<"\n";
   }
   ofile.close();
 }
@@ -150,7 +150,7 @@ SaInput::genFnFile(string file_name,uint64_t entry,vector<BasicBlock *> &bbList)
         continue;
       ofile<<w<<" ";
     }
-    ofile<<endl;
+    ofile<<"\n";
   }
   ofile.close();
   LOG("Asm file generated");

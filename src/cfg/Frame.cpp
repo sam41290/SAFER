@@ -175,34 +175,34 @@ Frame::bbExists(uint64_t addrs) {
 
 BasicBlock *
 Frame::splitAndGet(uint64_t addrs) {
-  DEF_LOG("Splitting and getting: "<<hex<<addrs<<" Function: "<<hex<<start_);
+  LOG("Splitting and getting: "<<hex<<addrs<<" Function: "<<hex<<start_);
   for(auto & bb:defCodeBBs_) {
     uint64_t start = bb->start();
     if(start == addrs) {
-      DEF_LOG("Found bb: "<<hex<<start);
+      LOG("Found bb: "<<hex<<start);
       return bb;
     }
     if(start > addrs)
       continue;
     uint64_t end = bb->boundary();
-    DEF_LOG("BB: "<<hex<<start<<"-"<<end);
+    LOG("BB: "<<hex<<start<<"-"<<end);
     if(end < addrs)
       continue;
     if(addrs >= start && addrs < end) {
       BasicBlock * newbb = bb->split(addrs);
       if(newbb != NULL) { 
-        DEF_LOG("Returning split bb: "<<hex<<bb->start()<<"->"<<newbb->start());
+        LOG("Returning split bb: "<<hex<<bb->start()<<"->"<<newbb->start());
         addDefCodeBB(newbb);
         //bb->fallThroughBB(getBB(addrs));
         return newbb;
       }
     }
   }
-  DEF_LOG("Looking in possible code");
+  LOG("Looking in possible code");
   for(auto & bb : unknwnCodeBBs_) {
     uint64_t start = bb->start();
     if(start == addrs) {
-      DEF_LOG("Found bb: "<<hex<<start);
+      LOG("Found bb: "<<hex<<start);
       return bb;
     }
     if(start > addrs)
@@ -210,7 +210,7 @@ Frame::splitAndGet(uint64_t addrs) {
     uint64_t end = bb->boundary();
     if(end < addrs)
       continue;
-    DEF_LOG("BB: "<<hex<<start<<"-"<<end);
+    LOG("BB: "<<hex<<start<<"-"<<end);
     if(addrs >= start && addrs < end) {
       BasicBlock * newbb = bb->split(addrs);
       if(newbb != NULL) {
@@ -287,13 +287,13 @@ Frame::splitBBs(uint64_t addrs, Frame *f, bool defCode,
 
 void
 Frame::splitFrame(uint64_t addrs, Frame *f) {
-  DEF_LOG("Splitting frame: "<<hex<<start_<<" at "<<hex<<addrs);
+  //DEF_LOG("Splitting frame: "<<hex<<start_<<" at "<<hex<<addrs);
 
   splitBBs(addrs,f,true,defCodeBBs_);
-  DEF_LOG("Splitting def code complete");
+  //DEF_LOG("Splitting def code complete");
   splitBBs(addrs,f,false,unknwnCodeBBs_);
 
-  DEF_LOG("Splitting Unknwn code complete");
+  //DEF_LOG("Splitting Unknwn code complete");
 }
 
 bool
@@ -407,9 +407,9 @@ Frame::markAsDefCode(BasicBlock *bb) {
         return;
       if(bb->isValidIns(bb2->start())) {
         //DEF_LOG("Splitting bb: "<<hex<<bb->start()<<" at "<<hex<<bb2->start());
-        if(bb2->start() == 0x40f856) {
-          DEF_LOG("Splitting while marking as def code");
-        }
+        //if(bb2->start() == 0x40f856) {
+        //  DEF_LOG("Splitting while marking as def code");
+        //}
         bb->splitNoNew(bb2->start());
         bb->fallThroughBB(bb2);
       }

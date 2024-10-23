@@ -11,6 +11,73 @@ using namespace SBI;
 //  return true;
 //}
 
+void 
+CfgElems::createStackUseCache() {
+  string dir = get_current_dir_name();
+  string stack_use_file = dir + "/tmp/pdisasm.stack";
+
+  ifstream ifile;
+  ifile.open(stack_use_file);
+
+  string line;
+  while(getline(ifile, line)) {
+    vector <string> words = utils::split_string(line.c_str());
+    int ctr = -1;
+    uint64_t entry = 0;
+    for(auto & w : words) {
+      ctr++;
+      if(ctr == 0) {
+        entry = stoll(w,0,16);
+      }
+      else if(ctr == 1)
+        continue;
+      else {
+        auto h = stoi(w,0,10);
+        if(abs(h) != 100000000) {
+          //DEF_LOG("Entry: "<<hex<<entry<<" stack height: "<<dec<<h);
+          stackUseCache_[entry].push_back(abs(h));
+        }
+      }
+    }
+  }
+  predisasmCache_ = true;
+}
+
+void 
+CfgElems::createABIPreservingSet() {
+  string dir = get_current_dir_name();
+  string cs_file = dir + "/tmp/pdisasm.cs";
+
+  ifstream ifile;
+  ifile.open(cs_file);
+
+  string line;
+  while(getline(ifile, line)) {
+    auto entry = stoll(line, 0, 10);
+    ABIPreserving_.insert(entry);
+  }
+  predisasmCache_ = true;
+}
+
+void 
+CfgElems::createPreDisasmScoreMap() {
+  string dir = get_current_dir_name();
+  string cs_file = dir + "/tmp/pdisasm.entry";
+
+  ifstream ifile;
+  ifile.open(cs_file);
+
+  string line;
+  while(getline(ifile, line)) {
+    //DEF_LOG("Reading score: "<<line);
+    vector <string> words = utils::split_string(line.c_str());
+    //DEF_LOG("Entry: "<<words[0]<<"#");
+    auto entry = stoull(words[0], 0, 16);
+    auto score = stod(words[1]);
+    predisasmScore_[entry] = score;
+  }
+  predisasmCache_ = true;
+}
 
 vector <string>
 CfgElems::allReturnSyms() {
@@ -360,6 +427,20 @@ CfgElems::phase1NonReturningCallResolution() {
             auto score = probScore(fall_through->start());
             //DEF_LOG("Fall through score: "<<dec<<score);
             if(CFValidity::validIns(bb_list) == false) {
+              newPointer(exit_call->fallThrough(), PointerType::UNKNOWN,
+                         PointerSource::POSSIBLE_RA,PointerSource::POSSIBLE_RA,exit_call->end());
+              DEF_LOG("Marking BB non returning: "<<hex<<exit_call->start());
+              exit_call->callType(BBType::NON_RETURNING);
+              exit_call->type(BBType::NON_RETURNING);
+              exit_call->fallThrough(0);
+              exit_call->fallThroughBB(NULL);
+            }
+            //else if(predisasmCache_ && ABIPreserving(fall_through->start()) == false) {
+            //  DEF_LOG("Marking returning: "<<hex<<exit_call->start());
+            //  exit_call->callType(BBType::RETURNING);
+            //}
+            else if(predisasmCache_ && fnSigScore(fall_through) > 0 &&
+                    ABIPreserving(fall_through->start())) {
               newPointer(exit_call->fallThrough(), PointerType::UNKNOWN,
                          PointerSource::POSSIBLE_RA,PointerSource::POSSIBLE_RA,exit_call->end());
               DEF_LOG("Marking BB non returning: "<<hex<<exit_call->start());
@@ -897,6 +978,15 @@ CfgElems::fnSigScore(BasicBlock *bb) {
     }
   }
   score += call_score;
+  auto pdisasm_score = predisasmScore_[bb->start()];
+  score += ((pdisasm_score >= 0.3) ? powl(2, (pdisasm_score * 10)) : 0);
+  //if(pdisasm_score >= 0.3 && pdisasm_score < 0.4)
+  //  score += powl(2,4);
+  //else if(pdisasm_score == 0.4)
+  //  score += powl(2,7);
+  //else if(pdisasm_score > 0.4)
+  //  score += powl(2,17);
+
   //DEF_LOG("Fn sig score: "<<hex<<bb->start()<<"-"<<dec<<score);
   return score;
 }
@@ -978,7 +1068,12 @@ CfgElems::probScore(uint64_t addrs) {
        */
       score += jumpScore(bb_lst);
       DEF_LOG("Jump score: "<<score);
-      score += fnSigScore(bb);
+      auto sig_score = fnSigScore(bb);
+      if(sig_score >= powl(2,7) && ABIPreserving(bb->start())) {
+        score = ACCEPT_THRESHOLD;
+        return score;
+      }
+      score += sig_score;
       DEF_LOG("Sig score: "<<score);
       score += defCodeCftScore(bb_lst);
 

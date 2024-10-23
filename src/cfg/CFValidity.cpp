@@ -108,7 +108,7 @@ CFValidity::validCFTransfer(vector <BasicBlock *> &bbList) {
       auto ins = bbList[i]->getIns(bbList[i + 1]->start());
       if(ins == NULL) {
         DEF_LOG("Boundary exceeds: "<<hex<<bbList[i]->start()<<" - "
-                <<bbList[i]->boundary()<<bbList[i + 1]->start());
+                <<bbList[i]->boundary()<<":"<<bbList[i + 1]->start());
         valid = false;
         break;
       }

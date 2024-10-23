@@ -47,7 +47,7 @@ public:
   bool hasUnknwnCode() { return (unknwnCodeBBs_.size() > 0); }
   void addDefCodeBB(BasicBlock *bb) { 
     if(bbExists(bb->start()) == false) {
-      DEF_LOG("Adding bb: "<<hex<<bb->start()<<" "<<bb<<" Function: "<<start_);
+      LOG("Adding bb: "<<hex<<bb->start()<<" "<<bb<<" Function: "<<start_);
       defCodeBBs_.push_back(bb);
       bb->frame(start_);
       bbSet_.insert(bb->start());
@@ -58,7 +58,7 @@ public:
   void saveCnsrvtvCode() { cnsrvtvDefCode_ =   defCodeBBs_; }
   void addUnknwnCodeBB (BasicBlock *bb) { 
     if(bbExists(bb->start()) == false) {
-      DEF_LOG("Adding bb: "<<hex<<bb->start()<<" "<<bb<<" Function: "<<start_);
+      LOG("Adding bb: "<<hex<<bb->start()<<" "<<bb<<" Function: "<<start_);
       unknwnCodeBBs_.push_back(bb);
       bb->frame(start_);
       bbSet_.insert(bb->start());
