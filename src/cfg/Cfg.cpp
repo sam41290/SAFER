@@ -47,11 +47,11 @@ Cfg:: superset() {
       supersetCfg_->createFn(true,start,start,code_type::UNKNOWN);
 
       while(start < end) {
-        DEF_LOG("Superset disassembly: "<<hex<<start);
+        //DEF_LOG("Superset disassembly: "<<hex<<start);
         if(supersetCfg_->disassembled(start) == false)
           supersetCfg_->addToCfg(start, PointerSource::CONSTOP);
-        else
-          DEF_LOG("Already disassembled");
+        //else
+        //  DEF_LOG("Already disassembled");
         start++;
       }
     }
@@ -77,7 +77,7 @@ Cfg::preDisasmConfig() {
   classifyPtrs();
   auto ptr_map = pointers(); 
   for(auto & ptr : ptr_map) {
-    DEF_LOG("Creating function for pointer "<<hex<<ptr.second->address()<<" code type: "<<dec<<(int)ptr.second->type());
+    //DEF_LOG("Creating function for pointer "<<hex<<ptr.second->address()<<" code type: "<<dec<<(int)ptr.second->type());
     createFuncFrPtr(ptr.second);
   }
 
@@ -326,7 +326,7 @@ Cfg::scanPsblPtrs() {
 bool
 Cfg::processFallThrough(BasicBlock *bb, PointerSource t) {
   uint64_t fall = bb->fallThrough();
-  DEF_LOG("Processing fall through: "<<hex<<bb->start()<<"-"<<bb->end()<<"->"<<hex<<fall<<" BB type: "<<dec<<(int)bb->callType());
+  //DEF_LOG("Processing fall through: "<<hex<<bb->start()<<"-"<<bb->end()<<"->"<<hex<<fall<<" BB type: "<<dec<<(int)bb->callType());
   if(bb->isCall() && bb->callType() == BBType::MAY_BE_RETURNING && ISCODE(t) == code_type::CODE
      && ISCODE(PointerSource::POSSIBLE_RA) != code_type::CODE) {
     if(fall != 0) {
@@ -378,7 +378,7 @@ Cfg::processFallThrough(BasicBlock *bb, PointerSource t) {
         }
       }
 #else
-      DEF_LOG("Ignoring fall through since BB is MAY_BE_RETURNING: "<<
+      LOG("Ignoring fall through since BB is MAY_BE_RETURNING: "<<
           hex<<bb->start()<<"->"<<hex<<bb->fallThrough());
       newPointer(bb->fallThrough(), PointerType::UNKNOWN,
           PointerSource::POSSIBLE_RA,rootSrc_,bb->end());
@@ -389,13 +389,13 @@ Cfg::processFallThrough(BasicBlock *bb, PointerSource t) {
   }
   else if(bb->isCall() && bb->callType() == BBType::MAY_BE_RETURNING 
           && fall != 0 && withinFn(bb->fallThrough()) == false) {
-    DEF_LOG("Ignoring fall through since BB is MAY_BE_RETURNING: "<<
+    LOG("Ignoring fall through since BB is MAY_BE_RETURNING: "<<
         hex<<bb->start()<<"->"<<hex<<bb->fallThrough());
     newPointer(bb->fallThrough(), PointerType::UNKNOWN,
         PointerSource::POSSIBLE_RA,rootSrc_,bb->end());
   }
   else if(fall != 0) {
-    DEF_LOG("processing fall through: "<<hex<<fall<<" bb "<<hex<<bb->start());
+    LOG("processing fall through: "<<hex<<fall<<" bb "<<hex<<bb->start());
     if(INVALID_CODE_PTR(fall)) {
       //bb->fallThrough(0);
       return false;
@@ -413,12 +413,12 @@ Cfg::processFallThrough(BasicBlock *bb, PointerSource t) {
 bool
 Cfg::processTarget(BasicBlock *bb, PointerSource t) {
   uint64_t tgt = bb->target();
-  DEF_LOG("Processing target: "<<hex<<bb->start()<<"->"<<tgt);
+  LOG("Processing target: "<<hex<<bb->start()<<"->"<<tgt);
   if(tgt != 0) {
     if(addToCfg(tgt,t) == false) {
       //The jump target conflicts. Delete the current basic block.
       invalidPtr(tgt);
-      DEF_LOG("invalid target: " <<hex <<bb->target());
+      LOG("invalid target: " <<hex <<bb->target());
       return false;
     }
     BBType tgt_type = getBBType(tgt);//tgtbb->type();
@@ -426,7 +426,7 @@ Cfg::processTarget(BasicBlock *bb, PointerSource t) {
     if(last_ins->isCall()) {
       //bb->type(tgt_type);
       if(tgt_type == BBType::NON_RETURNING) {
-        DEF_LOG("Marking bb non returining: " <<hex <<bb->start());
+        LOG("Marking bb non returining: " <<hex <<bb->start());
         bb->fallThrough(0);
         bb->fallThroughBB(NULL);
         bb->type(BBType::NON_RETURNING); 
@@ -470,7 +470,7 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
   /* Performs DFS along Cfg and adds the given address and the following basic
    * blocks in to the Cfg
    */
-  DEF_LOG("Processing address: " <<hex <<addrs<<" code type: "<<dec<<(int)t);
+  LOG("Processing address: " <<hex <<addrs<<" code type: "<<dec<<(int)t);
   if(disassembler_->invalid(addrs))
     return false;
   if(INVALID_CODE_PTR(addrs))
@@ -500,7 +500,7 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
     LOG("Chunk Start: " <<hex <<addrs <<" Chunk end: " <<hex <<chunk_end);
     auto ins_list = disassembler_->getIns(addrs, 1000);
     if(ins_list.size() == 0) {
-      DEF_LOG("No instruction found");
+      LOG("No instruction found");
       invalidPtr(addrs);
       return false;
     }
@@ -522,14 +522,14 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
       auto first_ins = ins_list[0];
       auto bytes = first_ins->insBinary();
       if(bytes.size() == 0) {
-        DEF_LOG("invalid instruction at addrs: "<<hex<<addrs);
+        LOG("invalid instruction at addrs: "<<hex<<addrs);
         removeBB(bb);
         invalidPtr(addrs);
         return false;
       }
       for(auto & ins : ins_list) {
         if(validOpCode(ins) == false) {
-          DEF_LOG("invalid instruction at addrs: "<<hex<<addrs);
+          LOG("invalid instruction at addrs: "<<hex<<addrs);
           removeBB(bb);
           invalidPtr(addrs);
           return false;
@@ -565,7 +565,7 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
   if(bb->target() != 0) {
     auto tgt_bb = getBB(bb->target());
     if(tgt_bb == NULL) {
-      DEF_LOG("Invalid target..removing BB: "<<hex<<bb->start());
+      LOG("Invalid target..removing BB: "<<hex<<bb->start());
       removeBB(bb);
       invalidPtr(addrs);
       return false;
@@ -576,7 +576,7 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
     if(fall_bb == NULL) {
       auto ins = bb->lastIns();
       if(ins->isCall() == false && ins->isJump() == false) {
-        DEF_LOG("Invalid fall..removing BB: "<<hex<<bb->start());
+        LOG("Invalid fall..removing BB: "<<hex<<bb->start());
         removeBB(bb);
         invalidPtr(addrs);
         return false;
@@ -585,7 +585,7 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
   }
   BBType tgt_type;
   BBType fall_through_type;
-  DEF_LOG("Finalizing: "<<hex<<addrs<<" - "<<hex<<bb);
+  LOG("Finalizing: "<<hex<<addrs<<" - "<<hex<<bb);
   if(bb->type() ==  BBType::NA) {
 
 
@@ -598,7 +598,7 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
       tgt_type = getBBType(bb->target());//bb->targetBB()->type();
     else
       tgt_type = BBType::NA;
-    DEF_LOG("Tgt type: "<<(int)tgt_type<<" fall type: "<<(int)fall_through_type);
+    LOG("Tgt type: "<<(int)tgt_type<<" fall type: "<<(int)fall_through_type);
     
     if(bb->fallThrough() == 0 && bb->target() == 0)
       bb->type(BBType::RETURNING);
@@ -625,7 +625,7 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
       bb->type(BBType::NON_RETURNING);
   }
 
-  DEF_LOG("BB created: "<<hex<<bb->start()<<" target: "<<hex<<bb->target()<<" fall: "
+  LOG("BB created: "<<hex<<bb->start()<<" target: "<<hex<<bb->target()<<" fall: "
       <<hex<<bb->fallThrough()<<" "<<" type: "<<(int)bb->type()<<" call type: "<<(int)bb->callType());
 
   return true;
@@ -666,7 +666,7 @@ Cfg::createBB(BasicBlock *bb,vector <Instruction *> &ins_list, uint64_t chunk_en
     if(getBB(ins->location()) != NULL) {
       LOG("BB at "<<hex<<ins->location()<<" already exists. Breaking!!");
       if(end == 0) {
-        DEF_LOG("Creating new bb for a previously existing bb.."<<hex<<bb->start());
+        LOG("Creating new bb for a previously existing bb.."<<hex<<bb->start());
         exit(0);
       }
       break;
@@ -682,14 +682,14 @@ Cfg::createBB(BasicBlock *bb,vector <Instruction *> &ins_list, uint64_t chunk_en
       (ins->isUnconditionalJmp() && ins->isCall() == false)) {
       fall_through = 0;
     }
-    DEF_LOG("instruction location: " <<hex <<ins->location() <<
+    LOG("instruction location: " <<hex <<ins->location() <<
      " Call value: " <<ins->isCall() <<" jump value: " <<ins->isJump()
      <<" fall: "<<hex<<fall_through);
     if(processIns(ins, bb, t))
       break;
   }
   //end = ins_list[ins_count - 1].get_location();
-  DEF_LOG("Creating new bb: "<<hex<<bb->start()<<"-"<<end<<" fall: "<<fall_through<<" target: "<<target);
+  LOG("Creating new bb: "<<hex<<bb->start()<<"-"<<end<<" fall: "<<fall_through<<" target: "<<target);
   NEWBB(bb, end, fall_through, target,isLea);
 
   return;
@@ -713,13 +713,13 @@ Cfg::processAllRoots() {
       disasmRoots_.pop();
       if(ptr(start) != NULL){
         auto p = ptr(start);
-        DEF_LOG("Root: "<<hex<<start<<" ptr type: "<<dec<<(int)(p->type()));
+        LOG("Root: "<<hex<<start<<" ptr type: "<<dec<<(int)(p->type()));
         if(p->type() != PointerType::CP && 
            p->source() != PointerSource::GAP_PTR &&
            p->source() != PointerSource::PIC_RELOC &&
            p->source() != PointerSource::RIP_RLTV) {
           auto gap_bb = withinBB(start);
-          DEF_LOG("Checking if pointer has linear scanned bb: "<<hex<<start);
+          LOG("Checking if pointer has linear scanned bb: "<<hex<<start);
           if(gap_bb == NULL) {
             for(auto i = start + 1; i < start + 17; i++) {
               gap_bb = getBB(i);
@@ -727,18 +727,18 @@ Cfg::processAllRoots() {
                 break;
             }
             if(gap_bb == NULL) {
-              DEF_LOG("Ignoring pointer since linear scan doesn't exist: "<<hex<<start);
+              LOG("Ignoring pointer since linear scan doesn't exist: "<<hex<<start);
               continue;
             }
           }
-          DEF_LOG("Gap bb found: "<<hex<<gap_bb->start());
+          LOG("Gap bb found: "<<hex<<gap_bb->start());
         }
         if(ignoreRoots_.find(ptr(start)->source()) == ignoreRoots_.end()) {
           if(ptr(start)->rootSrc() != PointerSource::NONE)
             rootSrc_ = ptr(start)->rootSrc();
           else
             rootSrc_ = ptr(start)->source();
-          DEF_LOG("Disassembling root: "<<hex<<start);
+          LOG("Disassembling root: "<<hex<<start);
           addToCfg(start,ptr(start)->source());
         }
         else

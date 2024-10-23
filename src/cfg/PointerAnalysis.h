@@ -68,6 +68,11 @@ struct CompareCandidate {
   }
 };
 
+struct stackHeight {
+  uint64_t exitPoint_;
+  unordered_set <int> height_;
+};
+
 
 class PointerAnalysis : public virtual SaInput, public virtual CFValidity,
   public virtual CfgElems, public JmpTblAnalysis
@@ -83,6 +88,7 @@ class PointerAnalysis : public virtual SaInput, public virtual CFValidity,
   unordered_set <uint64_t> validInsAndCF_;
   unordered_set <uint64_t> FNCorrectionDone_;
   unordered_map <uint64_t, unordered_set<uint64_t>> IndTgtValidationMap_;
+  unordered_map <uint64_t, vector <stackHeight>> stackHeightMap_;
   priority_queue<AnalysisCandidate, vector<AnalysisCandidate>, CompareCandidate> analysisQ_;
   const vector<string> ABIReg = {"sp","bx","bp","r12","r13","r14","r15"};
 public:
@@ -102,6 +108,25 @@ public:
   static bool codeByProperty(BasicBlock *bb);
   static bool dataByProperty(BasicBlock *bb);
 private:
+  void addStackHeightInfo(uint64_t entry, uint64_t exit_point, int h) {
+    if(stackHeightMap_.find(entry) == stackHeightMap_.end()) {
+      stackHeight s;
+      s.exitPoint_ = exit_point;
+      s.height_.insert(h);
+      stackHeightMap_[entry].push_back(s);
+    }
+    else {
+      auto stack_use = stackHeightMap_[entry];
+      for(auto & s : stack_use) {
+        if(s.exitPoint_ == exit_point)
+          s.height_.insert(h);
+      }
+      stackHeight s;
+      s.exitPoint_ = exit_point;
+      s.height_.insert(h);
+      stackHeightMap_[entry].push_back(s);
+    }
+  }
   void symbolizeIfValidAccess(Pointer *ptr);
   bool sameFunctionBody(uint64_t addr1, uint64_t addr2);
   double CFTransferDensity(vector <BasicBlock *> &bbList);
@@ -204,6 +229,10 @@ private:
                                  vector <BasicBlock *> &parent_path,
                                  unordered_set <uint64_t> &passed);
 
+  bool preanalysisInvalid(BasicBlock *entry, vector <BasicBlock *> &bb_lst);
+  int indTgtStackUseMatch(uint64_t entry, uint64_t exit_point, uint64_t ind_tgt);
+  vector <BasicBlock *> possiblyCorrectIndTgts(BasicBlock *entry, BasicBlock *intermidiate);
+  void analyzeStackHeight(BasicBlock *entry);
 };
 }
 #endif

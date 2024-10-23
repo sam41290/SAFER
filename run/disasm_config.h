@@ -1,4 +1,4 @@
-#define ACCEPT_THRESHOLD 1.79769e+308//powl(2,50)
+#define ACCEPT_THRESHOLD powl(2,20)
 #define REJECT_THRESHOLD 0 //powl(2,10)
 #define CODE_SCORE 6
 
@@ -6,9 +6,10 @@
 
 //#define SYM_TABLE_DISASM_ROOT //uses symbol table.
 
-#define EH_FRAME_DISASM_ROOT //only consider valid code pointer as disasm root.
+//#define EH_FRAME_DISASM_ROOT //only consider valid code pointer as disasm root.
         //Any relocated pointers within EH frame body considered as valid code pointer.
 
+#define KNOWN_CODE_POINTER_ROOT
 
 #define CFGCONSISTENCYCHECK
 

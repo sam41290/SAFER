@@ -328,7 +328,7 @@ BasicBlock::print(string file_name, map <uint64_t, Pointer *>&map_of_pointer) {
       if(targetBB_ != NULL) {
         it->asmIns(it->mnemonic() + " " + targetBB_->label());
         it->op1(targetBB_->label());
-        if(/*it->isCall() && */
+        if(/*it->isCall() &&*/ 
            it->alreadyInstrumented(InstPoint::LEGACY_SHADOW_CALL) &&
            targetBB_->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY)) {
           it->asmIns(it->mnemonic() + " " + targetBB_->shStkTrampSym());

@@ -221,6 +221,12 @@ namespace SBI {
     unordered_map <uint64_t, long double> cftTgtsInGaps_;
     unordered_map <uint64_t, JumpType> cftsInGaps_;
     unordered_set <uint64_t> entryPropagated_;
+
+    unordered_map <uint64_t, vector <int>> stackUseCache_;
+    unordered_map <uint64_t, double> predisasmScore_;
+    unordered_set <uint64_t> ABIPreserving_;
+    bool predisasmCache_ = false;
+
   public:
     DisasmEngn *disassembler_;
     unordered_map <uint64_t, BasicBlock *> bbCache_;
@@ -251,6 +257,51 @@ namespace SBI {
       LOG("Exe Type: "<<dec<<(int)t);
       type_ = t; 
     }
+    vector <int> stackUse(uint64_t entry) {
+      if(stackUseCache_.find(entry) != stackUseCache_.end())
+        return stackUseCache_[entry];
+      return vector <int> {};
+    }
+
+    int stackUseMatch(uint64_t entry, int h) {
+      if(stackUseCache_.find(entry) == stackUseCache_.end())
+        return -1;
+      auto sh = stackUseCache_[entry];
+      for(auto & e_h : sh) {
+        DEF_LOG("Entry: "<<hex<<entry<<" height: "<<dec<<e_h);
+        if(e_h == (-1 * h))
+          return 1;
+      }
+      return 0;
+    }
+
+    //int stackUseMatch(uint64_t entry1, uint64_t entry2) {
+    //  if(stackUseCache_.find(entry1) != stackUseCache_.end() ||
+    //     stackUseCache_.find(entry2) != stackUseCache_.end())
+    //    return -1;
+
+    //  auto sh = stackUseCache_[entry2];
+    //  for(auto & h : sh) {
+    //    if(stackUseMatch(entry1, h) == 1)
+    //      return 1;
+    //  }
+
+    //  return 0;
+    //}
+
+    bool ABIPreserving(uint64_t entry) {
+      if(ABIPreserving_.find(entry) != ABIPreserving_.end())
+        return true;
+      return false;
+    }
+
+    bool predisasmInvalid(uint64_t entry) {
+      if(predisasmCache_ && ABIPreserving(entry) == false)
+        return true;
+      return false;
+    }
+
+
     uint64_t sectionEnd(uint64_t addrs);
     void picConstReloc(vector <Reloc> r) { picConstReloc_ = r; }
     vector <Reloc> picConstReloc() { return picConstReloc_; }
@@ -480,6 +531,9 @@ namespace SBI {
     vector <BasicBlock *> allIndrctTgt(uint64_t ins_loc);
     int offsetFrmCanaryAddToRa(uint64_t add_loc, BasicBlock *bb);
     string shStkTramps();
+    void createStackUseCache();
+    void createABIPreservingSet();
+    void createPreDisasmScoreMap();
   private:
     bool shstkForCanaryProlog(BasicBlock *canary_bb);
     void readIndrctTgts(BasicBlock *bb,uint64_t fn_addrs);
