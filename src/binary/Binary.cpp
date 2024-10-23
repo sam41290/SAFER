@@ -554,12 +554,12 @@ Binary::populate_ptr_reloc_ptr() {
      */
 
     uint64_t ptr = call_site_it->first;
-    LOG("EH call site: " <<hex <<ptr);
+    DEF_LOG("EH call site: " <<hex <<ptr);
     ADDPOINTER(ptr, PointerType::CP, PointerSource::EH_LANDING_PTR,100);
     //Passing storage location = 100 for all known code pointers
     ptr = call_site_it->second.landing_pad;
     if(ptr != 0) {
-      LOG("landing pad: " <<ptr);
+      DEF_LOG("landing pad: " <<ptr);
       ADDPOINTER(ptr, PointerType::CP,PointerSource::EH_LANDING_PTR,100);
       //Passing storage location = 100 for all known code pointers
     }

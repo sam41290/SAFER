@@ -31,6 +31,7 @@ using namespace std;
 #ifdef KNOWN_CODE_POINTER_ROOT
 #define ISCODE(src) \
   (((int)src == (int)PointerSource::KNOWN_CODE_PTR) ? code_type::CODE :\
+   ((int)src == (int)PointerSource::EH_LANDING_PTR) ? code_type::CODE :\
    ((int)src == (int)PointerSource::CALL_TGT_2) ? code_type::CODE :\
    ((int)src == (int)PointerSource::GAP_PTR) ? code_type::GAP : code_type::UNKNOWN)
 #endif
@@ -51,8 +52,9 @@ using namespace std;
 #endif
 
 #ifdef EH_FRAME_DISASM_ROOT
-#define ISCODE(src) ((int)src == (int)PointerSource::KNOWN_CODE_PTR ?\
-                    code_type::CODE : code_type::UNKNOWN)
+#define ISCODE(src) (((int)src == (int)PointerSource::KNOWN_CODE_PTR) ? code_type::CODE :\
+                     ((int)src == (int)PointerSource::EH_LANDING_PTR) ? code_type::CODE :\
+                       code_type::UNKNOWN)
 #endif
 /*
 #ifdef EH_FRAME_DISASM_ROOT
@@ -494,6 +496,7 @@ namespace SBI {
     vector <Instruction *> canaryCheckWindow(BasicBlock *bb);
     bool isCallTarget(BasicBlock *bb);
     bool isAddressTakenFn(BasicBlock *bb);
+    vector <Instruction *> canaryEpilogueToRetWindow(BasicBlock *canary_epilog_bb);
   };
 
 }

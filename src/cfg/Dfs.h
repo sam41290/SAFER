@@ -42,7 +42,23 @@ namespace SBI {
     UNDEFINED,
     UNKNOWN,
     CONSTANT,
-    FRAME_PTR
+    FRAME_PTR,
+    REG_RDI,
+    REG_RSI,
+    REG_RBP,
+    REG_RBX,
+    REG_RDX,
+    REG_RAX,
+    REG_RCX,
+    REG_RSP,
+    REG_R8,
+    REG_R9,
+    REG_R10,
+    REG_R11,
+    REG_R12,
+    REG_R13,
+    REG_R14,
+    REG_R15
   };
 
   struct RegVal {
@@ -95,6 +111,7 @@ namespace SBI {
     int stackDecrement(vector <Instruction *> &ins_list);
     unordered_set <uint64_t> indRoots() { return indRoots_; }
     RAlocation getRA(vector <Instruction *> &ins_list);
+    RAlocation epilogueRAofft(vector <Instruction *> &ins_list);
     vector <Instruction *> insPath(BasicBlock *entry, uint64_t target);
     void savedRegAtPrologue(BasicBlock *prolog_bb);
     void restoredRegAtEpilogue(BasicBlock *epilog_bb);
@@ -113,7 +130,7 @@ namespace SBI {
                      unordered_set <uint64_t> &valid_ind_path);
     void indTgtsDfs(BasicBlock *entry, 
                                      unordered_set <uint64_t> &passed);
-    State analyzeRegState(vector <Instruction *> &ins_list);
+    State analyzeRegState(vector <Instruction *> &ins_list, State &init_state);
     vector <Instruction *> insPathDfs(BasicBlock *entry, uint64_t target,
         unordered_set <uint64_t> &passed);
     RegVal updateState(RegVal &tgt, State &state, Operation &op, Instruction

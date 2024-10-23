@@ -171,9 +171,20 @@ Dfs::updateState(RegVal &tgt, State &state, Operation &op,
         tgt.val = RegValType::UNKNOWN;
       else if(op.source1.type_ == OperandType::REG) {
         auto source_val = state.regState[(int)op.source1.regNum_];
-        if((int)source_val.val >= (int)tgt.val)
+
+        if(source_val.val == RegValType::CONSTANT) {
+          tgt.addend += source_val.addend;
+        }
+        else if(source_val.val == RegValType::FRAME_PTR) {
           tgt.val = source_val.val;
-        tgt.addend += source_val.addend;
+          tgt.addend += source_val.addend;
+        }
+        else if(source_val.val == tgt.val) {
+          tgt.val = source_val.val;
+          tgt.addend += source_val.addend;
+        }
+        else
+          tgt.val = RegValType::UNKNOWN;
       }
       else if(op.source1.type_ == OperandType::CONSTANT) {
         tgt.addend += op.source1.constant_;
@@ -188,10 +199,20 @@ Dfs::updateState(RegVal &tgt, State &state, Operation &op,
         tgt.val = RegValType::UNKNOWN;
       else if(op.source1.type_ == OperandType::REG) {
         auto source_val = state.regState[(int)op.source1.regNum_];
-        if((int)source_val.val >= (int)tgt.val)
+
+        if(source_val.val == RegValType::CONSTANT) {
+          tgt.addend += -1 * (source_val.addend);
+        }
+        else if(source_val.val == RegValType::FRAME_PTR) {
           tgt.val = source_val.val;
-        tgt.addend += source_val.addend;
-       
+          tgt.addend += -1 * (source_val.addend);
+        }
+        else if(source_val.val == tgt.val) {
+          tgt.val = source_val.val;
+          tgt.addend += -1 * (source_val.addend);
+        }
+        else
+          tgt.val = RegValType::UNKNOWN;
       }
       else if(op.source1.type_ == OperandType::CONSTANT) {
         tgt.addend += -1 * (op.source1.constant_);
@@ -214,7 +235,7 @@ Dfs::updateState(RegVal &tgt, State &state, Operation &op,
   else if(op.op == OP::XOR) {
     if(op.source1.regNum_ == op.target.regNum_){
       tgt.val = RegValType::CONSTANT;
-      tgt.addend = ins->ripRltvOfft();
+      tgt.addend = 0;//ins->ripRltvOfft();
     }
     else
       tgt.val = RegValType::UNKNOWN;
@@ -265,15 +286,15 @@ Dfs::loopUpdate(State &state, vector <Instruction *> &ins_lst,
 }
 
 State
-Dfs::analyzeRegState(vector <Instruction *> &ins_list) {
-  State state;
+Dfs::analyzeRegState(vector <Instruction *> &ins_list, State &init_state) {
+  State state = init_state;
   unordered_set <uint64_t> processed_ins;
-  for(auto i = 0; i <= 16; i++) {
-    RegVal r;
-    if((GPR)i == GPR::REG_RSP)
-      r.val = RegValType::FRAME_PTR;
-    state.regState.push_back(r);
-  }
+  //for(auto i = 0; i <= 16; i++) {
+  //  RegVal r;
+  //  if((GPR)i == GPR::REG_RSP)
+  //    r.val = RegValType::FRAME_PTR;
+  //  state.regState.push_back(r);
+  //}
   for(auto & ins : ins_list){
     processed_ins.insert(ins->location());
     auto sem = ins->sem();
@@ -320,7 +341,14 @@ Dfs::analyzeRegState(vector <Instruction *> &ins_list) {
 RAlocation
 Dfs::getRA(vector <Instruction *> &ins_list) {
   RAlocation r;
-  auto state = analyzeRegState(ins_list);
+  State state;
+  for(auto i = 0; i <= 16; i++) {
+    RegVal r;
+    if((GPR)i == GPR::REG_RSP)
+      r.val = RegValType::FRAME_PTR;
+    state.regState.push_back(r);
+  }
+  state = analyzeRegState(ins_list, state);
   int ctr = 0;
   if(state.regState[(int)GPR::REG_RSP].val == RegValType::FRAME_PTR) {
     r.reg = "%rsp";
@@ -349,7 +377,22 @@ Dfs::getRA(vector <Instruction *> &ins_list) {
   }
   return r;
 }
-
+RAlocation
+Dfs::epilogueRAofft(vector <Instruction *> &ins_list) {
+  State state;
+  for(auto i = 0; i <= 16; i++) {
+    RegVal r;
+    r.val = (RegValType)(i + 4);
+    state.regState.push_back(r);
+  }
+  state = analyzeRegState(ins_list, state);
+  RAlocation r;
+  auto rsp_val = state.regState[(int)GPR::REG_RSP];
+  r.reg = utils::gpr[((int)(rsp_val.val) - 4)];
+  r.offt = rsp_val.addend;
+  DEF_LOG("Frame reg: "<< r.reg<<" offset"<<dec<<r.offt);
+  return r;
+}
 int
 Dfs::stackDecrement(vector <Instruction *> &ins_list) {
   int offt = 0;

@@ -1,3 +1,4 @@
+
 #define STATIC_TRANS
 
 #ifdef STATIC_TRANS
@@ -7,10 +8,18 @@
   #define SAFE_JTABLE false
   #define NO_ENCODE_LEAPTRS false
   #define ENCODE 0
+#else
+  #define FULL_ADDR_TRANS false
+  #define FULL_ENCODE true
+  #define RA_OPT true
+  #define SAFE_JTABLE true
+  #define NO_ENCODE_LEAPTRS false
+  #define ENCODE 1
 #endif
 
-#define SHSTK(b)
-#define ENCCLASS MultInv
+#define SHSTK(b) {\
+  b.registerInbuiltInstrumentation(InstPoint::LEGACY_SHADOW_STACK);\
+}
 
 #define NOTSTRING(ptr) notString(ptr) //also checks alignment
 #define ALIGNED(ptr) aligned(ptr)
@@ -43,4 +52,18 @@
   }\
 }
 
+/*
+#define SYMBOLIZE(ptr) { \
+  SYMBOLIZENONSTRING(ptr); \
+  SYMBOLIZEIMMOP(ptr); \
+  SYMBOLIZERLTV(ptr); \
+}
+*/
+
 #define SYMBOLIZABLE(BB) isSymbolizable(BB->start())
+
+#define ENCCLASS MultInv
+//#define ENCCLASS GttAtt
+//#define OPTIMIZED_EH_METADATA
+
+//#define ONE_LEVEL_HASH

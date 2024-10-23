@@ -92,9 +92,12 @@ private:
   vector <BasicBlock *> mergedBBs_;
   bool lockJump_ = false;
   bool retTypeInferred_ = false;
+  bool canaryInstrumentedForShstk_ = false;
   string fallSym_ = "";
   vector<uint64_t> belongsToJumpTable_;
 public:
+  bool canaryInstrumentedForShstk() { return canaryInstrumentedForShstk_; }
+  void canaryInstrumentedForShstk(bool v) { canaryInstrumentedForShstk_ = v; }
   void belongsToJumpTable(uint64_t j) { 
     for(auto & added_j : belongsToJumpTable_)
       if(added_j == j)

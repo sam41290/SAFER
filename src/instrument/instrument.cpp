@@ -107,9 +107,9 @@ string
 Instrument::directCallShstkTramp() {
   string inst_code = "";
   inst_code += "endbr64\n";
-  //inst_code += "cmp $0, %fs:0x78\n";
-  //inst_code += "jne .push_ra_" + to_string(counter) + "\n";
-  //inst_code += "call .init_shstk\n";
+  inst_code += "cmp $0, %fs:0x78\n";
+  inst_code += "jne .push_ra_" + to_string(counter) + "\n";
+  inst_code += "call .init_shstk\n";
   inst_code += ".push_ra_" + to_string(counter) + ":\n";
   if(alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY)) {
     inst_code += "push %r10\n";
@@ -296,7 +296,7 @@ Instrument::predefInstCode(InstPoint h, string mne, string fall_sym,
       DEF_LOG("Return check code: "<<inst_code);
     }
   }
-  else if(h == InstPoint::SHSTK_INDIRECT_JMP) {
+  else if(h == InstPoint::SHSTK_TAIL_CALL) {
     inst_code = inst_code + "sub $8, %fs:0x78\n";
   }
   else if (h == InstPoint::SHSTK_FUNCTION_RET) {
@@ -388,7 +388,8 @@ Instrument::predefInstCode(InstPoint h, string mne, string fall_sym,
                   "movq " + extra_reg + ",(" + ca_reg + ")\n" +
                   "popq " + extra_reg + "\n" +
                   ".add_copy_canary_" +  to_string(counter) +  ":\n" +
-                  "add $8,%fs:0x78\n"
+                  "add $8," + ca_reg + "\n" +
+                  "mov " + ca_reg + ",%fs:0x78\n"+
                   ".copy_canary_" +  to_string(counter) +  ":\n" +
                   "xorq %fs:0x28," + ca_reg + "\n";
       counter++;
@@ -405,6 +406,26 @@ Instrument::predefInstCode(InstPoint h, string mne, string fall_sym,
                 "xorq %fs:0x28," + args + "\n" +
                 "movq " + args + ",%fs:0x78\n" +
                 "xor " + args + "," + args + "\n";
+  }
+  else if(h == InstPoint::SHSTK_CANARY_RET_CHK) {
+    auto words = utils::split_string(args,",");
+    if(words.size() >= 3) {
+      string ca_reg = words[0];
+      string frame_offt = words[1];
+      string frame_reg = words[2];
+      inst_code = inst_code + 
+                  "xorq %fs:0x28," + ca_reg + "\n" +
+                  "sub $8," + ca_reg + "\n" +
+                  "movq " + ca_reg + ",%fs:0x78\n" +
+                  "mov (" + ca_reg + ")," + ca_reg + "\n" +
+                  //"mov " + frame_offt + "(" + frame_reg + ")," + frame_reg + "\n" +
+                  "cmp " + ca_reg + "," + frame_offt + "(" + frame_reg + ")\n" +
+                  "je .safe_ret_" + to_string(counter) + "\n" +
+                  "hlt\n" +
+                  ".safe_ret_" + to_string(counter) + ":\n" +
+                  "xor " + ca_reg + "," + ca_reg + "\n";
+      counter++;
+    }
   }
   else if(h == InstPoint::SYSCALL_CHECK) {
     inst_code += save();

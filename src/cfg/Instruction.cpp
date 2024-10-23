@@ -456,7 +456,8 @@ void
 Instruction::instrument() {  
   auto targetPos = targetPositions();
   for(auto & tgt:targetPos) {
-    if(tgt.first == InstPoint::SHSTK_IGNORE_TAIL_CALL)
+    if(tgt.first == InstPoint::SHSTK_IGNORE_TAIL_CALL || 
+       tgt.first == InstPoint::SHSTK_IGNORE_RET)
       continue;
 
     if(tgt.second.instType_ == HookType::INLINE_INST) {
@@ -507,6 +508,12 @@ Instruction::instrument() {
       //if(frameReg_ == "%rsp")
       //  offset += 8;
       //args = args + "," + to_string(offset) + "(" + frameReg_ + ")";
+      args = args + "," + to_string(offset) + "," + frameReg_;
+      DEF_LOG("args is : " << args);
+    }
+    else if(tgt.first == InstPoint::SHSTK_CANARY_RET_CHK) {
+      args += op1().substr(op1().find(",") + 1);
+      auto offset = raOffset();
       args = args + "," + to_string(offset) + "," + frameReg_;
       DEF_LOG("args is : " << args);
     }
@@ -576,6 +583,12 @@ Instruction::instrument() {
       forcePrintAsm_ = true;
       DEF_LOG("canary inst: "<<asmIns_);
     }
+    else if(tgt.first == InstPoint::SHSTK_CANARY_RET_CHK) {
+      DEF_LOG("Instrumenting canary checks: "<<args);
+      asmIns_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
+      forcePrintAsm_ = true;
+      DEF_LOG(hex<<location()<<"canary inst: "<<asmIns_);
+    }
     else if(tgt.first == InstPoint::SHSTK_FUNCTION_ENTRY) {
       DEF_LOG("Instrumenting function entry for shstk: "<<args);
       if(asmIns_.find("endbr") != string::npos)
@@ -603,7 +616,7 @@ Instruction::instrument() {
       //forcePrintAsm_ = true;
       DEF_LOG(hex<<location()<<": canary inst: "<< asmIns_);
     }
-    else if(tgt.first == InstPoint::SHSTK_INDIRECT_JMP) {
+    else if(tgt.first == InstPoint::SHSTK_TAIL_CALL) {
       instAsmPre_ = generate_hook("",args,mnemonic_,tgt.first, tgt.second.instType_);
     }
     else
