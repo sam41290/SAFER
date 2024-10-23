@@ -403,6 +403,10 @@ namespace SBI {
     void markAsDefCode(uint64_t addrs, bool force = false);
     bool conflictsDefCode(uint64_t addrs);
     BasicBlock *withinBB(uint64_t addrs);
+    Instruction *getIns(uint64_t addrs) {
+      auto bb = withinBB(addrs);
+      if(bb != NULL) return bb->getIns(addrs);
+    }
     bool isValidAddress(uint64_t addrs);
     bool disassembled(uint64_t address);
     bool isValidIns(uint64_t addrs);
@@ -460,11 +464,12 @@ namespace SBI {
     }
     void instrument();
     void shadowStackInstrument(pair<InstPoint,string> &x);
-    void shadowStackInstrumentV2(pair<InstPoint,string> &x);
-    void shstkForDefEntries(BasicBlock *bb, pair<InstPoint,string> &x);
-    void shstkForIndrctTailCall(BasicBlock *entry, pair<InstPoint,string> &x);
-    bool findAndInstrumentCanaryProlog(BasicBlock *bb, pair<InstPoint,string> &x);
-    void shadowStackRetInst(BasicBlock *bb,pair<InstPoint,string> &x);
+    void shadowStackInstrumentV2(InstPoint &x);
+    void shstkForDefEntries(BasicBlock *bb, InstPoint shstk_type, InstPoint tgt_inst);
+    void shstkForIndrctTailCall(BasicBlock *entry, bool canary);
+    bool findAndInstrumentCanaryProlog(BasicBlock *bb);
+    void shadowStackRetInst(BasicBlock *bb);
+    void canaryEpilogueInst(BasicBlock *bb,InstPoint &x);
     void instrument(uint64_t hook_point,string code);
     vector <JumpTable> jumpTables() { return jmpTables_; }
     void jumpTable(JumpTable &j) { jmpTables_.push_back(j); }
@@ -528,7 +533,7 @@ namespace SBI {
     void createABIPreservingSet();
     void createPreDisasmScoreMap();
   private:
-    bool shstkForCanaryProlog(BasicBlock *canary_bb, pair<InstPoint,string> &x);
+    bool shstkForCanaryProlog(BasicBlock *canary_bb);
     void readIndrctTgts(BasicBlock *bb,uint64_t fn_addrs);
     BasicBlock *readBB(ifstream & file);
     bool isDatainCode(uint64_t addrs);
@@ -541,6 +546,8 @@ namespace SBI {
     long double defCodeCftScore(vector <BasicBlock *> &bb_lst);
     bool otherUseOfJmpTbl(JumpTable &j);
     vector <Instruction *> canaryCheckWindow(BasicBlock *bb);
+    bool isCallTarget(BasicBlock *bb);
+    bool isAddressTakenFn(BasicBlock *bb);
   };
 
 }

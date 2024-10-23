@@ -36,6 +36,7 @@ struct section
   bool is_metadata = false;
   bool printed = false;
   bool is_att = false;
+  bool is_cgot = false;
   uint64_t offset = 0;
   uint64_t size = 0;
   uint64_t vma = 0;

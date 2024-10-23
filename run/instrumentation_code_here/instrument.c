@@ -5,6 +5,9 @@
 #include <signal.h>
 #include "instrumentation_lib.h"
 
+
+__thread int global_thread_local = 0;
+
 int
 instrument_bb ()
 {

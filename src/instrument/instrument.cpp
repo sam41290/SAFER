@@ -6,102 +6,14 @@ const vector <string> atfSavedReg_{};//{"%rax","%rdi","%rsi"};
 //const vector <string> syscallCheckSavedReg_{"%rax","%rdi", "%rsi", "%rdx"};
 
 int ENCCLASS::decode_counter = 0;
+int Instrument::counter = 0;
+vector <string> Instrument::instFuncs_ {};
 
-/*
-string
-Instrument::leaInstrumentation (string mnemonic,string op1,uint64_t loc)
-{
-  string inst_code = "";
-  size_t pos = op1.find (",");
-  string pointer = op1.substr (0, pos);
-  string reg = op1.substr (pos + 2);
-
-  bool rdx_saved = false;
-  string scratch_reg = "%rax";
-  if (reg.compare (scratch_reg) == 0)
-  {
-    scratch_reg = "%rcx";
-  }
-
-  string new_reg = reg;
-  if (reg.compare ("%rdx") != 0)
-  {
-    rdx_saved = true;
-    inst_code += "\tpush %rdx\n";
-  }
-  else
-  {
-    inst_code += "\tpush %rcx\n";
-    new_reg = "%rcx";
-  }
-
-  inst_code += "\tpush " + scratch_reg + "\n";
-  inst_code += "\tmov " + reg + ",%rdx\n";
-  inst_code += "\tmov $0x0010000000000001," + scratch_reg + "\n";
-  inst_code += "\tmulx " + scratch_reg + "," + new_reg + "," + scratch_reg +
-    "\n";
-  inst_code += "\tpop " + scratch_reg + "\n";
-  if (rdx_saved == true)
-  {
-    inst_code += "\tpop %rdx\n";
-  }
-  else
-  {
-    inst_code += "\tmov %rcx,%rdx\n";
-    inst_code += "\tpop %rcx\n";
-  }
-
-  return inst_code;
-}
-*/
 string
 Instrument::getIcfReg(string op1) {
   string reg("-16(%rsp)");
   return reg;
 }
-
-/*
-string
-Instrument::icfInstrumentation (string mnemonic, string op1,uint64_t loc)
-{
-  op1.replace (0, 1, "");
-
-  if (op1.find ("rsp") != string::npos)
-    {
-      int pos = op1.find ("(");
-      uint64_t adjst = 0;
-      if (pos != 0)
-	    {
-	      string off = op1.substr (0, pos);
-	      adjst = stoi (off, 0, 16);
-	    }
-      adjst += 8;
-      op1 = to_string (adjst) + "(%rsp)";
-    }
-
-  string inst_code = "";
-
-  //inst_code += "\tpushf\n";
-  inst_code += "\tpush %rax\n";
-  inst_code += "\tmov " + op1 + ",%rax\n";
-  inst_code += "\tmov %rax,-8(%rsp)\n";
-  inst_code += "\tand $0xfff, %rax\n";
-  inst_code += "\tshl $4,%rax\n";
-  inst_code += "\txor -2(%rsp),%ax\n";
-  inst_code += "\tmov %ax,-2(%rsp)\n";
-  inst_code += "\tcmp $0,%ax\n";
-  inst_code += "\tje .jump_loc_" + to_string (loc) + "\n";
-  inst_code += ".addrs_trans_" + to_string (loc) + ":\n";
-  //inst_code += "\tint3\n";
-  inst_code += ".jump_loc_" + to_string (loc) + ":\n";
-  inst_code += "\tpop %rax\n";
-  //inst_code += "\tpopf\n";
-  //inst_code += "\t" + mnemonic + " *-16(%rsp)\n";
-
-  return inst_code;
-}
-*/
-
 
 string 
 Instrument::moveZeros(string op1, uint64_t loc, string file_name) {
@@ -116,183 +28,180 @@ Instrument::moveZeros(string op1, uint64_t loc, string file_name) {
   return instCode;
 }
 
+void 
+Instrument::registerInstrumentation(InstPoint p,InstPos pos, string func_name) {
+  DEF_LOG("Registering instrumentation: "<<(int)p<<" "<<func_name);
+
+  InstUnit i;
+  i.instType_ = HookType::CALL_BASED_INST;
+  i.instCode_ = func_name;
+  i.pos_ = pos;
+
+  targetPos_.push_back(make_pair(p,i));
+  instFuncs_.push_back(func_name);
+  //instArgs_[func_name] = argsLst;
+}
 
 void 
-Instrument::registerInstrumentation(InstPoint p,string
-    func_name,vector<InstArg>argsLst) {
+Instrument::registerInstrumentation(InstPoint p,InstPos pos, string func_name,
+                                    vector<InstArg>argsLst) {
   DEF_LOG("Registering instrumentation: "<<(int)p<<" "<<func_name);
-  targetPos_.push_back(make_pair(p,func_name));
+
+  InstUnit i;
+  i.instType_ = HookType::CALL_BASED_INST;
+  i.instCode_ = func_name;
+  i.args_ = argsLst;
+  i.pos_ = pos;
+
+  targetPos_.push_back(make_pair(p,i));
   instFuncs_.push_back(func_name);
-  instArgs_[func_name] = argsLst;
+  //instArgs_[func_name] = argsLst;
 }
 
 void
-Instrument::registerInstrumentation(string fnName,string
-    instCodeSymbol,vector<InstArg>argsLst) {
-  targetFuncs_.push_back(make_pair(fnName,instCodeSymbol));
-  instArgs_[instCodeSymbol] = argsLst;
-  instFuncs_.push_back(instCodeSymbol);
+Instrument::registerInstrumentation(string tgt_fn,string inst_code,
+                                    vector<InstArg>args_lst) {
+  InstUnit i;
+  i.instType_ = HookType::CALL_BASED_INST;
+  i.instCode_ = inst_code;
+  i.args_ = args_lst;
+  i.pos_ = InstPos::PRE;
+  targetFuncs_.push_back(make_pair(tgt_fn,i));
+  //instArgs_[instCodeSymbol] = argsLst;
+  instFuncs_.push_back(inst_code);
 
 }
 
+void
+Instrument::registerInstrumentation(InstPoint p, InstUnit &u) {
+  targetPos_.push_back(make_pair(p,u));
+}
 
 void 
-Instrument::registerInstrumentation(uint64_t tgtAddrs,string
-    instCodeSymbol,vector<InstArg> argsLst) {
-  targetAddrs_.push_back(make_pair(tgtAddrs,instCodeSymbol));
-  instArgs_[instCodeSymbol] = argsLst;
-  instFuncs_.push_back(instCodeSymbol);
+Instrument::registerInlineInstrumentation(string asm_str,InstPos p, InstPoint pnt) {
+  InstUnit i;
+  i.instType_ = HookType::INLINE_INST;
+  i.instCode_ = asm_str;
+  i.pos_ = p;
+  targetPos_.push_back(make_pair(pnt,i));
+}
+void 
+Instrument::registerInlineInstrumentation(string asm_str,InstPos p) {
+  InstUnit i;
+  i.instType_ = HookType::INLINE_INST;
+  i.instCode_ = asm_str;
+  i.pos_ = p;
+  auto pnt = InstPoint::CUSTOM;
+  targetPos_.push_back(make_pair(pnt,i));
+}
+void 
+Instrument::registerInbuiltInstrumentation(InstPoint p) {
+  InstUnit i;
+  i.instType_ = HookType::PREDEF_INST;
+  i.instCode_ = "";
+  auto pnt = p;
+  targetPos_.push_back(make_pair(pnt,i));
 }
 
 string
 Instrument::directCallShstkTramp() {
   string inst_code = "";
-  static int counter;
-  //if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK)) {
-    inst_code += "endbr64\n";
-    //inst_code += "cmp $1, %fs:0x80\n";
-    //inst_code += "je .actual_entry_" + to_string(counter) + "\n";
-    inst_code += "cmpq $0,%fs:0x78\n";
-    inst_code += "jne .push_ra_" + to_string(counter) + "\n";
-    inst_code += "callq .init_shstk\n";
-    inst_code += ".push_ra_" + to_string(counter) + ":\n";
-    inst_code += "mov %r10, %fs:0x80\n";
-    inst_code += "mov %r11, %fs:0x88\n";
-    inst_code += "mov %fs:0x78,%r11\n";
+  inst_code += "endbr64\n";
+  //inst_code += "cmp $0, %fs:0x78\n";
+  //inst_code += "jne .push_ra_" + to_string(counter) + "\n";
+  //inst_code += "call .init_shstk\n";
+  inst_code += ".push_ra_" + to_string(counter) + ":\n";
+  if(alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY)) {
+    inst_code += "push %r10\n";
+    inst_code += "push %r11\n";
+  }
+  inst_code += "mov %fs:0x78,%r11\n";
+  if(alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY)) {
+    inst_code += "mov 16(%rsp),%r10\n";
+  }
+  else {
     inst_code += "mov 0(%rsp),%r10\n";
-    inst_code += "mov %r10,(%r11)\n";
-    inst_code += "addq $8,%fs:0x78\n";
-    inst_code += "mov %fs:0x80, %r10\n";
-    inst_code += "mov %fs:0x88, %r11\n";
-    inst_code += ".actual_entry_" + to_string(counter) + ":\n";
-    counter++;
-    return inst_code;
-  //}
-  //else if(alreadyInstrumented(InstPoint::SHADOW_STACK)) {
-  //  inst_code += "cmpq $0,%fs:0x78\n";
-  //  inst_code += "jne .push_ra_" + to_string(counter) + "\n";
-  //  inst_code += "callq .init_shstk\n";
-  //  inst_code += ".push_ra_" + to_string(counter) + ":\n";
-  //  inst_code += "mov (%rsp), %r10\n";
-  //  inst_code += "movq %fs:0x78,%r11\n";
-  //  inst_code += "movq %r10,(%r11)\n";
-  //  counter++;
-  //  return inst_code;
-  //}
-  //return inst_code;
+  }
+  inst_code += "mov %r10,(%r11)\n";
+  inst_code += "addq $8,%fs:0x78\n";
+  if(alreadyInstrumented(InstPoint::SHSTK_FUNCTION_ENTRY)) {
+    inst_code += "pop %r11\n";
+    inst_code += "pop %r10\n";
+  }
+  inst_code += ".actual_entry_" + to_string(counter) + ":\n";
+  counter++;
+  return inst_code;
 }
 
 string
-Instrument::generate_hook(string hook_target, string args,
-                          string mne,
-                          HookType h,
-                          string fall_sym,
-                          uint64_t sigaction_addrs) {
-
-  /* Generates assembly code stub to be put at the instrumentation point
-   *(basic block or function).
-   *  The stub saves caller saved registers and flags.
-   *  Then makes a call to the instrumentation code.
-   */
-  static int counter;
+Instrument::shadowRetInst(string &reg1, string &reg2, int free_reg_cnt) {
   string inst_code = "";
-  if(h == HookType::ADDRS_TRANS) {
+  string pro = "", epi = "";
+  //int ra_offt = 0;
+  if(free_reg_cnt == 0) {
+    reg1 = "%r10";
+    reg2 = "%r11";
+    //ra_offt = 16;
+    pro = "push %r10\npush %r11\n";
+    epi = "pop %r11\npop %r10\n";
+  }
+  else if(free_reg_cnt == 1) {
+    reg2 = "%r11";
+    //ra_offt = 8;
+    pro = "push %r11\n";
+    epi = "pop %r11\n";
+  }
+  inst_code = inst_code + pro + 
+              "mov %fs:0x78," + reg1 + "\n" +
+              "mov 16(%rsp)," + reg2 + "\n" +
+              ".rep_pop_" + to_string(counter) + ":\n" +
+              "sub $8, " + reg1 + "\n" +
+              "cmp (" + reg1 + ")," + reg2 + "\n" +
+              "jne .rep_pop_" + to_string(counter) + "\n" +
+              "mov " + reg1 + ", %fs:0x78\n" +
+              epi;
+  counter++;
+  return inst_code;
+}
+
+string
+Instrument::predefInstCode(InstPoint h, string mne, string fall_sym, 
+                           string hook_target, string args) {
+  string inst_code = "";
+  if(h == InstPoint::ADDRS_TRANS) {
     uint64_t rax_offt = 16;
     if(mne.find("call") != string::npos)
       rax_offt += 8;
     if(mne == "jmpq")
       mne = "jmp";
-    //inst_code += "mov %rax,-" + to_string(rax_offt) + "(%rsp)\n"; 
-    //inst_code += "mov %rax,%fs:0x88\n";
-    //inst_code += args + mne + " ." + hook_target + "\n";
-    inst_code += decodeIcf(hook_target,args,mne);
+    inst_code += decodeIcf("GTF_reg",args,mne);
   }
-  else if(h == HookType::LEGACY_SHADOW_CALL) {
+  else if(h == InstPoint::LEGACY_SHADOW_CALL) {
     //inst_code += "movq $0, %fs:0x80\n";
     inst_code += mne + " " + hook_target + "\n";
     if(mne.find("call") != string::npos)
       inst_code += fall_sym + ":\n";
-    //inst_code += "jmp " + hook_target + "\n";
-    //inst_code += ".shadow_inst_" + to_string(counter) + ":\n";
-    //inst_code += "cmpq $0,%fs:0x78\n";
-    //inst_code += "jne .push_ra_" + to_string(counter) + "\n";
-    //inst_code += "callq .init_shstk\n";
-    //inst_code += ".push_ra_" + to_string(counter) + ":\n";
-    //inst_code += "addq $16,%fs:0x78\n";
-    //inst_code += "mov %rax,%fs:0x88\n";
-    //inst_code += "mov %fs:0x78,%rax\n";
-    //inst_code += "push %rbx\n";
-    //inst_code += "mov 8(%rsp),%rbx\n";
-    //inst_code += "mov %rbx,-8(%rax)\n";
-    //inst_code += "pop %rbx\n";
-    //inst_code += "mov %rsp,-16(%rax)\n";
-    //inst_code += "mov %fs:0x88,%rax\n";
-    //counter++;
   }
-  else if(h == HookType::LEGACY_SHADOW_INDRCT_CALL) {
-    //inst_code += "movq $0, %fs:0x80\n";
-      //inst_code += "mov %rax,%fs:0x88\n";
-      //string op = hook_target;
-      //op.replace(0,1,"");
-      //inst_code += "mov " + op + ",%rax\n";
-      //inst_code += "call .shadow_tramp\n"; 
-      //inst_code += fall_sym + ":\n";
-  }
-  else if(h == HookType::LEGACY_SHADOW_JMP) {
-    //inst_code += "movq $1, %fs:0x80\n";
-  }
-  else if(h ==  HookType::LEGACY_SHADOW_RET) {
+  //else if(h == InstPoint::LEGACY_SHADOW_INDRCT_CALL) {
+  //}
+  //else if(h == InstPoint::LEGACY_SHADOW_JMP) {
+  //}
+  else if(h ==  InstPoint::LEGACY_SHADOW_RET) {
     inst_code = inst_code + 
-                "mov %r10, %fs:0x80\n" +
-                "mov %r11, %fs:0x88\n" +
-                ".rep_pop_" + to_string(counter) + ":\n" +
-                "sub $8, %fs:0x78\n" +
+                "push %r10\n" +
+                "push %r11\n" +
                 "mov %fs:0x78,%r11\n" +
-                "mov (%rsp),%r10\n" +
-                "mov (%r11),%r11\n" +
-                "xor %r11,%r10\n" +
-                //"je .safe_ret_" + to_string(counter) + "\n" +
-                //"hlt\n" +
-                //".safe_ret_" + to_string(counter) + ":\n";// +
+                "mov 16(%rsp),%r10\n" +
+                ".rep_pop_" + to_string(counter) + ":\n" +
+                "sub $8, %r11\n" +
+                "cmp (%r11),%r10\n" +
                 "jne .rep_pop_" + to_string(counter) + "\n" +
-                "mov %fs:0x80, %r10\n" +
-                "mov %fs:0x88, %r11\n";
-                //"movq $0, %fs:0x80\n";
-                //"ret\n";
-
-    //inst_code += "cmpq $0,%fs:0x78\n";
-    //inst_code += "jg .legacy_shadow_chk_" + to_string(counter) + "\n";
-    //inst_code += "ret\n";
-    //inst_code += ".legacy_shadow_chk_" + to_string(counter) + ":\n";
-    //inst_code += "push %rdx\n";
-    //inst_code += "mov %rax,%fs:0x88\n";
-    //inst_code += "mov 8(%rsp),%rdx\n"; 
-    //inst_code += "lea .loader_map_start(%rip),%rax\n"; 
-    //inst_code += "cmp (%rax),%rdx\n";
-    //inst_code += "jl  .ra_chk_" + to_string(counter) + "\n";
-    //inst_code += "lea .loader_map_end(%rip),%rax\n" ;
-    //inst_code += "cmp (%rax),%rdx\n";
-    //inst_code += "jl  .ret_post_chk_" + to_string(counter) + "\n";
-    //inst_code += ".ra_chk_" + to_string(counter) + ":\n";
-    //inst_code += "mov %fs:0x78,%rax\n";
-    //inst_code += "mov %rsp,%rdx\n";
-    //inst_code += "add $8,%rdx\n";
-    //inst_code += ".ra_chk_loop_" + to_string(counter) + ":\n";
-    //inst_code += "cmp %rax,%fs:0x80\n";
-    //inst_code += "je .ret_post_chk_" + to_string(counter) + "\n";
-    //inst_code += "sub $16,%rax\n";
-    //inst_code += "mov %rax,%fs:0x78\n";
-    //inst_code += "cmp 0(%rax),%rdx\n";
-    //inst_code += "jne .ra_chk_loop_" + to_string(counter) + "\n"; 
-    //inst_code += "mov 8(%rsp),%rdx\n"; 
-    //inst_code += "cmp 8(%rax),%rdx\n";
-    //inst_code += "je .ret_post_chk_" + to_string(counter) + "\n"; 
-    //inst_code += "nop\n";
-    //inst_code += ".ret_post_chk_" + to_string(counter) + ":\n";
-    //inst_code += "pop %rdx\nmov %fs:0x88,%rax\nret\n";
+                "mov %r11, %fs:0x78\n" +
+                "pop %r11\n" +
+                "pop %r10\n";
     counter++;
   }
-  else if(h == HookType::RET_CHK) {
+  else if(h == InstPoint::RET_CHK) {
     if(mne.find("call") != string::npos) {
 
       inst_code += "mov %rax,%fs:0x88\n";
@@ -383,82 +292,55 @@ Instrument::generate_hook(string hook_target, string args,
       //inst_code += "mov %rax,%fs:0x88\n";
       //inst_code += "mov %rax,-" + to_string(rax_offt) + "(%rsp)\n"; 
       //inst_code += args + mne + " ." + hook_target + "\n";
-      inst_code += decodeRet(hook_target,args,mne);
+      inst_code += decodeRet("GTF_stack",args,mne);
       DEF_LOG("Return check code: "<<inst_code);
     }
   }
-  //else if (h == HookType::SHSTK_FUNCTION_CALL) {
-  //  inst_code = inst_code + 
-  //               "pushq %rdi\n" +
-  //               "pushq %rax\n" +
-  //               "cmpq $0,%fs:0x78\n" +
-  //               "jne .shstk_ok_" + to_string(counter) + "\n" +
-  //               "callq .init_shstk\n"
-  //               ".shstk_ok_" + to_string(counter) +  ":\n" +
-  //               "movq %fs:0x78,%rax\n" +
-  //               "lea " + args + "(%rip),%rdi\n" +
-  //               "movq %rdi,(%rax)\n" +
-  //               "pop %rax\n" +
-  //               "pop %rdi\n";
-  //  //counter++;
-  //}
-  //else if(h == HookType::SHSTK_DRCT_CALL) {
-  //  inst_code += "call " + hook_target + "\n";
-  //  inst_code += fall_sym + ":\n";
-  //}
-  //else if(h == HookType::SHSTK_INDRCT_CALL) {
-  //    inst_code += "mov %rax,%fs:0x88\n";
-  //    string op = hook_target;
-  //    op.replace(0,1,"");
-  //    inst_code += "mov " + op + ",%rax\n";
-  //    inst_code += "call .shadow_tramp\n"; 
-  //    inst_code += fall_sym + ":\n";
-  //}
-  //else if(h == HookType::SHSTK_INDIRECT_JMP) {
-  //  //inst_code = inst_code + "movq $1, %fs:0x80\n";
-  //}
-  else if (h == HookType::SHSTK_FUNCTION_RET) {
+  else if(h == InstPoint::SHSTK_INDIRECT_JMP) {
+    inst_code = inst_code + "sub $8, %fs:0x78\n";
+  }
+  else if (h == InstPoint::SHSTK_FUNCTION_RET) {
+    //inst_code = inst_code +
+    //            "push %r11\n" +
+    //            "sub $8, %fs:0x78\n" +
+    //            "mov %fs:0x78,%r11\n" +
+    //            "mov (%r11),%r11\n" +
+    //            "mov %r11,8(%rsp)\n" +
+    //            "pop %r11\n" +
+    //            "ret\n";
+
+
     inst_code = inst_code + 
-                "mov %r10, %fs:0x80\n" +
-                "mov %r11, %fs:0x88\n" +
+                "push %r10\n" +
+                "push %r11\n" +
+                "sub $8, %fs:0x78\n" +
                 "mov %fs:0x78,%r11\n" +
                 "mov (%r11),%r11\n" +
-                //"mov %r11,(%rsp)\n";
-                "movq (%rsp),%r10\n" +
-                //"mov %fs:0x78,%r11\n" +
+                "movq 16(%rsp),%r10\n" +
                 "cmpq %r11,%r10\n" + args + "\n" +
                 "jne .safe_ret_" + to_string(counter) + "\n" +
-                "mov %fs:0x80, %r10\n" +
-                "mov %fs:0x88, %r11\n" +
-                //"movq $0, %fs:0x80\n" +
+                "pop %r11\n" +
+                "pop %r10\n" +
                 "ret\n" +
                 ".safe_ret_" + to_string(counter) + ":\n" +
                 "hlt\n";
     counter++;
   }
-  else if(h == HookType::SHSTK_FUNCTION_ENTRY) {
+  else if(h == InstPoint::SHSTK_FUNCTION_ENTRY) {
     inst_code = inst_code +
-                //"mov %fs:0x78, %r11\n"
-                //"cmpq $0,%r11\n" +
-                //"jg .shstk_ok_" + to_string(counter) + "\n" +
-                //".init_sh_" + to_string(counter) +  ":\n" +
-                //"callq .init_shstk\n" +
                 "mov %fs:0x78, %r11\n"
                 ".shstk_ok_" + to_string(counter) +  ":\n" +
                 "mov (%rsp), %r10\n" +
                 "movq %r10,(%r11)\n";
     counter++;
   }
-  else if(h == HookType::SHSTK_CANARY_CHANGE) {
+  else if(h == InstPoint::SHSTK_CANARY_CHANGE) {
     string ca_reg = args;
     inst_code = inst_code + 
                 "movq %fs:0x78," + ca_reg + "\n" +
-                //"add $8," + ca_reg + "\n" +
-                //"movq " + ca_reg + ",%fs:0x78\n" +
-                //"addq $8,%fs:0x78\n" +
                 "xorq %fs:0x28," + ca_reg + "\n";
   }
-  else if(h == HookType::SHSTK_CANARY_PROLOGUE) {
+  else if(h == InstPoint::SHSTK_CANARY_PROLOGUE) {
     vector <string> words = utils::split_string(args,",");
     if(words.size() >= 3) {
       string ca_reg = words[0];
@@ -513,46 +395,49 @@ Instrument::generate_hook(string hook_target, string args,
     }
     else
       LOG("not enough arguments for canary prologue instrumentation: "<<args);
-
-    //ca_reg = args.substr(0, args.find(","));
-    //ra_offt = args.substr(args.find(",") + 1);
-    //string extra_reg = "%r10";
-    //if(ca_reg.find("r10") != string::npos) {
-    //  extra_reg = "%r9";
-    //}
-    //inst_code = inst_code + 
-    //            "cmpq $0,%fs:0x78\n" +
-    //            "jg .shstk_ok_" + to_string(counter) + "\n" +
-    //            ".init_sh_" + to_string(counter) +  ":\n" +
-    //            "callq .init_shstk\n" +
-    //            ".shstk_ok_" + to_string(counter) +  ":\n" +
-    //            "movq %fs:0x78," + ca_reg + "\n" +
-    //            "addq $8,%fs:0x78\n" +
-    //            "pushq " + extra_reg + "\n" +
-    //            "movq " + ra_offt + "," + extra_reg + "\n" +
-    //            "movq " + extra_reg + ",(" + ca_reg + ")\n" +
-    //            "xorq %fs:0x28," + ca_reg + "\n" +
-    //            "popq " + extra_reg + "\n";
-    //counter++;
   }
-  else if(h == HookType::SHSTK_CANARY_MOVE) {
+  else if(h == InstPoint::SHSTK_CANARY_MOVE) {
     inst_code = inst_code + 
                 "mov %fs:0x28," + args + "\n"; 
   }
-  else if(h == HookType::SHSTK_CANARY_EPILOGUE) {
+  else if(h == InstPoint::SHSTK_CANARY_EPILOGUE) {
     inst_code = inst_code + 
                 "xorq %fs:0x28," + args + "\n" +
-                //"je .canary_ok_" + to_string(counter) + "\n" +
-                "sub $8," + args + "\n" + 
                 "movq " + args + ",%fs:0x78\n" +
                 "xor " + args + "," + args + "\n";
-                //".canary_ok_" + to_string(counter) + ":\n";
-    //counter++;
   }
-  else {
-    inst_code += save(h);
+  else if(h == InstPoint::SYSCALL_CHECK) {
+    inst_code += save();
+    inst_code += args + "call .SYSCHK\n";
+    inst_code = inst_code + restore();
+  }
+
+  return inst_code;
+
+}
+
+string
+Instrument::generate_hook(string hook_target, string args,
+                          string mne,
+                          InstPoint p,
+                          HookType h,
+                          string fall_sym,
+                          uint64_t sigaction_addrs) {
+
+  /* Generates assembly code stub to be put at the instrumentation point
+   *(basic block or function).
+   *  The stub saves caller saved registers and flags.
+   *  Then makes a call to the instrumentation code.
+   */
+
+  string inst_code = "";
+
+  if(h != HookType::PREDEF_INST && h != HookType::INLINE_INST) {
+    inst_code += save();
     inst_code += args + "call ." + hook_target + "\n";
   }
+
+  inst_code += predefInstCode(p, mne, fall_sym, hook_target, args);
 
   if(h == HookType::SEGFAULT) {
     /* If the stub is supposed to install seg-fault handler, we need to make
@@ -563,36 +448,15 @@ Instrument::generate_hook(string hook_target, string args,
                             "mov $0, %rdx\n" +
                             "call ." + to_string(sigaction_addrs) + "_" + to_string(sigaction_addrs) + "_def_code\n";
   }
-  //if(h == HookType::ADDRS_TRANS) {
-  //  inst_code += "mov %rax,-8(%rsp)\n";
-  //}
-
-  if(h != HookType::ADDRS_TRANS 
-     && h != HookType::RET_CHK
-     && h != HookType::SHSTK_CANARY_EPILOGUE
-     && h != HookType::SHSTK_CANARY_PROLOGUE
-     && h != HookType::SHSTK_CANARY_MOVE
-     && h != HookType::SHSTK_CANARY_CHANGE
-     //&& h != HookType::SHSTK_DRCT_CALL
-     //&& h != HookType::SHSTK_INDRCT_CALL
-     && h != HookType::SHSTK_FUNCTION_RET
-     && h != HookType::SHSTK_FUNCTION_ENTRY
-     && h != HookType::LEGACY_SHADOW_CALL
-     && h != HookType::LEGACY_SHADOW_JMP
-     && h != HookType::LEGACY_SHADOW_RET
-     && h != HookType::LEGACY_SHADOW_INDRCT_CALL
-     && h != HookType::LEGACY_SHADOW_INDRCT_JMP)
-    inst_code = inst_code + restore(h);
-  //if(h == HookType::ADDRS_TRANS) {
-  //  inst_code += mne + " *-40(%rsp)\n";
-  //}
+  if(h != HookType::PREDEF_INST && h != HookType::INLINE_INST)
+    inst_code = inst_code + restore();
   return inst_code;
 }
 
 string
-Instrument::save(HookType h) {
+Instrument::save() {
   string ins = "";
-
+/*
   vector <string> reg_list;
   if(h == HookType::ADDRS_TRANS)
     reg_list = atfSavedReg_;
@@ -600,6 +464,9 @@ Instrument::save(HookType h) {
   //  reg_list = syscallCheckSavedReg_;
   else
     reg_list = savedReg_;
+
+*/
+  auto reg_list = savedReg_;
   ins += "pushf\n";
   auto offset = 8 * reg_list.size();
   ins += "sub $" + to_string(offset) + ",%rsp\n";
@@ -617,8 +484,9 @@ Instrument::save(HookType h) {
 }
 
 string
-Instrument::restore(HookType h) {
+Instrument::restore() {
   string ins = "";
+  /*
   vector <string> reg_list;
   if(h == HookType::ADDRS_TRANS)
     reg_list = atfSavedReg_;
@@ -626,6 +494,9 @@ Instrument::restore(HookType h) {
   //  reg_list = syscallCheckSavedReg_;
   else
     reg_list = savedReg_;
+  */
+
+  auto reg_list = savedReg_;
 
   auto it = reg_list.end();
   auto offset = 0;//8 * reg_list.size();
@@ -646,13 +517,10 @@ Instrument::restore(HookType h) {
 }
 
 string
-Instrument::getRegVal(string reg, HookType h) {
+Instrument::getRegVal(string reg, InstPoint h) {
   vector <string> reg_list;
-  if(h == HookType::ADDRS_TRANS)
+  if(h == InstPoint::ADDRS_TRANS)
     return reg;
-    //reg_list = atfSavedReg_;
-  //else if(h == HookType::SYSCALL_CHECK)
-  //  reg_list = syscallCheckSavedReg_;
   else
     reg_list = savedReg_;
   string val = "";

@@ -31,28 +31,11 @@ main (int argc, char *args[]) {
 
   cout << binary_path << endl;
   Binary b (binary_path);
-#ifdef STATIC_TRANS
-  cout<<"Ignoring address translation instrumentation"<<endl;
-#else
-  vector<InstArg> arglst2;
-  arglst2.push_back(InstArg::INDIRECT_TARGET);
-  arglst2.push_back(InstArg::RIP);
-  b.registerInstrumentation(InstPoint::ADDRS_TRANS,"GTF_reg",arglst2);
-
-  vector<InstArg> arglst4;
-  arglst4.push_back(InstArg::REG_RAX);
-  b.registerInstrumentation(InstPoint::SYSCALL_CHECK,"SYSCHK",arglst4);
-
-
-  if(RA_OPT == false) {
-    vector<InstArg> arglst4;
-    b.registerInstrumentation(InstPoint::RET_CHK,"GTF_stack",arglst4);
-  }
-#endif
-  //vector<InstArg> arglst5;
-  //arglst5.push_back(InstArg::REG_RAX);
-  //arglst5.push_back(InstArg::RIP);
-  //b.registerInstrumentation(InstPoint::BASIC_BLOCK,"LOG",arglst5);
+  //vector<InstArg> arglst;
+  //arglst.push_back(InstArg::REG_RAX);
+  //arglst.push_back(InstArg::RIP);
+  //arglst.push_back(InstArg::EXENAME);
+  //b.registerInstrumentation(InstPoint::BASIC_BLOCK,InstPos::PRE,"LOG",arglst);
   SHSTK(b)
   b.rewrite();
   return 0;

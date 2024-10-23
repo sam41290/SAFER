@@ -560,9 +560,13 @@ PointerAnalysis::validInitAndRegPreserve(vector <BasicBlock *> &entry_lst,
       DEF_LOG("Init val: "<<init);
       if(init == 0)
         score += 4;
+      else
+        DEF_LOG("Valid init failed: "<<hex<<bb->start());
     }
-    else
+    else {
+      DEF_LOG("Reg preserve failed: "<<hex<<bb->start());
       score = 0;
+    }
     valid[bb->start()] = score;
     auto bb_lst = bbSeq(bb);
     setProperty(bb_lst, score, bb->start());

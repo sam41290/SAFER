@@ -1,13 +1,27 @@
-#define FULL_ADDR_TRANS false
-#define FULL_ENCODE true
-#define RA_OPT true
-#define SAFE_JTABLE true
-#define NO_ENCODE_LEAPTRS false
+
+#define STATIC_TRANS
+
+#ifdef STATIC_TRANS
+  #define FULL_ADDR_TRANS false
+  #define FULL_ENCODE false
+  #define RA_OPT true
+  #define SAFE_JTABLE false
+  #define NO_ENCODE_LEAPTRS false
+  #define ENCODE 0
+#else
+  #define FULL_ADDR_TRANS false
+  #define FULL_ENCODE true
+  #define RA_OPT true
+  #define SAFE_JTABLE true
+  #define NO_ENCODE_LEAPTRS false
+  #define ENCODE 1
+#endif
+
+
 
 
 #define SHSTK(b) {\
-  vector<InstArg> arglst5;\
-  b.registerInstrumentation(InstPoint::SHADOW_STACK,"GTF_stack",arglst5);\
+  b.registerInbuiltInstrumentation(InstPoint::SHADOW_STACK);\
 }
 
 #define NOTSTRING(ptr) notString(ptr) //also checks alignment
@@ -51,7 +65,6 @@
 
 #define SYMBOLIZABLE(BB) isSymbolizable(BB->start())
 
-#define ENCODE 1
 #define ENCCLASS MultInv
 //#define ENCCLASS GttAtt
 //#define OPTIMIZED_EH_METADATA

@@ -54,6 +54,8 @@ private:
   uint64_t insSize_ = 0;  
   vector<string> instParams_;
   vector<string> paramIns_;
+  vector<string> prologFreeReg_;
+  vector<string> epilogFreeReg_;
   bool decode_ = false;
   bool encode_ = false;
   bool atRequired_ = false;
@@ -69,6 +71,14 @@ public:
   Instruction() {
     sem_ = new SBI::UNKNOWNINS();
   }
+  void prologFreeReg(string &reg) { prologFreeReg_.push_back(reg); }
+  void prologFreeReg(vector<string> &reg_list) { prologFreeReg_ = reg_list; }
+  vector <string> prologFreeReg() { return prologFreeReg_; }
+
+  void epilogFreeReg(string &reg) { epilogFreeReg_.push_back(reg); }
+  void epilogFreeReg(vector<string> &reg_list) { epilogFreeReg_ = reg_list; }
+  vector <string> epilogFreeReg() { return epilogFreeReg_; }
+
   InsSemantics *sem() { return sem_; }
   string fallSym() { return fallSym_; }
   void fallSym(string sym) { fallSym_ = sym; }
@@ -90,7 +100,7 @@ public:
   bool isPltJmp() { return isPltJmp_; }
   void atRequired(bool val) { atRequired_ = val; }
   bool atRequired() { return atRequired_; }
-  void instAsmPre(string code) { instAsmPre_ += code; }
+  void instAsmPre(string code) { instAsmPre_ = code; }
   void location(uint64_t p_loc) { loc_ = p_loc;}
   bool isCode() { return isCode_; }
   void isCode(bool code) { isCode_ = code; }
@@ -235,7 +245,7 @@ public:
   vector <uint8_t> insBinary() { return insBinary_;}
   void rltvOfftAdjusted(bool b) { rltvOfftAdjusted_ = b; }
   bool rltvOfftAdjusted() { return rltvOfftAdjusted_; }
-  void setInstParams(HookType h);
+  void setInstParams(InstPoint h);
 
   bool indirectCFWithReg();
   void print(string file_name,string lbl_sfx);

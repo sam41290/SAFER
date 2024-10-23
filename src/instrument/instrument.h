@@ -21,25 +21,27 @@ using namespace std;
 
 #define INSTARGCNT 22
 
+enum class InstPos {
+  PRE,
+  POST
+};
 
 enum class InstPoint
 {
   BASIC_BLOCK,
-  ALL_FUNCTIONS,
+  INSTRUCTION,
+  FUNCTION_ENTRY,
+  SYSCALL,
+  CALL,
+  RET,
   INDIRECT_CF,
-  LEA_INS_PRE,
-  LEA_INS_POST,
-  ADDRS_TRANS,
-  RET_CHK,
-  SYSCALL_CHECK,
-  CANARY_PROLOGUE,
-  CANARY_EPILOGUE,
-  FUNCTION_CALL,
-  FUNCTION_RET,
-  LEGACY_SHADOW_STACK,
+  CUSTOM,  
+  //Predefined instrumentations
+  RET_CHK, //Return address translation 
+  SHADOW_STACK, //canary based shadow stack
+  LEGACY_SHADOW_STACK, //Traditional shadow stack
   LEGACY_SHADOW_CALL,
   LEGACY_SHADOW_RET,
-  SHADOW_STACK,
   SHSTK_CANARY_PROLOGUE,
   SHSTK_CANARY_MOVE,
   SHSTK_CANARY_EPILOGUE,
@@ -48,32 +50,19 @@ enum class InstPoint
   SHSTK_CANARY_CHANGE,
   SHSTK_FUNCTION_ENTRY,
   SHSTK_FUNCTION_TRAMP,
-  SHSTK_IGNORE_TAIL_CALL
+  SHSTK_FUNCTION_PTR,
+  SHSTK_INDIRECT_JMP,
+  SHSTK_IGNORE_TAIL_CALL,
+  ADDRS_TRANS, //Address translation and pointer decoding 
+  SYSCALL_CHECK //Translate pointers passed as arguments to syscalls
 };
 
 enum class HookType
 {
   SEGFAULT,
-  ADDRS_TRANS,
-  RET_CHK,
-  SYSCALL_CHECK,
-  GENERAL_INST,
-  LEGACY_SHADOW_CALL,
-  LEGACY_SHADOW_JMP,
-  LEGACY_SHADOW_INDRCT_CALL,
-  LEGACY_SHADOW_RET,
-  LEGACY_SHADOW_INDRCT_JMP,
-  //SHSTK_DRCT_CALL,
-  //SHSTK_INDRCT_CALL,
-  SHSTK_CANARY_PROLOGUE,
-  SHSTK_CANARY_MOVE,
-  SHSTK_CANARY_EPILOGUE,
-  //SHSTK_FUNCTION_CALL,
-  //SHSTK_INDIRECT_JMP,
-  SHSTK_FUNCTION_RET,
-  SHSTK_CANARY_CHANGE,
-  SHSTK_FUNCTION_ENTRY,
-  SHSTK_FUNCTION_TRAMP
+  PREDEF_INST,
+  INLINE_INST,
+  CALL_BASED_INST
 };
 
 
@@ -98,19 +87,26 @@ enum class InstArg {
   REG_RAX,
   REG_RCX,
   REG_RSP,
-  EXENAME
+  EXENAME,
+  EFLAGS //Need to add implementation in cfg/Instrument.cpp's setInsParams()
+         //function
 };
 
+struct InstUnit {
+  HookType instType_;
+  InstPos pos_;
+  string instCode_;
+  vector<InstArg> args_;
+};
 
 
 class Instrument: public ENCCLASS
 {
-  vector<pair<InstPoint,string>> targetPos_;
-  map<string,vector<InstArg>>instArgs_;
-  vector<pair<string,string>> targetFuncs_;
-  vector<pair<uint64_t,string>> targetAddrs_;
-  vector<string> instFuncs_;
+  vector<pair<InstPoint,InstUnit>> targetPos_;
+  vector<pair<string,InstUnit>> targetFuncs_;
+  static vector<string> instFuncs_;
   string exeNameLabel_ = ".exename";
+  static int counter;
 public:
   Instrument(){}
   void removeInstrumentation(InstPoint p) {
@@ -129,30 +125,37 @@ public:
     }
     return false;
   }
-  vector<pair<InstPoint,string>> targetPositions() { return targetPos_;}
-  vector<pair<string,string>> targetFunctions() { return targetFuncs_;}
+  vector<pair<InstPoint,InstUnit>> targetPositions() { return targetPos_;}
+  vector<pair<string, InstUnit>> targetFunctions() { return targetFuncs_;}
   vector<string> instFunctions() { return instFuncs_;}
   string exeNameLabel() { return exeNameLabel_; };
-  map<string,vector<InstArg>> instArgs() { return instArgs_; }
-  vector<pair<uint64_t,string>> targetAddrs() { return targetAddrs_; }
+  //map<string,vector<InstArg>> instArgs() { return instArgs_; }
+  //ector<pair<uint64_t,string>> targetAddrs() { return targetAddrs_; }
   string moveZeros(string op1,uint64_t loc, string file_name);
   string getIcfReg(string op1);
-  void registerInstrumentation(uint64_t tgtAddrs,string
-      instCodeSymbol,vector<InstArg>argsLst);
-  void registerInstrumentation(InstPoint p,string
-      instCodeSymbol,vector<InstArg>argsLst);
-  void registerInstrumentation(string fnName,string
-      instCodeSymbol,vector<InstArg>argsLst);
+  void registerInstrumentation(InstPoint p, InstUnit &u);
+  void registerInstrumentation(InstPoint p,InstPos pos, string instCodeSymbol);
+  void registerInstrumentation(InstPoint p,InstPos pos, string instCodeSymbol,
+                               vector<InstArg> argsLst);
+  void registerInstrumentation(string fnName,string instCodeSymbol,
+                               vector<InstArg>argsLst);
+  void registerInlineInstrumentation(string asm_str,InstPos p, InstPoint pnt); 
+  void registerInlineInstrumentation(string asm_str,InstPos p); 
+  void registerInbuiltInstrumentation(InstPoint p);
   string generate_hook(string hook_target, string args = "",
-                          string mne = "",
-                          HookType h = HookType::GENERAL_INST,
-                          string fall = "",
-                          uint64_t sigaction_addrs = 0);
-  string getRegVal(string reg, HookType h);  
+                       string mne = "",
+                       InstPoint p = InstPoint::CUSTOM,
+                       HookType h = HookType::CALL_BASED_INST,
+                       string fall = "",
+                       uint64_t sigaction_addrs = 0);
+  string getRegVal(string reg, InstPoint h);  
   string directCallShstkTramp();
+  string shadowRetInst(string &reg1, string &reg2, int free_reg_cnt);
   virtual void instrument() = 0;
 
 private:
-  string save(HookType h);
-  string restore(HookType h);
+  string save();
+  string restore();
+  string predefInstCode(InstPoint h, string mne, string fall_sym, 
+                        string hook_target, string args);
 };
