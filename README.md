@@ -32,7 +32,28 @@ and run instrumented programs. The current ld.so for SAFER has been implemented
 by customizing the glibc version 2.31 (compatible with ubuntu 20.04). The
 customizations can be easily extended to other higher versions of glibc.
 
-### Installation 
+### Installation
+
+1. Installing customized loader:
+
+```bash
+cd SAFER/SAFER-Loader
+mkdir glibc-build
+cd glibc-build
+../glibc-2.31/configure --prefix=/usr
+make
+cd elf
+sudo cp ld.so /usr/lib/x86_64-linux-gnu/ld-safer.so
+cd /lib64
+sudo ln -sf /usr/lib/x86_64-linux-gnu/ld-safer.so ld-linux-xsafer.so.2
+```
+
+2. Installing SAFER and its dependencies:
+
+```bash
+cd SAFER
+./install.sh
+```
 
 ### API and usage
 
