@@ -57,6 +57,60 @@ cd SAFER
 
 ### API and usage
 
+1. To disassemble:
+
+```bash
+cd SAFER/run
+make clean
+make
+./run.sh /bin/ls disasmonly
+```
+
+Output assembly: SAFER/run/tmp/ls_defcode.s
+
+2. To disassemble and dump control flow graph
 
 
+```bash
+./run.sh /bin/ls disasmonly dumpcfg
+```
+* Function entry: SAFER/run/tmp/cfg/functions.lst
+* Basic blocks: SAFER/run/tmp/cfg/definite_basicblocks.lst
+* Jump tables: SAFER/run/tmp/cfg/jmptables.lst
 
+3. Instrumentation:
+
+*STEP 1:* Find all modules in the target program
+```bash
+cd SAFER/testsuite
+./find_libs.sh /bin/ls
+```
+*STEP 2:* Apply instrumentaion.
+
+You can either apply pre-defined instrumentations or write custom
+instrumentation code. Pre-defined instrumentations consist of known program
+hardening schemes such as CFI, Shadow stack, etc. The detailed list of
+pre-defined instrumentations are present in *SAFER/API*. Below example is for
+applying CFI and shadow stack.
+
+```bash
+cd ${HOME}
+./instrument_prog.sh ls ptr_trans=CFI_SHSTK
+```
+
+Custom instrumentation code can be written in C or Assembly. Refer to
+*SAFER/API* for details about writing instrumentation code.
+
+To apply custom instrumentation:
+
+```bash
+cd ${HOME}
+./instrument_prog.sh ls
+```
+
+To run and test the instrumented program:
+
+```bash
+cd ${HOME}/instrumented_libs
+./ls
+```
