@@ -1,5 +1,5 @@
 CXX = g++
-MCXXFLAGS := -g -Wall -O2 -std=c++2a -fPIC $(CXXFLAGS) $(CPPFLAGS) $(TARGET_ARCH) #-fno-inline -fno-omit-frame-pointer
+MCXXFLAGS := -I/usr/lib/ocaml -g -Wall -O2 -std=c++2a -fPIC $(CXXFLAGS) $(CPPFLAGS) $(TARGET_ARCH) #-fno-inline -fno-omit-frame-pointer
 LOADLIBES := ../lift/lift-code/ocaml_interface.o
 LDLIBS := -L/usr/lib/ocaml -lm -ldl -lasmrun_shared -lcamlstr -L. -lanalysis_new
 

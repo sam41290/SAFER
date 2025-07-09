@@ -3,6 +3,8 @@
 
 TOOL_PATH=`pwd`
 
+INSTALL_DIR=$1
+
 sudo apt-get -y install ocaml
 sudo apt-get -y install camlp4-extra
 sudo apt-get -y install camlp4
@@ -40,9 +42,9 @@ cd ${TOOL_PATH}/src/SBD/analysis/
 make clean
 make all
 
-#cd ${TOOL_PATH}/src/lift/lift-code
-#make clean
-#make all
+cd ${TOOL_PATH}/jtable_cache/
+make clean
+make all
 #
 #
 #cd ${TOOL_PATH}/src/rtl-analysis/
@@ -60,18 +62,20 @@ cd ${TOOL_PATH}
 #make
 
 
-ln -sf ${TOOL_PATH}/instrument.sh ${HOME}/instrument.sh
+ln -sf ${TOOL_PATH}/instrument.sh ${INSTALL_DIR}/instrument.sh
 
-ln -sf ${TOOL_PATH}/testsuite/instrument-coreutils.sh ${HOME}/instrument-coreutils.sh
-ln -sf ${TOOL_PATH}/testsuite/instrument-suite.sh ${HOME}/instrument-suite.sh
+ln -sf ${TOOL_PATH}/testsuite/instrument-coreutils.sh ${INSTALL_DIR}/instrument-coreutils.sh
+ln -sf ${TOOL_PATH}/testsuite/instrument-suite.sh ${INSTALL_DIR}/instrument-suite.sh
 
-ln -sf ${TOOL_PATH}/testsuite/instrument_prog.sh ${HOME}/instrument_prog.sh
+ln -sf ${TOOL_PATH}/testsuite/instrument_prog.sh ${INSTALL_DIR}/instrument_prog.sh
 
-#ln -sf ${TOOL_PATH}/testsuite/replace_libs.sh ${HOME}/replace_libs.sh
+#ln -sf ${TOOL_PATH}/testsuite/replace_libs.sh ${INSTALL_DIR}/replace_libs.sh
 
-ln -sf ${TOOL_PATH}/jmp-table-analysis/asm_format.sh ${HOME}/asm_format.sh
+ln -sf ${TOOL_PATH}/jmp-table-analysis/asm_format.sh ${INSTALL_DIR}/asm_format.sh
 
 mkdir ${HOME}/instrumented_libs
+
+sed -i "/\/bin\/sh/a TOOL_PATH=${TOOL_PATH}" ${TOOL_PATH}/run/run.sh
 
 #sudo mkdir /inst_libs
 

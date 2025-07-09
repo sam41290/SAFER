@@ -1,6 +1,6 @@
 CXX = g++
-MCXXFLAGS := -g -Wall -O2 -std=c++2a -fPIC $(CXXFLAGS) $(CPPFLAGS) $(TARGET_ARCH) #-fno-inline -fno-omit-frame-pointer
-LOADLIBES := ../lift/lift-code/ocaml_interface.o
+MCXXFLAGS := -I/usr/lib/ocaml -g -Wall -O2 -std=c++2a -fPIC $(CXXFLAGS) $(CPPFLAGS) $(TARGET_ARCH) #-fno-inline -fno-omit-frame-pointer
+LOADLIBES := ../src/SBD/lift/lift-code/ocaml_interface.o
 LDLIBS := -L/usr/lib/ocaml -lm -ldl -lasmrun_shared -lcamlstr
 
 HOSTSRCS = framework.cpp program.cpp function.cpp scc.cpp block.cpp insn.cpp rtl.cpp expr.cpp arithmetic.cpp state.cpp domain.cpp parser.cpp common.cpp binary.cpp arch.cpp type.cpp

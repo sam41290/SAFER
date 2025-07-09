@@ -43,8 +43,9 @@ if [ -f "${sjtable}" ]
 then
   cp -r ${sjtable} jmp_table/result.sjtable
 fi
-#export LD_LIBRARY_PATH=/usr/lib/ocaml:${HOME}/SBI/jtable_cache
-#${HOME}/SBI/jtable_cache/test_jtable $1 jmp_table/result.jtable ${HOME}/SBI/auto/output.auto  
+
+export LD_LIBRARY_PATH=/usr/lib/ocaml:${TOOL_DIR}/jtable_cache
+${TOOL_DIR}/jtable_cache/test_jtable $1 jmp_table/result.jtable ${TOOL_DIR}/SBI/auto/output.auto  
 
 exe=`basename $1`
 

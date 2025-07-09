@@ -14,7 +14,7 @@
 #include "../insn.h"
 #include "../rtl.h"
 #include "../expr.h"
-#include "../../../run/config.h"
+#include "../../run/config.h"
 
 using namespace std;
 using namespace SBA;
