@@ -6,7 +6,7 @@ then
   exit
 fi
 
-TOOL_PATH="${HOME}/SBI"
+TOOL_PATH="/huge/soumyakant/BinaryAnalysis/bin_analysis_tools/safer"
 
 create_lib_list() {
 
@@ -28,7 +28,7 @@ create_lib_list() {
       continue
     fi
     create_lib_list $line
-    cat ${TOOL_PATH}/testsuite/deps/${lib}_file_list.dat >> ${outfile}
+    cat ${TOOL_PATH}/scripts/deps/${lib}_file_list.dat >> ${outfile}
   done < /tmp/${progname}_libs.dat
 
   sort -u ${outfile} > /tmp/${progname}_file_list.dat

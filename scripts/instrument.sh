@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TOOL_PATH=${HOME}/SBI
+TOOL_PATH="/huge/soumyakant/BinaryAnalysis/bin_analysis_tools/safer"
 
 if [ $# -lt 1 ]
 then
@@ -31,8 +31,12 @@ then
     argstogrep=${2}"\n"${3}"\n"${4}"\n"${5}
 elif [ $# -eq 6 ]
 then
-	args=$2' '$3' '$4' '$5' '$6;
+    args=$2' '$3' '$4' '$5' '$6;
     argstogrep=${2}"\n"${3}"\n"${4}"\n"${5}"\n"${6}
+elif [ $# -eq 7 ]
+then
+    args=$2' '$3' '$4' '$5' '$6' '$7;
+    argstogrep=${2}"\n"${3}"\n"${4}"\n"${5}"\n"${6}"\n"${7}
 fi
 
 echo "instrument args"
@@ -74,47 +78,47 @@ fi
 readelf -d ${filepath}
 if [ $? -eq 0 ]
 then
-	pattern=`echo $file | sed 's/\./\\\./g'`
-	mode=`cat ${TOOL_PATH}/testsuite/randomized.dat | grep "^${pattern}:" | cut -d":" -f2`
-	if [ "${mode}" = "${rand_mode}" ]
-	then
+    pattern=`echo $file | sed 's/\./\\\./g'`
+    mode=`cat ${TOOL_PATH}/scripts/randomized.dat | grep "^${pattern}:" | cut -d":" -f2`
+    if [ "${mode}" = "${rand_mode}" ]
+    then
         if [ ${#link[@]} -eq 0 ]
         then
-    	  cp ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${file}
+          cp ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${file}
         else
           for l in "${link[@]}"
           do
-    	    linkname=`basename ${l}`
+            linkname=`basename ${l}`
             echo "linking $linkname -> ${file}_2"
-    	    ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
+            ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
           done
         fi
     else
-	  echo "processing ${filepath}"
-      rm ${REGEN_DIR}/${file}_2
-	  cp ${filepath} ${REGEN_DIR}/
-	  ${TOOL_PATH}/instrument.sh ${REGEN_DIR}/${file} ${args}
-	  mode_len=`echo ${#mode}`
+        echo "processing ${filepath}"
+        rm ${REGEN_DIR}/${file}_2
+        cp ${filepath} ${REGEN_DIR}/
+        ${TOOL_PATH}/scripts/instrument_binary.sh ${REGEN_DIR}/${file} ${args}
+        mode_len=`echo ${#mode}`
 
-	  if [ ${mode_len} -eq 0 ]
-	  then
-	  	echo "${file}:${rand_mode}" >> ${TOOL_PATH}/testsuite/randomized.dat
-	  else
-	  	sed -i "s/${pattern}:${mode}/${file}:${rand_mode}/g" \
-          ${TOOL_PATH}/testsuite/randomized.dat
-	  fi
+        if [ ${mode_len} -eq 0 ]
+        then
+            echo "${file}:${rand_mode}" >> ${TOOL_PATH}/scripts/randomized.dat
+        else
+            sed -i "s/${pattern}:${mode}/${file}:${rand_mode}/g" \
+            ${TOOL_PATH}/scripts/randomized.dat
+        fi
 
-      if [ ${#link[@]} -eq 0 ]
-      then
-        cp ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${file}
-      else
-        for l in "${link[@]}"
-        do
-          linkname=`basename ${l}`
-          echo "linking $linkname -> ${file}_2"
-          ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
-        done
-      fi
-	fi
+        if [ ${#link[@]} -eq 0 ]
+        then
+            cp ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${file}
+        else
+            for l in "${link[@]}"
+            do
+                linkname=`basename ${l}`
+                echo "linking $linkname -> ${file}_2"
+                ln -sf ${REGEN_DIR}/${file}_2 ${REGEN_DIR}/${linkname}
+            done
+        fi
+    fi
 fi	
 

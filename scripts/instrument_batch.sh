@@ -1,6 +1,6 @@
 #!/bin/sh
 
-TOOL_PATH=${HOME}/SBI
+TOOL_PATH="/huge/soumyakant/BinaryAnalysis/bin_analysis_tools/safer"
 
 if [ $# -lt 1 ]
 then
@@ -27,6 +27,9 @@ then
 elif [ $# -eq 6 ]
 then
 	args=$2' '$3' '$4' '$5' '$6;
+elif [ $# -eq 7 ]
+then
+	args=$2' '$3' '$4' '$5' '$6' '$7;
 fi
 
 echo "instrument_batch args"
@@ -45,5 +48,5 @@ fi
 
 while read line
 do
-  ${TOOL_PATH}/testsuite/instrument.sh ${line} ${args}
+  ${TOOL_PATH}/script/instrument.sh ${line} ${args}
 done < ${batch_file}

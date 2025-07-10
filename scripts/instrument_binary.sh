@@ -120,7 +120,7 @@ wd=`pwd`
 cd ${TOOL_PATH}/apps/${bin}_run
 #make clean
 make
-./run.sh $binpath > ${binpath}.log
+./run $binpath > ${binpath}.log
 cd ${wd}
 rm -rf ${TOOL_PATH}/${bin}_run
 
