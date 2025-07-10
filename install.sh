@@ -71,7 +71,7 @@ ln -sf ${TOOL_PATH}/testsuite/instrument_prog.sh ${INSTALL_DIR}/instrument_prog.
 
 #ln -sf ${TOOL_PATH}/testsuite/replace_libs.sh ${INSTALL_DIR}/replace_libs.sh
 
-ln -sf ${TOOL_PATH}/jmp-table-analysis/asm_format.sh ${INSTALL_DIR}/asm_format.sh
+#ln -sf ${TOOL_PATH}/jmp-table-analysis/asm_format.sh ${INSTALL_DIR}/asm_format.sh
 
 mkdir ${HOME}/instrumented_libs
 
