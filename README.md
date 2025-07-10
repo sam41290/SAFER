@@ -52,33 +52,30 @@ sudo ln -sf /usr/lib/x86_64-linux-gnu/ld-safer.so ld-linux-xsafer.so.2
 
 ```bash
 cd SAFER
-./install.sh
+./install.sh install_dir
 ```
 
 ### API and usage
 
-1. To disassemble:
+1. Developing binary analysis applications:
+
+To develop an application, create a separate directory under SAFER/apps/. Copy the Makefile and test_instrument.cpp file from one of the provided sample applications (e.g., apps/disassembly). Modify the test_instrument.cpp file and compile. 
+
+2. Disassembly application:
 
 ```bash
-cd SAFER/run
+cd SAFER/apps/disassembly
 make clean
 make
-./run.sh /bin/ls disasmonly
+./run /bin/ls
 ```
 
-Output assembly: SAFER/run/tmp/ls_defcode.s
+* Output assembly: SAFER/apps/disassembly/tmp/ls_defcode.s
+* Function entry: SAFER/apps/disassembly/tmp/cfg/functions.lst
+* Basic blocks: SAFER/apps/disassembly/tmp/cfg/definite_basicblocks.lst
+* Jump tables: SAFER/apps/disassembly/tmp/cfg/jmptables.lst
 
-2. To disassemble and dump control flow graph
-
-
-```bash
-./run.sh /bin/ls disasmonly dumpcfg
-```
-* Function entry: SAFER/run/tmp/cfg/functions.lst
-* Basic blocks: SAFER/run/tmp/cfg/definite_basicblocks.lst
-* Jump tables: SAFER/run/tmp/cfg/jmptables.lst
-
-3. Instrumentation:
+2. Instrumentation:
 
 *STEP 1:* Find all modules in the target program
 ```bash
@@ -94,19 +91,25 @@ pre-defined instrumentations are present in *SAFER/API*. Below example is for
 applying CFI and shadow stack.
 
 ```bash
-cd ${HOME}
-./instrument_prog.sh ls ptr_trans=CFI_SHSTK
+cd apps
+./instrument_prog ls ptr_trans=CFI_SHSTK
 ```
 
 Custom instrumentation code can be written in C or Assembly. Refer to
-*SAFER/API* for details about writing instrumentation code.
+*SAFER/API* for details about writing instrumentation code. Follow the below steps:
+
+* The instrumentation/probing code needs to be written in SAFER/probes/instrument.c file.
+* Create a custom directory under SAFER/apps/ (e.g., SAFER/apps/customprobing)
+* Copy the Makefile and test_instrument.cpp file from SAFER/apps/default_instrument to the custom directory created in the previous step.
+* Change the test_instrument.cpp (follow *SAFER/API* file)
 
 To apply custom instrumentation:
 
 ```bash
-cd ${HOME}
-./instrument_prog.sh ls
+cd app
+./instrument_prog ls app=customprobing // replace this with the custom directory name
 ```
+The above applied instrumentation to all the main executable (ls) and all the shared libraries it uses.
 
 To run and test the instrumented program:
 

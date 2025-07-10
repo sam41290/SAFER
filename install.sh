@@ -75,7 +75,12 @@ ln -sf ${TOOL_PATH}/testsuite/instrument_prog.sh ${INSTALL_DIR}/instrument_prog.
 
 mkdir ${HOME}/instrumented_libs
 
-sed -i "/\/bin\/sh/a TOOL_PATH=${TOOL_PATH}" ${TOOL_PATH}/apps/run.sh
+sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/apps/run.sh
+sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/instrument_prog.sh
+sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/instrument_batch.sh
+sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/instrument.sh
+sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/instrument_binary.sh
+sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/find_libs.sh
 
 #sudo mkdir /inst_libs
 

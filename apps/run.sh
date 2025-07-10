@@ -18,9 +18,19 @@ file_dir=`dirname $1`
 jtable=${file_dir}/${file}.jtable
 sjtable=${file_dir}/${file}.sjtable
 
+if [ -f "${jtable}" ]
+then
+  cp -r ${jtable} jmp_table/result.jtable
+else
+  export LD_LIBRARY_PATH=/usr/lib/ocaml:${TOOL_PATH}/jtable_cache
+  ${TOOL_PATH}/jtable_cache/test_jtable $1 jmp_table/result.jtable ${TOOL_PATH}/auto/output.auto  
+fi
+if [ -f "${sjtable}" ]
+then
+  cp -r ${sjtable} jmp_table/result.sjtable
+fi
 
-export LD_LIBRARY_PATH=/usr/lib/ocaml:${TOOL_PATH}/jtable_cache
-${TOOL_PATH}/jtable_cache/test_jtable $1 jmp_table/result.jtable ${TOOL_PATH}/auto/output.auto  
+
 
 exe=`basename $1`
 

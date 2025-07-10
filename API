@@ -95,7 +95,7 @@ INSTRUMENTATION API:
 
         "inst_function" is the name of the function that contains the
         instrumentation code. This function must be defined by user in
-        "SBI/run/instrumentation_code_here/instrument.c" file. User must build
+        "SAFER/probes/instrument.c" file. User must build
         this file independently by running "make" in the same directory. The
         code builds into a shared library (libinstrument.so) that will be loaded
         at the runtime by our custome loader. After building, the user must

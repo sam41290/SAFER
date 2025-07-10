@@ -34,6 +34,9 @@ then
 elif [ $# -eq 6 ]
 then
 	args=$2'\n'$3'\n'$4'\n'$5'\n'$6;
+elif [ $# -eq 7 ]
+then
+	args=$2'\n'$3'\n'$4'\n'$5'\n'$6'\n'$7;
 fi
 
 
@@ -87,22 +90,34 @@ if [ "$ehopt" = "no" ]; then
 fi
 
 
+app=`echo $args | grep "app" | cut -d"=" -f2`
+echo "Application:"
+echo "$app"
+
+len=`echo -n $app | wc -m`
+
+if [ $len -le 0 ]
+then
+    app="default_instrument"
+fi
+
 export LD_LIBRARY_PATH=/usr/lib/ocaml
 
 bin=`basename $binpath`
-mkdir ${TOOL_PATH}/${bin}_run
-cp -r ${TOOL_PATH}/run/* ${TOOL_PATH}/${bin}_run/
+mkdir ${TOOL_PATH}/apps/${bin}_run
+cp -r ${TOOL_PATH}/apps/${app}/* ${TOOL_PATH}/${bin}_run/
 wd=`pwd`
-cd ${TOOL_PATH}/${bin}_run
 
 #if [ $change_config -gt 0 ]
 #then
+  cd ${TOOL_PATH}/configs
   cp randmodes/${rand_mode}.h rand_config.h
   cp disasmConfig/${disasm}.h disasm_config.h
   cp ptrTransConfig/${ptr_trans}.h ptr_trans_config.h
   #make clean
 #fi
 
+cd ${TOOL_PATH}/apps/${bin}_run
 #make clean
 make
 ./run.sh $binpath > ${binpath}.log

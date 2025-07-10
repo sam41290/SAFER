@@ -16,18 +16,6 @@ int
 main (int argc, char *args[]) {
   string binary_path ("");
   binary_path += args[1];
-  string disasm = "";
-  if(argc > 2)
-    disasm = args[2];
-
-  if(disasm.find("disasmonly") != string::npos)
-    disasm_only = true;
-  string dump = "";
-  if(argc > 3)
-    dump = args[3];
-
-  if(dump.find("dumpcfg") != string::npos)
-    dump_cfg = true;
 
   cout << binary_path << endl;
   Binary b (binary_path);

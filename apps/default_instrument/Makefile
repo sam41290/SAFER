@@ -1,16 +1,17 @@
-PROJDIR := $(realpath $(CURDIR)/..)
+PROJDIR := $(realpath $(CURDIR)/../../)
 SOURCEDIR := $(PROJDIR)/src
+CONFIGDIR := $(PROJDIR)/configs
 BUILDDIR := $(realpath $(CURDIR))
 
-TARGET = demo
+TARGET = app
 
 VERBOSE = TRUE
 
 DIRS = binary cfg disasm elf exception exe_manager randomization utils instrument 
 SOURCEDIRS = $(foreach dir, $(DIRS), $(addprefix $(SOURCEDIR)/, $(dir)))
-TARGETDIRS = $(foreach dir, $(DIRS), $(addprefix $(BUILDDIR)/, $(dir))) $(BUILDDIR)/run
+TARGETDIRS = $(foreach dir, $(DIRS), $(addprefix $(BUILDDIR)/, $(dir))) $(BUILDDIR)/obj
 
-INCLUDES = $(foreach dir, $(SOURCEDIRS), $(addprefix -I, $(dir))) -I$(BUILDDIR)
+INCLUDES = $(foreach dir, $(SOURCEDIRS), $(addprefix -I, $(dir))) -I$(BUILDDIR) -I$(CONFIGDIR)
 
 VPATH = $(SOURCEDIRS) $(BUILDDIR)
 
@@ -18,7 +19,7 @@ VPATH = $(SOURCEDIRS) $(BUILDDIR)
 SOURCES = $(foreach dir,$(SOURCEDIRS),$(wildcard $(dir)/*.cpp))
 SOURCE2 = $(foreach dir,$(BUILDDIR),$(wildcard $(dir)/*.cpp))
 
-OBJS := $(subst $(SOURCEDIR),$(BUILDDIR),$(SOURCES:.cpp=.o)) $(subst $(BUILDDIR),$(BUILDDIR)/run,$(SOURCE2:.cpp=.o))
+OBJS := $(subst $(SOURCEDIR),$(BUILDDIR),$(SOURCES:.cpp=.o)) $(subst $(BUILDDIR),$(BUILDDIR)/obj,$(SOURCE2:.cpp=.o))
 
 
 ifeq ($(OS),Windows_NT)
@@ -68,23 +69,25 @@ endef
 
 .PHONY: all clean directories
 
-all: directories $(TARGET)
+all: directories $(TARGET) run
 
 $(TARGET): $(OBJS)
 	$(HIDE)echo Linking $@
-	$(HIDE)$(CXX) $(INCLUDES) -L../src/SBD/analysis $(OBJS) -o $(TARGET) -lcapstone -lopcodes -lanalysis_new
+	$(HIDE)$(CXX) $(INCLUDES) -L../../src/SBD/analysis $(OBJS) -o $(TARGET) -lcapstone -lopcodes -lanalysis_new
 
 $(OBJS): $(foreach targetdir, $(TARGETDIRS), $(eval $(call generateRules, $(targetdir))))
 
+run:
+	ln -sf ../run.sh run
 
 $(FINDEPS):
 
 -include $(DEPS)
 
 directories:
-	$(HIDE)$(MKDIR) $(subst /,$(PSEP),$(TARGETDIRS)) $(ERRIGNORE) jmp_table log 
+	$(HIDE)$(MKDIR) $(subst /,$(PSEP),$(TARGETDIRS)) $(ERRIGNORE) jmp_table log tmp 
 
 clean:
-	$(HIDE)$(RMDIR) $(subst /,$(PSEP),$(TARGETDIRS)) $(ERRIGNORE)
-	$(HIDE)$(RM) $(TARGET) jmp_table log tmp/* *.o *.s text $(ERRIGNORE)
+	$(HIDE)$(RM) $(TARGET) jmp_table/* log/* tmp/* *.o *.s text $(ERRIGNORE) run
+	$(HIDE)$(RMDIR) $(subst /,$(PSEP),$(TARGETDIRS)) jmp_table log tmp $(ERRIGNORE)
 	@echo Cleaning done !
