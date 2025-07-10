@@ -1,0 +1,66 @@
+#!/bin/sh
+TOOL_PATH=/huge/soumyakant/BinaryAnalysis/bin_analysis_tools/safer
+
+disasm_only=$2
+disasm=$3
+
+#make
+
+rm -rf jmp_table log tmp *.o *.s text
+
+mkdir jmp_table
+mkdir log
+mkdir tmp
+mkdir tmp/cfg
+
+file=`basename $1`
+file_dir=`dirname $1`
+jtable=${file_dir}/${file}.jtable
+sjtable=${file_dir}/${file}.sjtable
+
+if [ "${disasm}" = "symtabledisasm" ]; then
+  objcopy --dump-section .rand=tmp/${file}.gt.gz $1 && yes | gzip -d tmp/${file}.gt.gz
+  python3 ~/x86-sok/extract_gt/extractBB.py -b $1 -m tmp/${file}.gt -o tmp/${file}.pb 1> tmp/${file}.raw_gt 2> /dev/null
+  grep "Soumya BB" tmp/${file}.raw_gt | awk '{print $NF}' | sort -u > tmp/${file}.ptrlst
+  #objdump -W ${1} | grep "advance Address by" \
+  #    | gawk --non-decimal-data '{printf("%d\n",$10)}' \
+  #    > tmp/${file}.ptrlst
+#  readelf --debug-dump=decodedline ${1} | grep -v "name\|section\|CU:" \
+ #   | gawk --non-decimal-data '{if (NF >= 3) printf("%d\n",$3)}' | sort -u >> tmp/${file}.ptrlst
+  #dwarfdump -l ${1} | grep "^0x" | grep -v "ET" | \
+  #  gawk --non-decimal-data '{printf("%d\n",$1)}' | sort -u > tmp/${file}.ptrlst
+fi
+
+#if [ -d "${cfgdir}" ]
+#then
+#  cp -r ${cfgdir} tmp/
+#  echo "cfg present" > tmp/cfg.present
+#fi
+if [ -f "${jtable}" ]
+then
+  cp -r ${jtable} jmp_table/result.jtable
+fi
+if [ -f "${sjtable}" ]
+then
+  cp -r ${sjtable} jmp_table/result.sjtable
+fi
+
+export LD_LIBRARY_PATH=/usr/lib/ocaml:${TOOL_PATH}/jtable_cache
+${TOOL_PATH}/jtable_cache/test_jtable $1 jmp_table/result.jtable ${TOOL_PATH}/auto/output.auto  
+
+exe=`basename $1`
+
+cp $1 ./tmp/${exe}
+
+export LD_LIBRARY_PATH=/usr/lib/ocaml:${TOOL_PATH}/src/SBD/analysis
+
+if [ "${disasm}" = "symtabledisasm" ]; then
+  ./demo $1 ${disasm_only}
+else
+  strip ./tmp/${exe}
+  ./demo ./tmp/${exe} ${disasm_only} ${disasm}
+fi
+if [ -f "./tmp/${exe}_2" ]
+then
+  cp ./tmp/${exe}_2 ${1}_2
+fi

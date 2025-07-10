@@ -75,7 +75,7 @@ ln -sf ${TOOL_PATH}/testsuite/instrument_prog.sh ${INSTALL_DIR}/instrument_prog.
 
 mkdir ${HOME}/instrumented_libs
 
-sed -i "/\/bin\/sh/a TOOL_PATH=${TOOL_PATH}" ${TOOL_PATH}/run/run.sh
+sed -i "/\/bin\/sh/a TOOL_PATH=${TOOL_PATH}" ${TOOL_PATH}/apps/run.sh
 
 #sudo mkdir /inst_libs
 
