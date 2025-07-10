@@ -1480,6 +1480,11 @@ PointerAnalysis::possiblyCorrectIndTgts(BasicBlock *entry, BasicBlock *intermidi
       if(inds.size() > 0) {
         DEF_LOG("Ind CF: "<<hex<<last_ins->location());
         for(auto & ind_tgt : inds) {
+#ifdef EH_FRAME_DISASM_ROOT
+          if(withinFn(ind_tgt->start()) && likelyTrueJmpTblTgt(ind_tgt)) {
+            passAllProps(ind_tgt);
+          }
+#endif
           if(codeByProperty(ind_tgt)) {
             ind_tgts.push_back(ind_tgt);
             continue;

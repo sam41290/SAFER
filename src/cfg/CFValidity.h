@@ -52,6 +52,8 @@ namespace SBI {
     static bool validMem(Instruction *ins);
     static bool validPrfx(Instruction *ins) {
       string asm_ins = ins->asmIns();
+      if(asm_ins.find("nop") != string::npos)
+	return true;
       vector <string> words = utils::split_string(asm_ins," ");
       for(auto & w : words) {
         if(utils::invalid_prefixes.find(w) != utils::invalid_prefixes.end()) {

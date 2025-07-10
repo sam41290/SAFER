@@ -19,7 +19,7 @@
 using namespace std;
 
 
-extern map < uint64_t, cfi_table > unwinding_info;
+//extern map < uint64_t, cfi_table > unwinding_info;
 //extern set<uint64_t> address_taken;
 
 void 

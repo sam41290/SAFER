@@ -8,9 +8,9 @@
 
 using namespace SBI;
 
-extern map <uint64_t, call_site_info> all_call_sites;
-extern exception_handler eh_frame;
-extern map <uint64_t, cfi_table> unwinding_info;
+//extern map <uint64_t, call_site_info> all_call_sites;
+//extern exception_handler eh_frame;
+//extern map <uint64_t, cfi_table> unwinding_info;
 
 unordered_set <uint64_t> Cfg::validCFSet_;
 
