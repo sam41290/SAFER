@@ -59,24 +59,11 @@ def process_function(func):
                 else:
                     print(f"  Indirect JMP (unresolved) at {addr}")
 
-def find_entry_function():
-    # Try common entry symbols
-    for name in ["main", "_start", "__libc_start_main"]:
-        sym = getSymbol(name)
-        if sym:
-            return getFunctionAt(sym.getAddress())
+# --- Main: Walk all functions ---
+all_funcs = list(getFunctionManager().getFunctions(True))
+print(f"[+] Starting full function traversal: {len(all_funcs)} functions found")
 
-    # Fallback: find the lowest address function
-    funcs = list(getFunctionManager().getFunctions(True))
-    if funcs:
-        return funcs[0]
+for func in all_funcs:
+    process_function(func)
 
-    return None
-
-# --- Main ---
-entry_func = find_entry_function()
-if not entry_func:
-    print("[-] No entry function found.")
-else:
-    print(f"[+] Starting traversal from: {entry_func.getName()} @ {entry_func.getEntryPoint()}")
-    process_function(entry_func)
+print(f"\n[+] Finished. {len(visited)} functions traversed.")
