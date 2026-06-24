@@ -9,6 +9,9 @@ using namespace SBI;
 
 bool disasm_only = false; 
 bool dump_cfg = false;
+
+bool no_custom_loader = false;
+
 extern map <uint64_t, call_site_info> all_call_sites;	//contains info
 //regarding try-catch blocks and landing pads.
 
@@ -39,6 +42,10 @@ Binary::Binary(string Binary_path) {
   exitCallPlt_ = manager_->exitPlts();
   mayExitPlt_ = manager_->mayExitPlts();
   allPltSlots_ = manager_->allJmpSlots();
+  pltSlotSymbolMap_ = manager_->jmpSlotSymbolMap();
+  symbolMap_ = manager_->symbolMap();
+  exitFns_ = manager_->exitFns();
+  mayExitFns_ = manager_->mayExitFns();
   //get trampoline address for __libc_Start_main function.
 
   libcStartMain_ = manager_->jmpSlot("__libc_start_main");
@@ -63,34 +70,20 @@ Binary::Binary(string Binary_path) {
   auto range = manager_->progMemRange();
   codeCFG_ = new Cfg(range.first, range.second,exePath_);
   init();
-  /*
-#ifdef KNOWN_CODE_POINTER_ROOT
-#ifdef DISASMONLY
-  if(utils::file_exists("tmp/cfg.present") == false) {
-    init();
-  }
-#else
-  LOG("Performing initialization tasks!!!");
-  init();
-#endif
-#else
-  init();
-#endif
-*/
   set_codeCFG_params();
-  #ifdef STATIC_TRANS
-    cout<<"Ignoring address translation instrumentation"<<endl;
-  #else
-    registerInbuiltInstrumentation(InstPoint::ADDRS_TRANS);
- 
-    vector<InstArg> arglst4;
-    registerInbuiltInstrumentation(InstPoint::SYSCALL_CHECK);
- 
- 
-    if(RA_OPT == false) {
-      registerInbuiltInstrumentation(InstPoint::RET_CHK);
-    }
-  #endif
+#ifdef STATIC_TRANS
+  cout<<"Ignoring address translation instrumentation"<<endl;
+#else
+  registerInbuiltInstrumentation(InstPoint::ADDRS_TRANS);
+
+  vector<InstArg> arglst4;
+  registerInbuiltInstrumentation(InstPoint::SYSCALL_CHECK);
+
+
+  if(RA_OPT == false) {
+    registerInbuiltInstrumentation(InstPoint::RET_CHK);
+  }
+#endif
 }
 
 void
@@ -151,6 +144,11 @@ Binary::set_codeCFG_params() {
   codeCFG_->pcrelReloc(pcrelReloc_);
   codeCFG_->xtraConstReloc(xtraConstReloc_);
   codeCFG_->picConstReloc(picConstReloc_);
+  codeCFG_->pltSlotSymbolMap(pltSlotSymbolMap_);
+  codeCFG_->symbolMap(symbolMap_);
+  codeCFG_->exitFns(exitFns_);
+  codeCFG_->mayExitFns(mayExitFns_);
+
 }
 
 Cfg *
@@ -474,12 +472,14 @@ Binary::rewrite() {
 #endif
   if(disasm_only)
     exit(0);
+#ifdef STATIC_TRANS
+#else
+  no_custom_loader = false; //Overwrite no custom loader to FALSE if STATIC pointer translation is not used. 
+#endif
   instrument();
   setUpATT();
   optimizeEH();
   genInstAsm();
-  //install_segfault_handler();
-  //check_segfault_handler();
   string file_name = print_assembly();
   manager_->rewrite(file_name);
 #ifdef STATIC_TRANS
@@ -919,23 +919,24 @@ Binary::printOldCodeAndData(string file_name) {
           i += sec_size;
       }
       else if(interp_sec) {
-//#ifdef STATIC_TRANS
-//        utils::printAsm(".byte " + to_string((uint32_t)data[i]) + "\n",addr, label, b, file_name);
-//        i++;
-//#else
-        string interp((char *)(data + i));
-        interp.replace(interp.find("x86-64"),6,"xsafer");
-        auto len = interp.length();
-        const char *interp_char = interp.c_str();
-        uint64_t j = 0;
-        for(j = 0; j < len; j++) {
+	if(no_custom_loader) {
+          utils::printAsm(".byte " + to_string((uint32_t)data[i]) + "\n",addr, label, b, file_name);
+          i++;
+	}
+	else {
+          string interp((char *)(data + i));
+          interp.replace(interp.find("x86-64"),6,"xsafer");
+          auto len = interp.length();
+          const char *interp_char = interp.c_str();
+          uint64_t j = 0;
+          for(j = 0; j < len; j++) {
+            label = "." + to_string(addr + j);
+            utils::printAsm(".byte " + to_string((uint32_t)interp_char[j]) + "\n",addr + j, label, b, file_name);
+          }
           label = "." + to_string(addr + j);
-          utils::printAsm(".byte " + to_string((uint32_t)interp_char[j]) + "\n",addr + j, label, b, file_name);
-        }
-        label = "." + to_string(addr + j);
-        utils::printAsm(".byte " + to_string((uint32_t)0) + "\n",addr + j, label, b, file_name);
-        i += sec_size;
-//#endif
+          utils::printAsm(".byte " + to_string((uint32_t)0) + "\n",addr + j, label, b, file_name);
+          i += sec_size;
+	}
       }
       else {
         utils::printAsm(".byte " + to_string((uint32_t)data[i]) + "\n",addr, label, b, file_name);
@@ -1138,6 +1139,7 @@ Binary::install_segfault_handler() {
   codeCFG_->instrument(hook_point,inst_code);
 }
 
+
 void
 Binary::genInstAsm() {
 
@@ -1145,30 +1147,7 @@ Binary::genInstAsm() {
    *(SBI/run/instrumentation_code_here/tutorial)
    * and generates asm to be re-assembled along with the target Binary.
    */
-
-  //string inst_Binary_path(INST_CODE_PATH "tutorial");
-  ///*
-  // * One way to add instrumentation code is to disassembly the instrumentation
-  // * Binary and add asm.
-  // * However, diasassembly is not feasible because of one global
-  // * exception_handler which is used by the target Binary.
-  // *
-  // * Will fix this soon.
-  // *
-  // Binary inst_Binary(inst_Binary_path);
-  // inst_Binary.populate_ptr_sym_table();
-  // inst_Binary.disassemble();
-  // inst_Binary.assignLabeltoFn(label,instrumentation_func_name);
-  // inst_Binary.get_section_asm(".text","inst_text.s");
-  // inst_Binary.get_section_asm(".rodata","inst_rodata.s");
-  // */
-
-  ///*
-  // * Another approach is to just obtain the hex bytes and put it in target
-  // * Binary asm.
-  // * Need to keep the offsets same so that the code works fine.
-  // */
-
+  
   string key("/");
   size_t found = exePath_.rfind(key);
   string exeName = exePath_.substr(found + 1);
@@ -1179,130 +1158,125 @@ Binary::genInstAsm() {
   for(unsigned int i = 0; i < exeName.length(); i++)
     ofile<<".byte "<<(uint32_t)exeName[i]<<"\n";
   ofile<<".byte 0\n";
-  /*
-  ofile<<exeNameLabel()<<":\n";
-  for(unsigned int i = 0; i < exeName.length(); i++)
-    ofile<<".byte "<<(uint32_t)exeName[i]<<"\n";
-  ofile<<".byte 0\n";
-  ExeManager *inst_exe = new binary_class(inst_Binary_path);
 
-  vector<string> instFuncs = instFunctions();
-  instFuncs.push_back("atf");
-  map<uint64_t,string> instLabels;
-  for(string & s : instFuncs) {
-    off_t addrs = inst_exe->symbolVal(s);
-    if(addrs > 0) 
-      instLabels[addrs] = "." + s;
-  }
+  if(no_custom_loader) {
+    string inst_Binary_path(INST_CODE_PATH "libinstrument.so");
+    ExeManager *inst_exe = new binary_class(inst_Binary_path);
 
-
-  uint64_t sig_installer_address = inst_exe->symbolVal("install_signal");
-  uint64_t sig_checker_address = inst_exe->symbolVal("check_handler");
-  uint64_t fill_sigaction_address = inst_exe->symbolVal("fill_sigaction");
-  uint64_t segfault_handler_address = inst_exe->symbolVal("segfault_handler");
-  vector <section> inst_code_section =
-    inst_exe->sections(section_types::RorX);;
-
-  //ofstream ofile;
-  //ofile.open("inst_text.s", ofstream::out | ofstream::app);
-  uint64_t prev_sec = 0;
-  for(section & sec:inst_code_section) {
-    int byte_count = sec.size;
-
-    uint8_t *section_data =(uint8_t *) malloc(byte_count);
-    utils::READ_FROM_FILE(inst_Binary_path, section_data,sec.offset,
-        byte_count);
-
-    uint64_t sec_start = sec.vma;
-    if(prev_sec != 0 && (sec_start - prev_sec) > 0)
-      ofile<<".skip "<<sec_start - prev_sec<<endl;
-   
-    for(int j = 0; j <byte_count; j++) {
-      auto it = instLabels.find(sec_start);
-      if(it != instLabels.end())
-        ofile <<it->second <<":\n";
-      if(sec_start == sig_installer_address)
-        ofile <<".segfault_installer:\n";
-      if(sec_start == sig_checker_address)
-        ofile <<".segfault_checker:\n";
-      if(sec_start == fill_sigaction_address)
-        ofile <<".fill_sigaction:\n";
-      if(sec_start == segfault_handler_address)
-        ofile<<".segfault_handler:\n";
-      ofile <<".byte " <<(uint32_t) section_data[j] <<"\n";
-      sec_start++;
+    vector<string> instFuncs = instFunctions();
+    map<uint64_t,string> instLabels;
+    for(string & s : instFuncs) {
+      off_t addrs = inst_exe->symbolVal(s);
+      if(addrs > 0) 
+        instLabels[addrs] = "." + s;
     }
 
-    prev_sec = sec_start;
-    free(section_data);
-  }
-  */
-  auto inst_functions = instFunctions();
-  for(auto & inst_fn : inst_functions) {
-    ofile<<".align 16\n";
-    ofile<<"."<<inst_fn<<":\n";
-    ofile<<"jmp * custom_got_fp_"<<inst_fn<<"(%rip)\n";
-  }
-  ofile<<".align 16\n";
-  ofile<<".GTF_stack:\n";
-  //ofile<<"jmp *.dispatcher_stack(%rip)\n";
-#ifdef ONE_LEVEL_HASH
-  string ra_atf_file(TOOL_PATH"src/instrument/one_level_atf_ra.s");
-#else
-  string ra_atf_file(TOOL_PATH"src/instrument/two_level_atf_ra.s");
-#endif
-  ifstream ifile;
-  ifile.open(ra_atf_file);
-  string ra_atf_line;
-  while(getline(ifile,ra_atf_line)) {
-    ofile<<ra_atf_line<<endl;
-  }
-  ifile.close();
-  ofile<<".align 16\n";
-  ofile<<".GTF_reg:\n";
-#ifdef ONE_LEVEL_HASH
-  string atf_file(TOOL_PATH"src/instrument/one_level_atf.s");
-#else
-  string atf_file(TOOL_PATH"src/instrument/two_level_atf.s");
-#endif
-  ifile.open(atf_file);
-  string atf_line;
-  while(getline(ifile,atf_line)) {
-    ofile<<atf_line<<endl;
-  }
-  ifile.close();
-  ofile<<".align 16\n";
-  ofile<<".GTF_decode_rax:\n";
-  ofile<<decodeRAX();
-  ofile<<".GTF_translate:\n";
-#ifdef ONE_LEVEL_HASH
-  string atf_file_tt(TOOL_PATH"src/instrument/one_level_atf_translate_ptr.s");
-#else
-  string atf_file_tt(TOOL_PATH"src/instrument/two_level_atf_translate_ptr.s");
-#endif
-  ifile.open(atf_file_tt);
-  string atf_line_tt;
-  while(getline(ifile,atf_line_tt)) {
-    ofile<<atf_line_tt<<endl;
-  }
-  ifile.close();
-  //ofile<<shadowTramp();
-  //ofile<<"jmp *.gtt(%rip)\n";
-  string shstk_init_file(TOOL_PATH"src/instrument/init_shstk.s");
-  ifile.open(shstk_init_file);
-  string shstk_line;
-  while (getline(ifile, shstk_line)) {
-    ofile << shstk_line << endl;
-  }
-  ifile.close();
-  if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK) ||
-     alreadyInstrumented(InstPoint::SHADOW_STACK)) {
-    ofile<<codeCFG_->shStkTramps();
-  }
-  ofile<<".SYSCHK:\n";
-  ofile<<"jmp *.syscall_checker(%rip)\n";
+    vector <section> inst_code_section =
+      inst_exe->sections(section_types::RorX);;
 
+    uint64_t prev_sec = 0;
+    for(section & sec:inst_code_section) {
+      int byte_count = sec.size;
+
+      uint8_t *section_data =(uint8_t *) malloc(byte_count);
+      utils::READ_FROM_FILE(inst_Binary_path, section_data,sec.offset,
+          byte_count);
+
+      uint64_t sec_start = sec.vma;
+      if(prev_sec != 0 && (sec_start - prev_sec) > 0)
+        ofile<<".skip "<<sec_start - prev_sec<<endl;
+     
+      for(int j = 0; j <byte_count; j++) {
+        auto it = instLabels.find(sec_start);
+        if(it != instLabels.end())
+          ofile <<it->second <<":\n";
+        ofile <<".byte " <<(uint32_t) section_data[j] <<"\n";
+        sec_start++;
+      }
+
+      prev_sec = sec_start;
+      free(section_data);
+    }
+  }
+  else {
+
+    auto inst_functions = instFunctions();
+    for(auto & inst_fn : inst_functions) {
+      ofile<<".align 16\n";
+      ofile<<"."<<inst_fn<<":\n";
+      ofile<<"jmp * custom_got_fp_"<<inst_fn<<"(%rip)\n";
+    }
+    ofile<<".align 16\n";
+    ofile<<".GTF_stack:\n";
+    //ofile<<"jmp *.dispatcher_stack(%rip)\n";
+#ifdef ONE_LEVEL_HASH
+    string ra_atf_file(TOOL_PATH"src/instrument/one_level_atf_ra.s");
+#else
+    string ra_atf_file(TOOL_PATH"src/instrument/two_level_atf_ra.s");
+#endif
+    ifstream ifile;
+    ifile.open(ra_atf_file);
+    string ra_atf_line;
+    while(getline(ifile,ra_atf_line)) {
+      ofile<<ra_atf_line<<endl;
+    }
+    ifile.close();
+    ofile<<".align 16\n";
+    ofile<<".GTF_reg:\n";
+#ifdef ONE_LEVEL_HASH
+    string atf_file(TOOL_PATH"src/instrument/one_level_atf.s");
+#else
+    string atf_file(TOOL_PATH"src/instrument/two_level_atf.s");
+#endif
+    ifile.open(atf_file);
+    string atf_line;
+    while(getline(ifile,atf_line)) {
+      ofile<<atf_line<<endl;
+    }
+    ifile.close();
+    ofile<<".align 16\n";
+    ofile<<".GTF_decode_rax:\n";
+    ofile<<decodeRAX();
+    ofile<<".GTF_translate:\n";
+#ifdef ONE_LEVEL_HASH
+    string atf_file_tt(TOOL_PATH"src/instrument/one_level_atf_translate_ptr.s");
+#else
+    string atf_file_tt(TOOL_PATH"src/instrument/two_level_atf_translate_ptr.s");
+#endif
+    ifile.open(atf_file_tt);
+    string atf_line_tt;
+    while(getline(ifile,atf_line_tt)) {
+      ofile<<atf_line_tt<<endl;
+    }
+    ifile.close();
+    //ofile<<shadowTramp();
+    //ofile<<"jmp *.gtt(%rip)\n";
+    string shstk_init_file(TOOL_PATH"src/instrument/init_shstk.s");
+    ifile.open(shstk_init_file);
+    string shstk_line;
+    while (getline(ifile, shstk_line)) {
+      ofile << shstk_line << endl;
+    }
+    ifile.close();
+    if(alreadyInstrumented(InstPoint::LEGACY_SHADOW_STACK) ||
+       alreadyInstrumented(InstPoint::SHADOW_STACK)) {
+      ofile<<codeCFG_->shStkTramps();
+    }
+    ofile<<".SYSCHK:\n";
+    ofile<<"jmp *.syscall_checker(%rip)\n";
+
+  }
+
+  auto data_map = instDataMap();
+  
+  for(auto & d : data_map) {
+    ofile<<d.second->symbol_<<":\n";
+    uint8_t *data = (uint8_t *)d.second->data_;
+    for(int i = 0; i < d.second->size_; i++)
+      ofile<<".byte "<<(uint32_t)data[i]<<endl;
+  }
   ofile.close();
+
 }
 
 void
@@ -1310,6 +1284,7 @@ Binary::instrument() {
   //vector<string> instFuncs = instFunctions();
   //if(instFuncs.size() <= 0)
   //  return;
+  auto fn_map = codeCFG_->funcMap();
   auto targetPos = targetPositions();
   for(auto & p : targetPos) {
     codeCFG_->registerInstrumentation(p.first,p.second);
@@ -1318,9 +1293,32 @@ Binary::instrument() {
   auto targetFuncs = targetFunctions();
   for(auto & f : targetFuncs) {
     uint64_t address = manager_->symbolVal(f.first);
-    auto bb = codeCFG_->getBB(address);
-    if(bb != NULL)
-      bb->registerInstrumentation(InstPoint::CUSTOM, f.second);
+    if(f.first == "main") address = codeCFG_->symbolAddr("main"); //In stripped binaries, address of main is not known to manager. Its only known after complete CFG is available.
+    if(address > 0) {
+      cout<<"Inst target fn: "<<f.first<<" address "<<hex<<address<<endl;
+      auto bb = codeCFG_->getBB(address);
+      if(bb != NULL)
+        bb->registerInstrumentation(InstPoint::CUSTOM, f.second);
+    }
+    else { // Check PLT
+      cout<<"Looking for PLT jump for inst target fn: "<<f.first<<endl;
+      for(auto & fn : fn_map) {
+        auto entryPoint = fn.second->allEntries();
+	//cout<<"Fn: "<<hex<<fn.first<<endl;
+        for(auto & entry:entryPoint) {
+	  //cout<<"Entry: "<<hex<<entry<<endl;
+          auto bb = fn.second->getBB(entry);
+          if(bb != NULL) {
+	    auto last_ins = bb->lastIns();
+	    if(last_ins->isPltJmp() && last_ins->pltTarget() == f.first) {
+	      cout<<"PLT jump: "<<hex<<last_ins->location()<<endl;
+              last_ins->registerInstrumentation(InstPoint::CUSTOM, f.second);
+	    }
+	  }
+        }
+
+      }
+    }
   }
   codeCFG_->instrument();
 }
@@ -1588,30 +1586,32 @@ string Binary::print_assembly() {
     utils::printAlgn(8, "new_code.s");
   utils::append_files("att.s", "new_code.s");
 #endif
-  section cgot_sec("custom_got",0,0,0,8);
-  cgot_sec.start_sym=".custom_got_start";
-  cgot_sec.end_sym=".custom_got_end";
-  cgot_sec.sec_type = section_types::RX;
-  cgot_sec.additional = true;
-  cgot_sec.is_cgot = true;
-  manager_->newSection(cgot_sec);
-  vector<string> instFuncs = instFunctions();
-  // output it into the custom got section
-  string cgot_asm = "";
-  // cgot_asm += ".align 16\n";
-  for (auto &fn: instFuncs) {
-    if (fn == "GTF_reg" || fn == "SYSCHK") {
-      continue;
-    }
-    size_t length = fn.length();
+  if(no_custom_loader == false) {
+    section cgot_sec("custom_got",0,0,0,8);
+    cgot_sec.start_sym=".custom_got_start";
+    cgot_sec.end_sym=".custom_got_end";
+    cgot_sec.sec_type = section_types::RX;
+    cgot_sec.additional = true;
+    cgot_sec.is_cgot = true;
+    manager_->newSection(cgot_sec);
+    vector<string> instFuncs = instFunctions();
+    // output it into the custom got section
+    string cgot_asm = "";
+    // cgot_asm += ".align 16\n";
+    for (auto &fn: instFuncs) {
+      if (fn == "GTF_reg" || fn == "SYSCHK") {
+        continue;
+      }
+      size_t length = fn.length();
 
-    cgot_asm += ".word " + to_string(length + 1) + ";\n";
-    cgot_asm += ".asciz \"" + fn + "\"\n";
-    cgot_asm += "custom_got_fp_" + fn + ": .word 0, 0, 0, 0\n";
+      cgot_asm += ".word " + to_string(length + 1) + ";\n";
+      cgot_asm += ".asciz \"" + fn + "\"\n";
+      cgot_asm += "custom_got_fp_" + fn + ": .word 0, 0, 0, 0\n";
+    }
+    utils::printAsm(cgot_asm,0,cgot_sec.start_sym,SymBind::NOBIND,"cgot.s");
+    utils::printLbl(cgot_sec.end_sym,"cgot.s");
+    utils::append_files("cgot.s", "new_code.s");
   }
-  utils::printAsm(cgot_asm,0,cgot_sec.start_sym,SymBind::NOBIND,"cgot.s");
-  utils::printLbl(cgot_sec.end_sym,"cgot.s");
-  utils::append_files("cgot.s", "new_code.s");
   //}
     //ADD ATT TRAMPS
 

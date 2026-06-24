@@ -41,7 +41,7 @@ CFValidity::validOpCode(Instruction *ins) {
 
 bool
 CFValidity::validMem(Instruction *ins) {
-  if(ins->isRltvAccess() && ins->asmIns().find("lea") == string::npos) {
+  if(ins->isRltvAccess() && ins->asmIns().find("lea") == string::npos && ins->asmIns().find("cmp") == string::npos) {
     uint64_t offt = ins->ripRltvOfft();
     if(offt >= memSpaceStart_ && offt <= memSpaceEnd_)
       return true;
@@ -49,6 +49,7 @@ CFValidity::validMem(Instruction *ins) {
   }
   else {
     int64_t offt = ins->constPtr();
+    if (ins->asmIns().find("lea") != string::npos) return true;
     if(offt != 0 && 
       ((ins->asmIns().find("movabs") == string::npos && offt > (int64_t)memSpaceEnd_) ||
         ins->asmIns().find("movabsb") != string::npos) && offt > 256) {
@@ -122,7 +123,7 @@ CFValidity::validCFTransfer(vector <BasicBlock *> &bbList) {
   if(valid) {
     for(auto & bb : bbList) {
       auto last_ins = bb->lastIns();
-      if(bb->isCall() && bb->target() == 0 && bb->fallThroughBB() == NULL) { //Indirect call but no fall through.
+      if(bb->isCall() && bb->type() != BBType::NON_RETURNING && bb->target() == 0 && bb->fallThroughBB() == NULL) { //Indirect call but no fall through.
         DEF_LOG("Indirect call without fall through: "<<hex<<bb->start());
         return false;
       }

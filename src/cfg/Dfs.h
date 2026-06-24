@@ -33,45 +33,6 @@ namespace SBI {
   //
 
 
-  struct RAlocation {
-    string reg = "";
-    int offt = 0;
-  };
-
-  enum class RegValType {
-    UNDEFINED,
-    UNKNOWN,
-    CONSTANT,
-    FRAME_PTR,
-    REG_RDI,
-    REG_RSI,
-    REG_RBP,
-    REG_RBX,
-    REG_RDX,
-    REG_RAX,
-    REG_RCX,
-    REG_RSP,
-    REG_R8,
-    REG_R9,
-    REG_R10,
-    REG_R11,
-    REG_R12,
-    REG_R13,
-    REG_R14,
-    REG_R15
-  };
-
-  struct RegVal {
-    //GPR base = GPR::NONE;
-    RegValType val = RegValType::UNDEFINED;
-    int addend = 0;
-  };
-
-
-  struct State {
-    unordered_map<int,RegVal> stackState;
-    vector <RegVal> regState;
-  };
 
   enum class SEQTYPE {
     INTRAFN,
@@ -95,7 +56,7 @@ namespace SBI {
     vector <BasicBlock *> bbSeq(BasicBlock *bb, SEQTYPE s = SEQTYPE::INTRAFN);
     vector <BasicBlock *> bbSeq(BasicBlock *bb, vector <BasicBlock *> &term_at, 
                                 SEQTYPE s = SEQTYPE::INTRAFN);
-    vector <pair<uint64_t, vector <BasicBlock *>>>allPathsTo(BasicBlock *bb,
+    vector <pair<uint64_t, vector <BasicBlock *>>> allPathsTo(BasicBlock *bb,
         SEQTYPE s = SEQTYPE::INTRAFN);
     stack <BasicBlock *> psblExitCalls(BasicBlock *bb);
     vector <BasicBlock *> path(BasicBlock *start, BasicBlock *end, SEQTYPE s);
@@ -110,11 +71,12 @@ namespace SBI {
     int peepHoleStackDecrement(uint64_t addrs, BasicBlock *bb);
     int stackDecrement(vector <Instruction *> &ins_list);
     unordered_set <uint64_t> indRoots() { return indRoots_; }
-    RAlocation getRA(vector <Instruction *> &ins_list);
-    RAlocation epilogueRAofft(vector <Instruction *> &ins_list);
+    //RAlocation getRA(vector <Instruction *> &ins_list);
+    //RAlocation epilogueRAofft(vector <Instruction *> &ins_list);
     vector <Instruction *> insPath(BasicBlock *entry, uint64_t target);
     void savedRegAtPrologue(BasicBlock *prolog_bb);
     void restoredRegAtEpilogue(BasicBlock *epilog_bb);
+    vector <BasicBlock *> AllReachableBasicBlocks(BasicBlock *entry);
   private:
     void psblExitDFS(BasicBlock *bb, stack <BasicBlock *> &calls,
                        unordered_set <uint64_t> &passed);
@@ -130,13 +92,13 @@ namespace SBI {
                      unordered_set <uint64_t> &valid_ind_path);
     void indTgtsDfs(BasicBlock *entry, 
                                      unordered_set <uint64_t> &passed);
-    State analyzeRegState(vector <Instruction *> &ins_list, State &init_state);
+    //TempState analyzeRegState(vector <Instruction *> &ins_list, TempState &init_state);
     vector <Instruction *> insPathDfs(BasicBlock *entry, uint64_t target,
         unordered_set <uint64_t> &passed);
-    RegVal updateState(RegVal &tgt, State &state, Operation &op, Instruction
-        *ins, bool loop_upd);
-    void loopUpdate(State &cur_state, vector <Instruction *> &ins_lst,
-                    uint64_t loop_start, uint64_t loop_end);
+    //RegVal updateState(RegVal &tgt, TempState &state, Operation &op, Instruction
+    //    *ins, bool loop_upd);
+    //void loopUpdate(TempState &cur_state, vector <Instruction *> &ins_lst,
+    //                uint64_t loop_start, uint64_t loop_end);
   };
 }
 

@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 TOOL_PATH=/huge/soumyakant/BinaryAnalysis/bin_analysis_tools/safer
 
 disasm_only=$2
@@ -6,12 +6,6 @@ dumpcfg=$3
 
 #make
 
-rm -rf jmp_table log tmp *.o *.s text
-
-mkdir jmp_table
-mkdir log
-mkdir tmp
-mkdir tmp/cfg
 
 file=`basename $1`
 file_dir=`dirname $1`
@@ -34,13 +28,28 @@ fi
 
 exe=`basename $1`
 
-cp $1 ./tmp/${exe}
+wd=`pwd`
+
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd)"
+
+cd ${SCRIPT_DIR}
+
+rm -rf jmp_table log tmp *.o *.s text
+
+mkdir jmp_table
+mkdir log
+mkdir tmp
+mkdir tmp/cfg
+
+cp $1 ${SCRIPT_DIR}/tmp/${exe}
 
 export LD_LIBRARY_PATH=/usr/lib/ocaml:${TOOL_PATH}/src/SBD/analysis
-
 ./app ./tmp/${exe} ${disasm_only} ${dumpcfg}
 
-if [ -f "./tmp/${exe}_2" ]
+if [ -f "${SCRIPT_DIR}/tmp/${exe}_2" ]
 then
-  cp ./tmp/${exe}_2 ${1}_2
+  cp ${SCRIPT_DIR}/tmp/${exe}_2 ${1}_2
+  chmod 777 ${SCRIPT_DIR}/tmp/${exe}_2 ${1}_2
 fi
+
+cd $wd

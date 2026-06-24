@@ -186,22 +186,10 @@ private:
                                                        vector <BasicBlock *> &fin_bb_list,
                                                        const vector <string> &reg_list,
                                                        const unordered_set <uint64_t> &valid_ind_path);
-  //int validInitAndRegPreserve(uint64_t entry,
-  //  vector <BasicBlock *> &fin_bb_list,
-  //  const vector <string> &reg_list);
-  void removeEHConflicts();
-  void removeConflicts();
-  //void disassembleGaps();
   void propagateDefCodeProperty();
   void createAnalysisQ(CandidateType t);
   void analyzeCandidates();
-  bool entryPointCorrection(BasicBlock *ptr_bb);
   bool callTargetIntegrity(BasicBlock *entry, unordered_set <uint64_t> &checked);
-  bool avoidValidBehaviourCheck(BasicBlock *bb);
-  void FNCorrection();
-  void FNEntryCorrection(BasicBlock *ptr_bb);
-  BasicBlock *checkSignature(BasicBlock *bb);
-  void markConflicting(vector <BasicBlock *> &bb_list);
   bool conflictsPriorityCode(BasicBlock *bb);
   bool conflictsPriorityCode(uint64_t addrs);
   int cfCheck(vector <BasicBlock *> &bb_list);

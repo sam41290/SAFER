@@ -92,11 +92,11 @@ public:
     }
     return false;
   }
-private:
-  void randomizer();
   void createBB(BasicBlock *bb, vector <Instruction *>
       &ins_list,uint64_t chunk_end,
       code_type t);
+private:
+  void randomizer();
   void genCFG();
   void addToDisasmRoots(uint64_t address);
   void checkLockPrefix(BasicBlock *bb,code_type t);

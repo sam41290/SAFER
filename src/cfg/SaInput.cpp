@@ -16,7 +16,7 @@ void addIns(map <uint64_t,string> &all_ins,vector <string> &allstr) {
       str = words[0] + " ret";
     if(words[1].find("ud2") != string::npos)
       str = words[0] + " hlt";
-    //DEF_LOG("Adding ins: "<<hex<<addrs<<" "<<str);
+    //cout<<"Adding ins: "<<hex<<addrs<<" "<<str<<endl;
     all_ins[addrs] = str;
 
   }
@@ -90,20 +90,22 @@ SaInput::indTgts(vector <BasicBlock *> & bb_list,
 void
 SaInput::genFnFile(string file_name,uint64_t entry,vector<BasicBlock *> &bbList) {
   map <uint64_t,string> all_ins;
-  LOG("Generating asm file for: "<<hex<<entry);
+  //cout<<"Generating asm file for: "<<hex<<entry<<endl;
   for(auto & bb : bbList) {
     if(all_ins.find(bb->start()) == all_ins.end()) {
+      //cout<<"Adding asm for BB: "<<hex<<bb->start()<<endl;
       vector <string> all_asm = bb->allAsm();
       if(bb->isCall() && bb->callType() == BBType::NON_RETURNING) {
         string last_ins = all_asm[all_asm.size() - 1];
         vector <string> words = utils::split_string(last_ins," ");
         string loc = words[0];
         last_ins = loc + " hlt";
-        //LOG("Replacing not returning call with hlt: "<<hex<<bb->start());
+        //cout<<"Replacing not returning call with hlt: "<<hex<<bb->start()<<endl;
         all_asm[all_asm.size() - 1] = last_ins;
       }
       addIns(all_ins,all_asm);
     }
+    //else cout<<"Asm for BB already added: "<<hex<<bb->start()<<endl;
   }
   vector <BasicBlock *> new_bbs;
   for(auto & bb : bbList) {

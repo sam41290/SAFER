@@ -1,6 +1,6 @@
 /*-----------------------------------------------------------------------
 
-Author: Soumyakant Priyadarshan
+Author: Sousaferakant Priyadarshan
 		PhD student, Stony Brook University
 
 Description:
@@ -69,6 +69,19 @@ enum
 #define REG_CR2    REG_CR2
 };
 
+/* Convenience macros */
+
+long sys_call(unsigned long n,
+		            unsigned long a1, unsigned long a2, unsigned long a3,
+			    unsigned long a4, unsigned long a5, unsigned long a6);
+
+#define sys_call0(n)                 sys_call((n),0,0,0,0,0,0)
+#define sys_call1(n,a1)              sys_call((n),(a1),0,0,0,0,0)
+#define sys_call2(n,a1,a2)           sys_call((n),(a1),(a2),0,0,0,0)
+#define sys_call3(n,a1,a2,a3)        sys_call((n),(a1),(a2),(a3),0,0,0)
+#define sys_call4(n,a1,a2,a3,a4)     sys_call((n),(a1),(a2),(a3),(a4),0,0)
+#define sys_call5(n,a1,a2,a3,a4,a5)  sys_call((n),(a1),(a2),(a3),(a4),(a5),0)
+#define sys_call6(n,a1,a2,a3,a4,a5,a6) sys_call((n),(a1),(a2),(a3),(a4),(a5),(a6))
 
 typedef struct gpr
 {
@@ -76,14 +89,16 @@ typedef struct gpr
   unsigned long rip, cs, eflags, usersp, ss;	// Pushed by the processor automatically.
 } gpr_t;
 
-int myprintf (const char *fmt, ...);
-void my_exit();
-int my_putchar (int c);
-int my_puts (const char *s);
+int saferprintf (const char *fmt, ...);
+void safer_exit();
+int safer_putchar (int c);
+int safer_puts (const char *s);
 int printfflushint (int text, int ctr, char *args);
 int printfflushhex (uint64_t num, int ctr, char *args);
-void mymemset (void *p, uint8_t c, int bytes);
-int mysigaction (int sig, const struct sigaction *act, struct sigaction *oact);
-void *mymmap (uint64_t size);
+void safermemset (void *p, uint8_t c, int bytes);
+int safersigaction (int sig, const struct sigaction *act, struct sigaction *oact);
+void *safermmap (uint64_t size);
 void sa_restorer();
+void safer_write(char *file, char *msg, int len);
+int safer_openat(char *file, int flag, unsigned int mode);
 #endif

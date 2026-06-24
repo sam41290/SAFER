@@ -112,6 +112,11 @@ public:
   virtual bool isEhSection(uint64_t addrs) = 0;
   virtual uint64_t generateHashTbl(string &bin_asm, section &att_sec) = 0;
   virtual string hashTblAsm() = 0;
+  virtual unordered_map<uint64_t, string> jmpSlotSymbolMap() = 0;
+  virtual unordered_map<uint64_t, string> symbolMap() = 0;
+  virtual unordered_set <uint64_t> exitFns() = 0;
+  virtual unordered_set <uint64_t> mayExitFns() = 0;
+
   void placeHooks(map <uint64_t, vector <uint8_t>> &hooks);
   vector <string> additionSecs();
   //virtual void extraRelocs() = 0;

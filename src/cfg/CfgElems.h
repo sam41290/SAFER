@@ -209,6 +209,10 @@ namespace SBI {
     set <uint64_t> exitCallPlt_;
     set <uint64_t> mayExitPlt_;
     set <uint64_t> allPltSlots_;
+    unordered_set <uint64_t> exitFns_;
+    unordered_set <uint64_t> mayExitFns_;
+    unordered_map <uint64_t, string> pltSlotSymbolMap_;
+    unordered_map <uint64_t, string> symbolMap_;
     vector <JumpTable> jmpTables_;
     vector <section> roSections_;
     vector <section> rxSections_;
@@ -228,7 +232,7 @@ namespace SBI {
     bool predisasmCache_ = false;
 
   public:
-    DisasmEngn *disassembler_;
+    DisasmEngn *disassembler_ = NULL;
     unordered_map <uint64_t, BasicBlock *> bbCache_;
     unordered_set <uint64_t> disassembled_;
     exe_type type_;
@@ -275,20 +279,6 @@ namespace SBI {
       return 0;
     }
 
-    //int stackUseMatch(uint64_t entry1, uint64_t entry2) {
-    //  if(stackUseCache_.find(entry1) != stackUseCache_.end() ||
-    //     stackUseCache_.find(entry2) != stackUseCache_.end())
-    //    return -1;
-
-    //  auto sh = stackUseCache_[entry2];
-    //  for(auto & h : sh) {
-    //    if(stackUseMatch(entry1, h) == 1)
-    //      return 1;
-    //  }
-
-    //  return 0;
-    //}
-
     bool ABIPreserving(uint64_t entry) {
       if(ABIPreserving_.find(entry) != ABIPreserving_.end())
         return true;
@@ -334,6 +324,14 @@ namespace SBI {
     void allPltSlots(set <uint64_t> all_plt) {
       allPltSlots_ = all_plt;
     }
+    void pltSlotSymbolMap(unordered_map <uint64_t, string> plt_syms) { pltSlotSymbolMap_ = plt_syms; }
+    void symbolMap(unordered_map <uint64_t, string> syms) { symbolMap_ = syms; }
+    unordered_map<uint64_t, string> symbolMap() { return symbolMap_; }
+    void addMainSymbol(uint64_t addr) { 
+      cout<<"Added main address to symbol map: "<<hex<<addr<<endl;
+      symbolMap_[addr] = "main"; 
+    }
+
     bool isPlt(uint64_t slot) {
       if(allPltSlots_.find(slot) != allPltSlots_.end())
         return true;
@@ -400,6 +398,10 @@ namespace SBI {
     void functions(set <uint64_t> &function_list, uint64_t section_start,
       	           uint64_t section_end);
     bool definiteCode(uint64_t addrs);
+    void exitFns(unordered_set <uint64_t> fset) { exitFns_ = fset; }
+    unordered_set <uint64_t> exitFns() { return exitFns_; }
+    void mayExitFns(unordered_set <uint64_t> fset) { mayExitFns_ = fset; }
+    unordered_set <uint64_t> mayExitFns() { return mayExitFns_; }
     //bool assignLabeltoFn(string label, off_t func_addrs);
     BasicBlock *getBB(uint64_t addrs);
     void markAsDefCode(uint64_t addrs, bool force = false);
@@ -534,6 +536,29 @@ namespace SBI {
     void createStackUseCache();
     void createABIPreservingSet();
     void createPreDisasmScoreMap();
+
+
+    string pltTarget(uint64_t slot) {
+      if (pltSlotSymbolMap_.find(slot) != pltSlotSymbolMap_.end())
+	return pltSlotSymbolMap_[slot];
+      return "";
+    }
+    string symbolName(uint64_t addrs) {
+      if (symbolMap_.find(addrs) != symbolMap_.end())
+	return symbolMap_[addrs];
+      return "";
+    }
+    uint64_t symbolAddr(string name) {
+      if (name == "main") cout<<"Looking for main"<<endl;
+      for(auto & s : symbolMap_) {
+        if(s.second == name) {
+	  if(name == "main") cout<<"Found main: "<<hex<<s.first<<endl;
+	  return s.first;
+	}
+      }
+      return 0;
+    }
+
   private:
     bool shstkForCanaryProlog(BasicBlock *canary_bb);
     void readIndrctTgts(BasicBlock *bb,uint64_t fn_addrs);

@@ -15,6 +15,11 @@ JmpTblAnalysis::readTargets (JumpTable & jt, uint64_t jloc)
   DEF_LOG("Jump table location: "<<hex<<start<<" end: "<<jt.end()
       <<" type: "<<jt.type()<<" entry size: "<<entry_size);
 
+  if (entry_size > 8) {
+    DEF_LOG("Potentially invalid jump table....ignoring");
+    return;
+  } 
+
   while (start < jt.end()) {
     //DEF_LOG("Decoding at: "<<hex<<start);
     int64_t offt = 0;

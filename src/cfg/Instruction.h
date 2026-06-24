@@ -65,12 +65,16 @@ private:
   //bool addrTransMust_ = false;
   InsSemantics *sem_ = NULL;
   Instruction *fallIns_ = NULL;
+
+  string pltTarget_ = "";
 public:
   Instruction *fallIns() { return fallIns_; }
   void fallIns(Instruction *fall) { fallIns_ = fall; }
   Instruction() {
     sem_ = new SBI::UNKNOWNINS();
   }
+  void pltTarget(string t) { pltTarget_ = t; }
+  string pltTarget() { return pltTarget_; }
   void prologFreeReg(string &reg) { prologFreeReg_.push_back(reg); }
   void prologFreeReg(vector<string> &reg_list) { prologFreeReg_ = reg_list; }
   vector <string> prologFreeReg() { return prologFreeReg_; }
@@ -93,7 +97,7 @@ public:
   bool canaryAdd() { return canaryAdd_; }
   //void addrTransMust(bool val) { addrTransMust_ = val; }
   //bool addrTransMust() { return addrTransMust_; }
-  Instruction(uint64_t address, char *mnemonic, char *op_str, uint8_t
+  Instruction(uint64_t address, const char *mnemonic, const char *op_str, uint8_t
 	       * bytes, int size);
   string prefix() { return prefix_; }
   void isPltJmp(bool val) { isPltJmp_ = val; }
@@ -258,7 +262,7 @@ public:
   bool isCanaryEpilogue() { return sem_->isCanaryEpilogue(); }
 private:
   //uint64_t calcTarget();
-  string prefixChk(char *mne);
+  string prefixChk(const char *mne);
 };
 }
 #endif

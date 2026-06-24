@@ -287,6 +287,8 @@ decode_ptr2 (uint8_t size_enc, vector < uint8_t > data, int index,
 
     }
 
+  return 0;
+
 }
 
 /*

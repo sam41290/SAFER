@@ -499,6 +499,8 @@ public:
   }
   static set <string> cf_ins_set;
   static vector <string> gpr;
+  static vector <string> gprSuffixes;
+  
   static set <string> get_cf_ins_set() {
     return cf_ins_set;
   }

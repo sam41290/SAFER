@@ -1,4 +1,5 @@
 #include "Dfs.h"
+#include <queue>
 
 using namespace SBI;
 
@@ -48,6 +49,7 @@ Dfs::insPathDfs(BasicBlock *entry, uint64_t target, unordered_set <uint64_t> &pa
 
 extern unordered_set <string> calleeSaved;
 
+/*
 void
 Dfs::savedRegAtPrologue(BasicBlock *prolog_bb) {
 
@@ -147,7 +149,7 @@ Dfs::restoredRegAtEpilogue(BasicBlock *epilog_bb) {
 }
 
 RegVal
-Dfs::updateState(RegVal &tgt, State &state, Operation &op,
+Dfs::updateState(RegVal &tgt, TempState &state, Operation &op,
                  Instruction *ins, bool loop_update) {
   if(op.op == OP::STORE) {
     if(op.source1.op_ == OP::DEREF)
@@ -442,7 +444,7 @@ Dfs::peepHoleStackDecrement(uint64_t addrs, BasicBlock *bb) {
   return offt;
 
 }
-
+*/
 void
 Dfs::directlyReachableBBs(BasicBlock *bb,
     unordered_set <uint64_t> &passed) {
@@ -601,29 +603,14 @@ Dfs::pathsFromTo(BasicBlock *from, BasicBlock *to) {
 
 void
 Dfs::indTgtsDfs(BasicBlock *entry, unordered_set <uint64_t> &passed) {
-  //LOG("Entry: "<<hex<<entry->start());
-  //vector <BasicBlock *> ind_tgts;
   auto bb_list = bbSeq(entry);
   passed.insert(entry->start());
   for(auto & bb : bb_list) {
     auto inds = bb->indirectTgts();
-    //if(entry->start() == 0x40f830)
-    //  DEF_LOG("BB: "<<hex<<bb->start()<<" - "<<bb->end()<<" ind: "<<inds.size());
     if(inds.size() > 0) {
-      //DEF_LOG("Entry: "<<hex<<entry->start()<<" cf bb: "<<hex<<bb->start()<<" ind tgt count: "<<inds.size());
-      //for(auto & ind_bb : inds)
-      //  DEF_LOG(hex<<ind_bb->start());
       indbbList_.insert(indbbList_.end(),inds.begin(),inds.end());
-      //for(auto & ind_bb : inds) {
-      //  if(passed.find(ind_bb->start()) == passed.end()) {
-      //    //LOG("ind tgt: "<<hex<<ind_bb->start());
-      //    auto second_layer = indTgtsDfs(ind_bb,passed);
-      //    ind_tgts.insert(second_layer.begin(),second_layer.end());
-      //  }
-      //}
     }
   }
-  //return ind_tgts;
 }
 
 vector <BasicBlock *> 
@@ -660,19 +647,14 @@ Dfs::allRouteDfs(BasicBlock *through,
 
     if(passed.find(entry->start()) == passed.end()) {
       passed.insert(entry->start());
-      //if(through->start() == 0x41af01)
-      //  DEF_LOG("ind path: "<<hex<<entry->start());
       if(entry->start() == through->start() ||
          valid_ind_path.find(entry->start()) != valid_ind_path.end()) {
         auto bb_list = bbSeq(entry);
         if(bbInList(through, bb_list)) {
-          //if(through->start() == 0x41af01)
-          //  DEF_LOG("reachable from: "<<hex<<entry->start());
           path.insert(bb_list.begin(), bb_list.end());
           
           auto root = root_.find(entry->start());
           while(root != root_.end()) {
-            //LOG("Root: "<<hex<<root->second->start());
             auto root_seq = bbSeq(root->second);
             path.insert(root_seq.begin(), root_seq.end());
             indRoots_.insert(root->second->start());
@@ -685,19 +667,13 @@ Dfs::allRouteDfs(BasicBlock *through,
         }
         else {
           for(auto & bb : bb_list) {
-            //if(through->start() == 0x41af01)
-            //  DEF_LOG("Checking bb for ind tgts: "<<hex<<bb->start());
             if(bb->lastIns()->isIndirectCf() /*&& passed.find(bb->start()) == passed.end()*/) {
-              //if(through->start() == 0x41af01)
-              //  DEF_LOG("Ind cf: "<<hex<<bb->start());
               auto inds = bb->indirectTgts();
               for(auto & ind_bb : inds) {
                 if(passed.find(ind_bb->start()) == passed.end()) {
                   BfsQ_.push(ind_bb);
                   if(root_.find(ind_bb->start()) == root_.end()) {
                     root_[ind_bb->start()] = entry;
-                    //if(through->start() == 0x41af01)
-                    //  DEF_LOG("Adding root: "<<hex<<ind_bb->start()<<"->"<<hex<<entry->start());
                   }
                 }
               }
@@ -755,4 +731,38 @@ Dfs::path(BasicBlock *start, BasicBlock *end,SEQTYPE s) {
   unordered_set <uint64_t> passed;
   pathExists(start,end,bb_list,passed);
   return bb_list;
+}
+
+vector <BasicBlock *>
+Dfs::AllReachableBasicBlocks(BasicBlock *entry) {
+  bbList_.clear();
+  vector <BasicBlock *> final_bb_list;
+  unordered_set <uint64_t> passed;
+  directlyReachableBBs(entry,passed);
+  final_bb_list.insert(final_bb_list.end(), bbList_.begin(), bbList_.end());
+  bool repeat = false;
+  vector <BasicBlock *> entry_list;
+  entry_list.push_back(entry);
+  while(true) {
+      repeat = false;
+      auto indirect_targets = allIndTgts(entry_list);
+      entry_list.clear();
+      for(auto & ind_bb : indirect_targets) {
+	if(passed.find(ind_bb->start()) == passed.end()) {
+          bbList_.clear();
+          directlyReachableBBs(ind_bb,passed);
+          final_bb_list.insert(final_bb_list.end(), bbList_.begin(), bbList_.end());
+	  repeat = true;
+	  entry_list.push_back(ind_bb);
+	}
+      }
+      //if (repeat) {
+      //  entry_list.clear();
+      //  entry_list.insert(entry_list.end(), indirect_targets.begin(), indirect_targets.end());
+      //}
+      if(repeat == false) break;
+  }
+
+  return final_bb_list;
+
 }

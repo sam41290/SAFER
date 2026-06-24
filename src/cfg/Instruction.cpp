@@ -6,7 +6,7 @@ using namespace SBI;
 
 
 string
-Instruction::prefixChk(char *mne) {
+Instruction::prefixChk(const char *mne) {
   string asm_opcode(mne);
   std::istringstream iss(mne);
   std::vector <std::string> results((std::istream_iterator
@@ -32,7 +32,7 @@ Instruction::prefixChk(char *mne) {
   return asm_opcode;
 }
 
-Instruction::Instruction(uint64_t address, char *mne, char *op_str,
+Instruction::Instruction(uint64_t address, const char *mne, const char *op_str,
 			  uint8_t * bytes, int size) {
   location(address);
   insBinary(bytes, size);
@@ -88,9 +88,9 @@ Instruction::Instruction(uint64_t address, char *mne, char *op_str,
     sem_ = new POP(asm_opcode,operand,insBinary_,loc_);
   else if(asm_opcode.find("and") != string::npos)
     sem_ = new AND(asm_opcode,operand,insBinary_,loc_);
-  else if(asm_opcode.find("or") != string::npos)
+  else if(asm_opcode.find("or") == 0)
     sem_ = new OR(asm_opcode,operand,insBinary_,loc_);
-  else if(asm_opcode.find("xor") != string::npos)
+  else if(asm_opcode.find("xor") == 0)
     sem_ = new XOR(asm_opcode,operand,insBinary_,loc_);
   else 
     sem_ = new UNKNOWNINS(asm_opcode,operand,insBinary_,loc_);
@@ -363,7 +363,9 @@ Instruction::print(string file_name, string lbl_sfx) {
   }
   else {
     if(forcePrintAsm_ || 
-      ((isJump() || isCall() || isRltvAccess()) && asmIns_.find("ret") == string::npos))
+      ((((isJump() || isCall()) && target() != 0) || 
+	isRltvAccess()) && 
+       asmIns_.find("ret") == string::npos))
       asm_ins += "\t" + asmIns_ + "\n";
     else {
       for(auto byte : insBinary_)
@@ -430,6 +432,8 @@ Instruction::setInstParams(InstPoint h) {
   instParams_.push_back(getRegVal("%rax",h));
   instParams_.push_back(getRegVal("%rcx",h));
   instParams_.push_back(getRegVal("%rsp",h));
+  
+
   paramIns_.push_back("mov");
   paramIns_.push_back("mov");
   paramIns_.push_back("mov");
@@ -449,7 +453,12 @@ Instruction::setInstParams(InstPoint h) {
 
   instParams_.push_back(exeNameLabel() + "(%rip)");
   paramIns_.push_back("lea");
-   
+
+  auto data_map = instDataMap();
+  for(auto & d : data_map) {
+    instParams_.push_back(d.second->symbol_ + "(%rip)");
+    paramIns_.push_back("lea");
+  }
 }
 
 void

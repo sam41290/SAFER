@@ -52,20 +52,24 @@ namespace SBI {
     static bool validMem(Instruction *ins);
     static bool validPrfx(Instruction *ins) {
       string asm_ins = ins->asmIns();
-      if(asm_ins.find("nop") != string::npos)
-	return true;
-      vector <string> words = utils::split_string(asm_ins," ");
-      for(auto & w : words) {
-        if(utils::invalid_prefixes.find(w) != utils::invalid_prefixes.end()) {
-          DEF_LOG("Invalid prefix at: "<<hex<<ins->location());
-          return false;
-        }
-      }
+      //if(asm_ins.find("nop") != string::npos)
+      //  return true;
+      //vector <string> words = utils::split_string(asm_ins," ");
+      //for(auto & w : words) {
+      //  if(utils::invalid_prefixes.find(w) != utils::invalid_prefixes.end()) {
+      //    DEF_LOG("Invalid prefix at: "<<hex<<ins->location());
+      //    return false;
+      //  }
+      //}
       if(ins->asmIns().find("lock lea") != string::npos ||
         ((ins->isJump() || ins->isCall() || ins->asmIns().find("ret") != string::npos) && 
-          ins->asmIns().find("lock") != string::npos)/* ||
-         ins->asmIns().find("lock add") != string::npos*/) {
+         (ins->asmIns().find("lock") != string::npos))) {
         DEF_LOG("invalid lock prefix at: "<<hex<<ins->location());
+        return false;
+      }
+      if(ins->asmIns().find("ret") != string::npos && 
+         ins->asmIns().find("rex") != string::npos) {
+        DEF_LOG("invalid rex prefix at: "<<hex<<ins->location());
         return false;
       }
       /*

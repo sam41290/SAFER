@@ -1,26 +1,30 @@
-
 #!/bin/bash
 
 TOOL_PATH=`pwd`
 
 INSTALL_DIR=$1
 
-sudo apt-get -y install ocaml
-sudo apt-get -y install camlp4-extra
-sudo apt-get -y install camlp4
-sudo apt-get -y install ctags
+# Install system dependencies (skip sudo if already root)
+if [ "$(id -u)" -eq 0 ]; then
+  apt-get -y install ocaml camlp4-extra camlp4 exuberant-ctags
+else
+  sudo apt-get -y install ocaml camlp4-extra camlp4 exuberant-ctags
+fi
 
 tar -xf auto.tgz
-mkdir run/tmp
+mkdir -p run/tmp
 
-#installing capstone
-
+# Install capstone
 tar -xf capstone-4.0.2.tar.gz
 cd capstone-4.0.2/
-sudo ./make.sh install
+if [ "$(id -u)" -eq 0 ]; then
+  ./make.sh install
+else
+  sudo ./make.sh install
+fi
 cd ..
 
-path=`echo "${TOOL_PATH}" | sed 's/\//\\\\\//g'`
+path=`echo "${TOOL_PATH}" | sed 's/\//\\\\\/\/g'`
 
 sed -i "/#define TOOL_PATH/c #define TOOL_PATH \"${path}\/\"" run/config.h
 
@@ -31,12 +35,10 @@ do
 done
 
 export LD_LIBRARY_PATH=/usr/lib/ocaml
-#cp ${TOOL_PATH}/run/randmodes/NoRand.h ${TOOL_PATH}/run/config.h
 
 cd ${TOOL_PATH}/src/SBD/lift/lift-code
 make clean
 make all
-
 
 cd ${TOOL_PATH}/src/SBD/analysis/
 make clean
@@ -45,42 +47,30 @@ make all
 cd ${TOOL_PATH}/jtable_cache/
 make clean
 make all
-#
-#
-#cd ${TOOL_PATH}/src/rtl-analysis/
-#make clean
-#make libanalysis.so
+
+# Build all apps
+for app_dir in ${TOOL_PATH}/apps/*/; do
+  if [ -f "${app_dir}/Makefile" ]; then
+    echo "Building app: $(basename $app_dir)"
+    cd "${app_dir}"
+    make clean
+    make -j$(nproc)
+    cd ${TOOL_PATH}
+  fi
+done
 
 cd ${TOOL_PATH}
 
-#cd jmp-table-analysis
-#cd lift/lift-code/
-#make clean
-#make all
-#cd ../../
-#make clean
-#make
+ln -sf ${TOOL_PATH}/instrument.sh ${INSTALL_DIR}/instrument.sh 2>/dev/null || true
+ln -sf ${TOOL_PATH}/testsuite/instrument-coreutils.sh ${INSTALL_DIR}/instrument-coreutils.sh 2>/dev/null || true
+ln -sf ${TOOL_PATH}/testsuite/instrument-suite.sh ${INSTALL_DIR}/instrument-suite.sh 2>/dev/null || true
+ln -sf ${TOOL_PATH}/testsuite/instrument_prog.sh ${INSTALL_DIR}/instrument_prog.sh 2>/dev/null || true
 
+mkdir -p ${HOME}/instrumented_libs
 
-ln -sf ${TOOL_PATH}/instrument.sh ${INSTALL_DIR}/instrument.sh
-
-ln -sf ${TOOL_PATH}/testsuite/instrument-coreutils.sh ${INSTALL_DIR}/instrument-coreutils.sh
-ln -sf ${TOOL_PATH}/testsuite/instrument-suite.sh ${INSTALL_DIR}/instrument-suite.sh
-
-ln -sf ${TOOL_PATH}/testsuite/instrument_prog.sh ${INSTALL_DIR}/instrument_prog.sh
-
-#ln -sf ${TOOL_PATH}/testsuite/replace_libs.sh ${INSTALL_DIR}/replace_libs.sh
-
-#ln -sf ${TOOL_PATH}/jmp-table-analysis/asm_format.sh ${INSTALL_DIR}/asm_format.sh
-
-mkdir ${HOME}/instrumented_libs
-
-sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/apps/run.sh
-sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/instrument_prog.sh
-sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/instrument_batch.sh
-sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/instrument.sh
-sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/instrument_binary.sh
-sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/find_libs.sh
-
-#sudo mkdir /inst_libs
-
+sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/apps/run.sh 2>/dev/null || true
+sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/instrument_prog.sh 2>/dev/null || true
+sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/instrument_batch.sh 2>/dev/null || true
+sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/instrument.sh 2>/dev/null || true
+sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/instrument_binary.sh 2>/dev/null || true
+sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/find_libs.sh 2>/dev/null || true

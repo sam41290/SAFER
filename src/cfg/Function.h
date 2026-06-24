@@ -7,6 +7,10 @@
 #include "Frame.h"
 #include "BasicBlock.h"
 #include <set>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
+
 using namespace std;
 
 /* Represents a function.
@@ -25,7 +29,6 @@ class Function:public Frame
   
   unordered_map <uint64_t, vector <BasicBlock *>> nonReturningCalls_;
 
-  //unordered_map <uint64_t, bool> passedPropertyCheck_;
   bool hasJmpTbl_ = false;
   bool isLeaf_ = false;
 public:
@@ -35,26 +38,6 @@ public:
   void jmpTblAnalyzed(uint64_t entry) { jmpTblAnalyzed_.insert(entry); }
   set <uint64_t> jmpTblAnalyzed() { return jmpTblAnalyzed_; }
 
-  //bool passedPropertyCheck(uint64_t entry) { 
-  //  if(passedPropertyCheck_.find(entry) != passedPropertyCheck_.end())
-  //    return passedPropertyCheck_[entry];
-  //  return false;
-  //}
-
-  //void passedPropertyCheck(uint64_t entry, bool val) {
-  //  passedPropertyCheck_[entry] = val;
-  //  auto bb = getBB(entry);
-  //  if(val)
-  //    bb->CFConsistency(CFStatus::CONSISTENT,TRANSITIVECF);
-  //  else
-  //    bb->CFConsistency(CFStatus::INCONSISTENT,TRANSITIVECF);
-  //}
-
-  //bool propertyChecked(uint64_t entry) {
-  //  if(passedPropertyCheck_.find(entry) != passedPropertyCheck_.end())
-  //    return true;
-  //  return false;
-  //}
 
   vector <BasicBlock *> nonReturningCalls(uint64_t entry) { return nonReturningCalls_[entry]; }
   void nonReturningCalls(uint64_t entry, vector <BasicBlock *> calls) { nonReturningCalls_[entry] = calls; }
@@ -122,57 +105,58 @@ public:
     splitFrame(addrs, (Frame *)f); 
     return f;
   }
-  /*
-  uint64_t firstEntryPoint() {
-    uint64_t entry1 = 0,entry2 = 0;
-    uint64_t firstEntry = INT_MAX;
-    if(entryPoints_.size() > 0) {
-      entry1 = *(entryPoints_.begin());
-      if(entry1 < firstEntry)
-        firstEntry = entry1;
-    }
-    if(probableEntry_.size() > 0) {
-      entry2 = *(probableEntry_.begin());
-      if(entry2 < firstEntry)
-        firstEntry = entry2;
-    }
-    if (firstEntry == INT_MAX)
-      return 0;
-    return firstEntry;
-  }
-*/
   void dump() {
-    //uint64_t st = start();
-    //uint64_t nd = end();
     vector <BasicBlock *> defBB = getDefCode();
     vector <BasicBlock *> psblBB = getUnknwnCode();
-    ofstream ofile;
-    //string file = "tmp/cfg/" + to_string(st) + ".fn";
-    string def_file = "tmp/cfg/definite_basicblocks.lst";
-    string psbl_file = "tmp/cfg/psbl_basicblocks.lst";
-    //ofile.open(file,ofstream::out | ofstream::app);
-    //ofile<<"start "<<dec<<st<<" "<<dec<<nd<<endl;
-    //for(auto entry : entryPoints_) {
-    //  ofile<<"def_entry "<<dec<<entry<<endl;
-    //}
-    //for(auto entry : probableEntry_)
-    //  ofile<<"psbl_entry "<<dec<<entry<<endl;
-    //ofile.close();
+    string def_file = "tmp/cfg/definite_basicblocks.json";
+    string psbl_file = "tmp/cfg/psbl_basicblocks.json";
+
+    //json defj;
+    //json psblj;
+
+    ofstream ofile1, ofile2;
+    ofile1.open(def_file,ofstream::out | ofstream::app);
+    ofile2.open(psbl_file,ofstream::out | ofstream::app);
+
     for(auto & bb : defBB) {
-      //ofile.open(file,ofstream::out | ofstream::app);
-      ////ofile<<"def_bb "<<dec<<bb->start()<<" "<<dec<<bb->end()<<endl;
-      //ofile.close();
-      bb->dump(def_file);
+      
+      json bbj = { 
+      //defj["bb_list"].push_back({
+        {"function", start()},
+        {"start", bb->start()},
+        {"end", bb->end()},
+        {"target",bb->target()},
+        {"fall", bb->fallThrough()},	
+	{"is_call", bb->isCall()},
+	{"call_type",(int)bb->callType()},
+	{"indirect_tgts",bb->indTgtAddrs()}
+      };
+      ofile1<<bbj.dump()<<endl;
+     // });
+      bb->dump();
     }
     for(auto & bb : psblBB) {
       if(bb->notData()) {
-        //ofile.open(file,ofstream::out | ofstream::app);
-        //ofile<<"psbl_bb "<<dec<<bb->start()<<" "<<dec<<bb->end()<<endl;
-        //ofile.close();
-        bb->dump(psbl_file);
+        json bbj = { 
+        //psblj["psbl_bb_list"].push_back({
+          {"function", start()},
+          {"start", bb->start()},
+          {"end", bb->end()},
+          {"target",bb->target()},
+          {"fall", bb->fallThrough()},	
+	  {"is_call", bb->isCall()},
+	  {"call_type",(int)bb->callType()},
+	  {"indirect_tgts",bb->indTgtAddrs()}
+       // });
+        };
+	ofile2<<bbj.dump()<<endl;
+        bb->dump();
       }
     }
-    ofile.close();
+    //ofile1<<defj.dump(2);
+    //ofile2<<psblj.dump(2);
+    ofile1.close();
+    ofile2.close();
   }
 
 };

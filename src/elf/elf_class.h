@@ -23,6 +23,7 @@ Author: Soumyakant Priyadarshan
 #include <regex>
 #include <map>
 #include "exe_manager.h"
+#include <unordered_map>
 using namespace std;
 
 /* Deals with linux ELF executables.
@@ -49,7 +50,7 @@ class ElfClass:public ExeManager
   uint64_t loadStart_ = INT_MAX;
   vector <Elf64_Shdr *> shTable_; //Kept to facilitate rewriting. Donot remove
   vector <Elf64_Phdr *> phTable_; 
-  const vector <string> exitSyms
+  const vector <string> exitSyms_
     =
     { "abort", "_exit", "exit", "xexit","__stack_chk_fail", "__assert_fail",
     "__fortify_fail", "__chk_fail","err","errx","verr","verrx",
@@ -60,7 +61,7 @@ class ElfClass:public ExeManager
     "_gfortran_runtime_error", "_gfortran_stop_numeric", "_gfortran_runtime_error_at",
     "_gfortran_stop_string", "_gfortran_abort", "_gfortran_exit_i8",
     "_gfortran_exit_i4", "for_stop_core", "__sys_exit", "_Exit", "ExitThread", "FatalExit", 
-    "RaiseException", "RtlRaiseException", "TerminateProcess", "__cxa_throw_bad_array_new_length",
+    "RaiseException", "RtlRaiseException", "TerminateProcess", "__cxa_throw_bad_array_new_length","isc_assertion_failed",
     "_ZSt19__throw_logic_errorPKc","_Z8V8_FatalPKciS0_z","_ZSt16__throw_bad_castv"};
   const vector <string> mayExitSyms_ = {"__fprintf_chk","__printf_chk","error","__vfprintf_chk"};
   const unordered_set <string> metaSections_
@@ -75,6 +76,9 @@ class ElfClass:public ExeManager
   uint64_t attSize_ = 0;
   uint64_t hashEntryCnt_;
 public:
+
+  unordered_set <uint64_t> exitFns();
+  unordered_set <uint64_t> mayExitFns();
 
   ElfClass (string name);
   void parse (const char *file_name);
@@ -99,6 +103,7 @@ public:
   set <uint64_t> mayExitPlts();
   uint64_t jmpSlot (string name);
   vector <uint64_t> allSyms ();
+  unordered_map <uint64_t, string> symbolMap();
   vector <pheader> ptLoadHeaderes ();
   vector <uint64_t> dataSyms ();
   set<uint64_t> allJmpSlots ();
@@ -110,6 +115,7 @@ public:
   void printExeHdr(string fname);
   void printNewSectionHdrs(string fname);
   void printPHdrs(string fname);
+  unordered_map<uint64_t, string> jmpSlotSymbolMap();
 
   uint64_t exeHdrSz() { return sizeof(Elf64_Ehdr); }
   int newPHdrSz() { return sizeof(Elf64_Phdr) * (phTable_.size() + 3); }

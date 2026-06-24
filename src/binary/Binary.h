@@ -14,6 +14,7 @@ using namespace std;
  * point, CFG, etc.
  */
 namespace SBI {
+
 class Binary:public Instrument
 {
   string exePath_;
@@ -25,6 +26,10 @@ class Binary:public Instrument
   set <uint64_t> exitCallPlt_;
   set <uint64_t> mayExitPlt_;
   set <uint64_t> allPltSlots_;
+  unordered_set <uint64_t> exitFns_;
+  unordered_set <uint64_t> mayExitFns_;
+  unordered_map <uint64_t, string> pltSlotSymbolMap_;
+  unordered_map <uint64_t, string> symbolMap_;
   uint64_t codeSegmentStart_ = INT_MAX;
   uint64_t codeSegmentEnd_ = 0;
   uint64_t entryPoint_ = 0;
@@ -40,6 +45,7 @@ class Binary:public Instrument
   vector <uint64_t> hookPoints_;
   vector <pair<uint64_t, uint64_t>> hookTgts_;
   //Cfg unknownCFG_;
+ 
 
 public:
   DisasmEngn *disassembler() { return disassembler_;}

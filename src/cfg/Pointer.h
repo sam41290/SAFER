@@ -12,6 +12,9 @@
 #include <vector>
 #include <stdarg.h>
 #include "libutils.h"
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 using namespace std;
 
@@ -282,13 +285,32 @@ public:
     }
     return loc_list;
   }
-  void dump(ofstream &ofile) {
-    ofile<<"pointer "<<dec<<address_;
-    ofile<<" "<<dec<<(int)source_;
-    ofile<<" "<<dec<<(int)rootSrc_;
-    ofile<<" "<<dec<<(int)type_<<endl;
-    for(auto & sym : symCandidates_)
-      sym.dump(ofile);
+  bool addressTaken(bool reloc = true) {
+    for(auto & sym : symCandidates_) {
+      if(sym.location() == 100 || sym.location() == 0)
+        continue;
+      if (reloc == false)
+        return true;
+      if(sym.type() == SymbolType::RLTV || 
+         sym.type() == SymbolType::CONSTANT || 
+         sym.type() == SymbolType::OPERAND)
+        return true;
+    }
+    return false;
+  }
+  void dump() {
+    string file = "tmp/cfg/pointers.json";
+    ofstream ofile;
+    ofile.open(file,ofstream::out | ofstream::app);
+    json j =
+    {
+        {"value",address_},
+	{"type",type_},
+        {"source", (int)source_},
+        {"root_source", (int)rootSrc_}
+    };
+    ofile<<j.dump()<<endl;
+    ofile.close();
   }
 };
 }

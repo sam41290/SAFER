@@ -84,23 +84,29 @@ public:
 
   string rewriteTgts();
   void displayTgts();
-  void dump(ofstream & ofile) {
-    ofile<<"Location: "<<dec<<location_<<endl;
-    ofile<<"End: "<<dec<<end_<<endl;
-    ofile<<"Base: "<<dec<<base_<<endl;
-    ofile<<"Pattern: "<<JTABLETYPE(type_)<<endl;
-    ofile<<"Indirect jump at: ";
-    for(auto & c : cfLoc_)
-      ofile<<dec<<c<<" ";
-    ofile<<endl;
-    ofile<<"Targets: "<<endl;
+  void dump() {
+    string file = "tmp/cfg/jumptables.json";
+    ofstream ofile;
+    ofile.open(file,ofstream::out | ofstream::app);
+    json j;
+    vector<uint64_t> tgts;
     for (auto & bb :targetBBs_) {
       if(bb->isCode())
-        ofile<<dec<<bb->start()<<endl;
+        tgts.push_back(bb->start());
       else
         break;
     }
-    ofile<<"----------------------------------------------"<<endl;
+    j["jumptables"].push_back(
+      {
+        {"location",location_},
+        {"end", end_},
+        {"base", base_},
+	{"jump",cfLoc_},
+	{"targets",tgts}
+      }
+    );
+    ofile<<j.dump(2);
+    ofile.close();
   }
 };
 }

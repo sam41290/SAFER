@@ -17,10 +17,12 @@ BasicBlock(uint64_t p_start, uint64_t p_end,PointerSource src,
 			  PointerSource root,vector <Instruction *> &p_ins) {
   start_ = p_start;
   end_ = p_end;
-  insList_ = p_ins;
   source_ = src;
   rootSrc_ = root;
-  lastIns_ = insList_[insList_.size() - 1];
+  if (p_ins.size() > 0) {
+    insList_ = p_ins;
+    lastIns_ = insList_[insList_.size() - 1];
+  }
 }
 
 BasicBlock::
@@ -413,7 +415,7 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
   for(auto & it : insList_) {
     if(it->isRltvAccess() == true && it->rltvOfftAdjusted() == false) {
       uint64_t rip_rltv_offset = it->ripRltvOfft();
-      //DEF_LOG("Relative Pointer: " <<hex <<rip_rltv_offset);
+      //cout<<"Adjusting Relative Pointer: " <<hex <<rip_rltv_offset<<" at: "<<hex<<it->location()<<endl;
 
       if(CFValidity::validPrfx(it) == false ||
          CFValidity::validOpCode(it) == false) {
@@ -428,7 +430,9 @@ BasicBlock::adjustRipRltvIns(uint64_t data_segment_start,
             "(.datasegment_start + " + 
              to_string(rip_rltv_offset - data_segment_start) + ")"
              ,rip_rltv_offset,SymBind::FORCEBIND);
-        it->asmIns(it->prefix() + it->mnemonic() + " " + op);
+	auto pr = it->prefix();
+	if (pr.find("rex") != string::npos) pr = "";
+        it->asmIns(pr + it->mnemonic() + " " + op);
         it->op1(op);
       }
       else {

@@ -30,8 +30,11 @@ Reference:
 #include "elf_class.h"
 
 #include "libutils.h"
+#include <unordered_map>
 
 using namespace std;
+
+extern bool no_custom_loader;
 
 bool
 compare_sections (section & A, section & B) {
@@ -319,6 +322,19 @@ ElfClass::readSymTbl64 (int32_t symbol_table) {
   free (sym_tbl);
   free (str_tbl);
 }
+
+
+unordered_map <uint64_t, string> 
+ElfClass::symbolMap() {
+  unordered_map <uint64_t, string> sym_map;
+  for(auto & sym : allSyms_) {
+    auto addr = sym.second;
+    auto name = sym.first;
+    sym_map[addr] = name;
+  }
+  return sym_map;
+}
+
 vector <Object>
 ElfClass::noTypeObjects () {
   vector <Object> data_objects;
@@ -810,7 +826,7 @@ ElfClass::readRelocs() {
          for entries of type R_X86_64_IRELATIVE and R_X86_64_RELATIVE,
          addend needs to be updated to point to location in new codesegment
        */
-
+      auto type = rl[j].r_info;
       if (rl[j].r_info == R_X86_64_IRELATIVE || 
           rl[j].r_info == R_X86_64_RELATIVE) {
         if(rl[j].r_addend > 0) {
@@ -820,7 +836,6 @@ ElfClass::readRelocs() {
           allRelocs_[rel::CONSTPTR_PIC].push_back(r);
         }
       }
-
     }
     free (rl);
   }
@@ -883,7 +898,7 @@ ElfClass::readRelocs() {
           else if (type == R_X86_64_64 || type == R_X86_64_32
                    || type == R_X86_64_32S || type == R_X86_64_16
                    || type == R_X86_64_8) {
-            ADDRELOC(false,rel::CONSTPTR_NOPIC,rl[j].r_addend,rl[j].r_offset,
+            ADDRELOC(false,rel::CONSTPTR_PIC,rl[j].r_addend,rl[j].r_offset,
                 sym_tbl,rl[j].r_info);
           }
         //}
@@ -1998,20 +2013,18 @@ ElfClass::updDynSection (string bname) {
     }
     */
     else if(dyn[i].d_tag == DT_NEEDED) {
-//#ifdef STATIC_TRANS
-//    }
-//#else
-       LOG("Shared lib name offset: "<<hex<<dyn[i].d_un.d_val);
-       section dyn_str_sec = secHeader(".dynstr");
-       char name[20];
-       utils::READ_FROM_FILE(bname,name,dyn_str_sec.offset + dyn[i].d_un.d_val,20);
-       LOG("lib name: "<<name);
-       if(strncmp(name,"ld-linux-x86-64.so.2",20) == 0) {
-         char newname[] = "ld-linux-xsafer.so.2";
-         utils::WRITE_TO_FILE(bname,newname,dyn_str_sec.offset + dyn[i].d_un.d_val,20);
+       if(no_custom_loader == false) {
+         LOG("Shared lib name offset: "<<hex<<dyn[i].d_un.d_val);
+         section dyn_str_sec = secHeader(".dynstr");
+         char name[20];
+         utils::READ_FROM_FILE(bname,name,dyn_str_sec.offset + dyn[i].d_un.d_val,20);
+         LOG("lib name: "<<name);
+         if(strncmp(name,"ld-linux-x86-64.so.2",20) == 0) {
+           char newname[] = "ld-linux-xsafer.so.2";
+           utils::WRITE_TO_FILE(bname,newname,dyn_str_sec.offset + dyn[i].d_un.d_val,20);
+         }
        }
     }
-//#endif
   }
   utils::WRITE_TO_FILE (bname, dyn, dyn_offset, size);
 
@@ -2336,12 +2349,26 @@ ElfClass::extraRelocs() {
   }
 }
 */
+unordered_set <uint64_t> ElfClass::exitFns() {
+  unordered_set <uint64_t> res;
+  for(auto & s : exitSyms_) {
+    if(allSyms_.find(s) != allSyms_.end()) res.insert(allSyms_[s]);
+  }
+  return res;
+}
+unordered_set <uint64_t> ElfClass::mayExitFns() {
+  unordered_set <uint64_t> res;
+  for(auto & s : mayExitSyms_) {
+    if(allSyms_.find(s) != allSyms_.end()) res.insert(allSyms_[s]);
+  }
+  return res;
+}
 set < uint64_t > ElfClass::exitPlts () {
   set < uint64_t > exit_plts;
-  for(size_t i = 0; i < exitSyms.size (); i++) {
-    if (allJmpSlots_.find (exitSyms[i]) != allJmpSlots_.end ()) {
-      LOG("Exit plt: "<<hex<<allJmpSlots_[exitSyms[i]]);
-      exit_plts.insert (allJmpSlots_[exitSyms[i]]);
+  for(size_t i = 0; i < exitSyms_.size (); i++) {
+    if (allJmpSlots_.find (exitSyms_[i]) != allJmpSlots_.end ()) {
+      LOG("Exit plt: "<<hex<<allJmpSlots_[exitSyms_[i]]);
+      exit_plts.insert (allJmpSlots_[exitSyms_[i]]);
     }
   }
   return exit_plts;
@@ -2376,6 +2403,17 @@ ElfClass::allJmpSlots () {
     it++;
   }
   return all_slots;
+}
+
+unordered_map<uint64_t, string>
+ElfClass::jmpSlotSymbolMap() {
+  unordered_map <uint64_t, string> slot_map;
+  for(auto & slot : allJmpSlots_) {
+    auto addr = slot.second;
+    auto name = slot.first;
+    slot_map[addr] = name;
+  }
+  return slot_map;
 }
 
 

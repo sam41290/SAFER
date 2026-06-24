@@ -59,7 +59,7 @@ namespace SBI {
       if(reg.length() <= 0)
         return GPR::NONE;
       for(unsigned int i = 0; i < utils::gpr.size(); i++)
-        if(reg.find(utils::gpr[i]) == 0)
+        if(reg.find(utils::gprSuffixes[i]) != string::npos)
           return (GPR)i;
       return GPR::NONE;
     } 
@@ -93,6 +93,12 @@ namespace SBI {
             type_ = OperandType::CONSTANT;
           }
         }
+	else if (arg.find("fs:") != string::npos || arg.find("gs:") != string::npos ||
+	         arg.find("ds:") != string::npos || arg.find("es:") != string::npos ||
+		 arg.find("ds:") != string::npos) {
+	  type_= OperandType::RLTV;
+	  op_ = OP::DEREF;
+	}
         else {
           reg_ = arg;
           type_ = OperandType::REG;

@@ -8,6 +8,7 @@ const vector <string> atfSavedReg_{};//{"%rax","%rdi","%rsi"};
 int ENCCLASS::decode_counter = 0;
 int Instrument::counter = 0;
 vector <string> Instrument::instFuncs_ {};
+map<int, InstData *> Instrument::instDataMap_ {};
 
 string
 Instrument::getIcfReg(string op1) {
@@ -26,6 +27,21 @@ Instrument::moveZeros(string op1, uint64_t loc, string file_name) {
               "movw $0,-2(%rsp)\n" +
               "mov -8(%rsp)," + op1 + "\n";
   return instCode;
+}
+
+InstArg 
+Instrument::addInstrumentationData(void *data, int size) {
+  auto ctr = instDataMap_.size();
+  InstArg data_arg = (InstArg)((int)InstArg::CUSTOM_DATA0 + ctr);
+  string symbol = "inst_data_" + to_string((int)data_arg);
+
+  InstData * d = new InstData();
+  d->symbol_ = symbol;
+  d->data_ = data;
+  d->size_ = size;
+  instDataMap_[(int)data_arg] = d;
+
+  return data_arg;
 }
 
 void 

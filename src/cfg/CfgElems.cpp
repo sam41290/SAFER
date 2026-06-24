@@ -3,6 +3,8 @@
 #include "disasm.h"
 #include <math.h>
 #include "PointerAnalysis.h"
+#include <nlohmann/json.hpp>
+
 using namespace SBI;
 
 //bool 
@@ -408,14 +410,23 @@ CfgElems::phase1NonReturningCallResolution() {
           DEF_LOG("Resolving exit call: "<<hex<<exit_call->start());
 #ifdef EH_FRAME_DISASM_ROOT
           auto fall_bb = exit_call->fallThroughBB();
-          if(withinFn(fall_bb->start())) {
-            exit_call->callType(BBType::RETURNING);
-          }
+	  if(fall_bb != NULL) {
+            if(withinFn(fall_bb->start())) {
+              exit_call->callType(BBType::RETURNING);
+            }
+            else {
+              DEF_LOG("Marking non-returning: "<<hex<<exit_call->start());
+              newPointer(exit_call->fallThrough(), PointerType::UNKNOWN,
+                         PointerSource::POSSIBLE_RA,PointerSource::POSSIBLE_RA,exit_call->end());
+              exit_call->callType(BBType::NON_RETURNING);
+              exit_call->fallThrough(0);
+              exit_call->fallThroughBB(NULL);
+            }
+	  }
           else {
-            DEF_LOG("Marking non-returning: "<<hex<<exit_call->start());
-            newPointer(exit_call->fallThrough(), PointerType::UNKNOWN,
-                       PointerSource::POSSIBLE_RA,PointerSource::POSSIBLE_RA,exit_call->end());
+            DEF_LOG("Marking BB non returning: "<<hex<<exit_call->start());
             exit_call->callType(BBType::NON_RETURNING);
+            exit_call->type(BBType::NON_RETURNING);
             exit_call->fallThrough(0);
             exit_call->fallThroughBB(NULL);
           }
@@ -1447,7 +1458,7 @@ CfgElems::getBBType(uint64_t bbAddrs) {
 BasicBlock *
 CfgElems::getBB(uint64_t addrs) {
   //DEF_LOG("Getting BB: "<<hex<<addrs);
-  if(disassembler_->invalid(addrs))
+  if(disassembler_ != NULL && disassembler_->invalid(addrs))
     return NULL;
   if(bbCache_.find(addrs) != bbCache_.end())
     return bbCache_[addrs];
@@ -1962,38 +1973,47 @@ CfgElems::readCfg() {
   ifile.close();
 }
 */
+
+using json = nlohmann::json;
+
 void 
 CfgElems::dump() {
   ofstream ofile;
-  ofile.open("tmp/cfg/functions.lst");
+  ofile.open("tmp/cfg/functions.json");
+  //json j;
   for(auto & fn : funcMap_) {
     auto entries = fn.second->allEntries();
+    vector <uint64_t> def_entries;
+    vector <uint64_t> psbl_entries;
     for(auto & e : entries) {
       auto bb = getBB(e);
       if(bb != NULL) {
-        if(bb->isCode()) {
-          ofile<<dec<<"Definite entry: "<<fn.second->start()<<endl;
-        }
-        else if(bb->notData()) {
-          ofile<<dec<<"Possible entry: "<<fn.second->start()<<endl;
-        }
+	if(bb->isCode())
+	  def_entries.push_back(e);
+	else
+	  psbl_entries.push_back(e);
       }
     }
     fn.second->dump();
+    //j["functions"].push_back(
+    json fnj =  {
+        {"start", fn.second->start()},
+        {"end", fn.second->end()},
+        {"definite_entries", def_entries},
+        {"psbl_entries", psbl_entries}
+    };
+   // );
+    ofile<<fnj<<endl;
   }
+	
   ofile.close();
 
-  ofile.open("tmp/cfg/pointers.lst");
   for(auto & ptr : pointerMap_) {
-    ptr.second->dump(ofile);
+    ptr.second->dump();
   }
-  ofile.close();
-
-  ofile.open("tmp/cfg/jmptables.lst");
   for(auto & j : jmpTables_) {
-    j.dump(ofile);
+    j.dump();
   }
-  ofile.close();
 }
 
 vector<Gap>
@@ -2475,12 +2495,11 @@ CfgElems::propagateAllRoots() {
 
 void
 CfgElems::linkBBs(vector <BasicBlock *> &bbs) {
-  //LOG("Linking BBs");
   for(auto & bb : bbs) {
     if(bb->target() != 0 && bb->targetBB() == NULL) {
       auto tgtbb = getBB(bb->target());
       if(tgtbb == NULL) {
-        //LOG("No BB for target address "<<hex<<bb->target());
+        cout<<"No BB for target address "<<bb->target()<<endl;
         //exit(0);
       }
       else {
@@ -2492,12 +2511,11 @@ CfgElems::linkBBs(vector <BasicBlock *> &bbs) {
     if(bb->fallThrough() != 0 && bb->fallThroughBB() == NULL) {
       auto fallbb = getBB(bb->fallThrough());
       if(fallbb == NULL) {
-        //LOG("No BB for fall-through address "<<hex<<bb->fallThrough()<<" bb "<<hex<<bb->start());
+        cout<<"No BB for fall-through address "<<bb->fallThrough()<<" bb "<<bb->start()<<endl;
         //exit(0);
         //bb->fallThrough(0);
       }
       else {
-        //LOG("Adding fall through: "<<hex<<bb->fallThrough()<<" bb "<<hex<<bb->start());
         bb->fallThroughBB(fallbb);
         fallbb->parent(bb);
       }
@@ -2565,17 +2583,6 @@ CfgElems::offsetFrmCanaryToRA(vector <BasicBlock *> &bb_list) {
   return offt;
 }
 */
-int 
-CfgElems::offsetFrmCanaryAddToRa(uint64_t add_loc, BasicBlock *bb) {
-  auto ins_list = bb->insList();
-  vector <Instruction *> ins_till_canary;
-  for(auto & ins : ins_list) {
-    if(ins->location() <= add_loc)
-      ins_till_canary.push_back(ins);
-  }
-  int offt = stackDecrement(ins_till_canary);
-  return offt;
-}
 /*
 void
 CfgElems::instrumentCanary() {
@@ -2659,7 +2666,18 @@ CfgElems::instrumentCanary() {
         }
         break;
 */
-
+/*
+int 
+CfgElems::offsetFrmCanaryAddToRa(uint64_t add_loc, BasicBlock *bb) {
+  auto ins_list = bb->insList();
+  vector <Instruction *> ins_till_canary;
+  for(auto & ins : ins_list) {
+    if(ins->location() <= add_loc)
+      ins_till_canary.push_back(ins);
+  }
+  int offt = stackDecrement(ins_till_canary);
+  return offt;
+}
 vector <Instruction *>
 CfgElems::canaryEpilogueToRetWindow(BasicBlock *canary_epilog_bb) {
   vector <Instruction *> window;
@@ -2716,32 +2734,6 @@ CfgElems::canaryEpilogueInst(BasicBlock *bb,InstPoint &x) {
       }
     }
   }
-  /*
-  if(canary_found) {
-    auto fall = bb->fallThroughBB();
-    if(fall != NULL) {
-      auto last_ins = fall->lastIns();
-      if(last_ins->asmIns().find("ret") != string::npos) {
-        if(last_ins->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_RET) == false &&
-           last_ins->alreadyInstrumented(InstPoint::LEGACY_SHADOW_RET) == false) {
-          last_ins->registerInstrumentation(InstPoint::SHSTK_FUNCTION_RET,x.second,instArgs()[x.second]);
-          DEF_LOG("Registering canary epilogue shadow stack return instrumentation: "<<hex<<last_ins->location());
-        }
-      }
-    }
-    auto tgt = bb->targetBB();
-    if(tgt != NULL) {
-      auto last_ins = fall->lastIns();
-      if(last_ins->asmIns().find("ret") != string::npos) {
-        if(last_ins->alreadyInstrumented(InstPoint::SHSTK_FUNCTION_RET) == false &&
-           last_ins->alreadyInstrumented(InstPoint::LEGACY_SHADOW_RET) == false) {
-          last_ins->registerInstrumentation(InstPoint::SHSTK_FUNCTION_RET,x.second,instArgs()[x.second]);
-          DEF_LOG("Registering canary epilogue shadow stack return instrumentation: "<<hex<<last_ins->location());
-        }
-      }
-    }
-  }
-  */
 }
 
 void
@@ -2824,19 +2816,6 @@ BasicBlock *canaryPrologueBB(BasicBlock *entry) {
         break;
       fall_bb = fall_bb->fallThroughBB();
     }
-    /*
-    while(tgt_bb != NULL) {
-      auto canary_ins = tgt_bb->canaryPrologue();
-      if(canary_ins != NULL)
-        return tgt_bb;
-      auto last_ins = tgt_bb->lastIns();
-      if(last_ins->isJump() || 
-         last_ins->isCall() || 
-         last_ins->asmIns().find("ret") != string::npos)
-        break;
-      tgt_bb = tgt_bb->fallThroughBB();
-    }
-  */
   }
   return NULL;
 }
@@ -2967,7 +2946,7 @@ CfgElems::shstkForDefEntries(BasicBlock *bb, InstPoint shstk_type, InstPoint tgt
     shstkForIndrctTailCall(bb, canary_found);
   //}
 }
-
+*/
 
 extern long double propScore(vector <Property> &p_list);
 
@@ -2999,7 +2978,7 @@ CfgElems::isAddressTakenFn(BasicBlock *bb) {
   }
   return false;
 }
-
+/*
 void
 CfgElems::shadowStackInstrumentV2(InstPoint &x) {
 
@@ -3081,7 +3060,7 @@ CfgElems::shadowStackInstrumentV2(InstPoint &x) {
     }
   }
 }
-
+*/
 
 //void
 //CfgElems::shadowStackInstrument(pair<InstPoint,string> &x) {
@@ -3301,7 +3280,7 @@ CfgElems::instrument() {
       }
     }
     else if(x.first == InstPoint::SHADOW_STACK || x.first == InstPoint::LEGACY_SHADOW_STACK) {
-      shadowStackInstrumentV2(x.first);
+      //shadowStackInstrumentV2(x.first);
     }
     else {
       for(auto fn : funcMap_) {

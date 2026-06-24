@@ -6,6 +6,9 @@
 #include "config.h"
 //#include "JumpTable.h"
 #include <set>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 /* class basic block represents a basic block in the CFG with one entry and one
  * exit point.
@@ -96,6 +99,17 @@ private:
   string fallSym_ = "";
   vector<uint64_t> belongsToJumpTable_;
 public:
+  BasicBlock(uint64_t start, uint64_t end, PointerSource src,
+	     PointerSource root, vector <Instruction *> &insList);
+
+  BasicBlock(uint64_t start, uint64_t end, PointerSource src = PointerSource::NONE,
+      PointerSource root = PointerSource::NONE);
+  BasicBlock(uint64_t start, PointerSource src = PointerSource::NONE,
+             PointerSource root = PointerSource::NONE) {
+    start_ = start;
+    source_ = src;
+    rootSrc_ = root;
+  }
   bool canaryInstrumentedForShstk() { return canaryInstrumentedForShstk_; }
   void canaryInstrumentedForShstk(bool v) { canaryInstrumentedForShstk_ = v; }
   void belongsToJumpTable(uint64_t j) { 
@@ -191,16 +205,6 @@ public:
     return p_list;
   }
 
-  BasicBlock(uint64_t start, uint64_t end, PointerSource src,
-		 PointerSource root,vector <Instruction *> &insList);
-
-  BasicBlock(uint64_t start, uint64_t end, PointerSource src,
-      PointerSource root);
-  BasicBlock(uint64_t start, PointerSource src,PointerSource root) {
-    start_ = start;
-    source_ = src;
-    rootSrc_ = root;
-  }
   void roots(BasicBlock *b) { 
     roots_.insert(b); 
   }
@@ -220,25 +224,37 @@ public:
   void isTramp(bool t) { isTramp_ = t; }
   bool isTramp() { return isTramp_; }
   void indTgtAddrs(uint64_t addrs) { indTgtAddrs_.push_back(addrs); }
-  vector <uint64_t> indTgtAddrs() { return indTgtAddrs_; }
+  vector <uint64_t> indTgtAddrs() {
+    if(indTgtAddrs_.size() <= 0) {
+      for(auto & ind_bb : indirectTgts_)
+	indTgtAddrs_.push_back(ind_bb->start());
+    } 
+    return indTgtAddrs_; 
+  }
   void indTgtAddrs(vector <uint64_t> &tgts) { indTgtAddrs_ = tgts; }
-  void dump(string file) {
-
+  void dump() {
+    string file = "tmp/cfg/assembly.json";
     ofstream ofile;
     ofile.open(file,ofstream::out | ofstream::app);
-    ofile<<"start "<<dec<<start_<<" "<<dec<<end_<<endl;
-    ofile<<"end "<<dec<<end_<<endl;
-    if(isCall())
-      ofile<<"calltype "<<dec<<BBTYPE(callType_)<<endl;
-    ofile<<"codetype "<<dec<<CODETYPE(codeType_)<<endl;
-    ofile<<"target "<<dec<<target_<<endl;
-    ofile<<"fall "<<dec<<fallThrough_<<endl;
+
+    //json j;
+
     for(auto ins : insList_) {
-      ofile<<"ins "<<dec<<ins->location()<<" "<<ins->insSize()<<" "<<ins->asmIns()<<endl;
+	json insj = 
+      //j["instructions"].push_back(
+        {
+	  {"location",ins->location()},
+	  {"mne", ins->mnemonic()},
+	  {"op", ins->op1()},
+	  {"size", ins->insSize()},
+	  {"bytes",ins->insBinary()},
+	  {"plt_jump",ins->isPltJmp()},
+	  {"plt_target",ins->pltTarget()}
+	};
+     // );
+        ofile<<insj.dump()<<endl;
     }
-    for (auto & bb : indirectTgts_)
-      ofile<<"indrc_tgt "<<dec<<bb->start()<<endl;
-    ofile<<"-------------------------------------------------------"<<endl;
+    //ofile<<j.dump(2);
     ofile.close();
 
   }

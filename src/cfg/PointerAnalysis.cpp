@@ -531,8 +531,6 @@ PointerAnalysis::validInitAndRegPreserve(vector <BasicBlock *> &entry_lst,
   uint64_t entry = entry_lst[0]->start();
   unordered_map <uint64_t, int> valid;
   unordered_map<int64_t, vector<int64_t>> ind_tgts;
-  //for(auto & bb : fin_bb_list)
-  //  present.insert(bb->start());
   checkIndTgts(ind_tgts,fin_bb_list,valid_ind_path);
   string dir = get_current_dir_name();
   string jtableFile = dir + "/tmp/" + to_string(entry) + ".ind";
@@ -1480,15 +1478,17 @@ PointerAnalysis::possiblyCorrectIndTgts(BasicBlock *entry, BasicBlock *intermidi
       if(inds.size() > 0) {
         DEF_LOG("Ind CF: "<<hex<<last_ins->location());
         for(auto & ind_tgt : inds) {
-#ifdef EH_FRAME_DISASM_ROOT
-          if(withinFn(ind_tgt->start()) && likelyTrueJmpTblTgt(ind_tgt)) {
-            passAllProps(ind_tgt);
-          }
-#endif
           if(codeByProperty(ind_tgt)) {
             ind_tgts.push_back(ind_tgt);
             continue;
           }
+#ifdef EH_FRAME_DISASM_ROOT
+          if(withinFn(ind_tgt->start()) && likelyTrueJmpTblTgt(ind_tgt)) {
+            passAllProps(ind_tgt);
+            ind_tgts.push_back(ind_tgt);
+            continue;
+          }
+#endif
           auto match = indTgtStackUseMatch(entry->start(), last_ins->location(), ind_tgt->start());
           if(match == 1) {
             if(likelyTrueJmpTblTgt(ind_tgt)) {
@@ -1681,8 +1681,15 @@ bool
 PointerAnalysis::likelyTrueEhCode(BasicBlock *bb) {
 #ifdef EH_FRAME_DISASM_ROOT
   auto p = ptr(bb->start());
+  if (p == NULL) {
+    DEF_LOG("Checking for EH validity..no pointer found for entry: "<<hex<<bb->start());
+  }
   if(p != NULL && withinFn(bb->start()) &&
-     p->symbolizable(SymbolizeIf::LINEAR_SCAN))
+    (p->symbolizable(SymbolizeIf::LINEAR_SCAN) ||
+     p->symbolizable(SymbolizeIf::RLTV) ||
+     p->source() == PointerSource::EHFIRST ||
+     p->source() == PointerSource::PIC_RELOC)
+    )
     return true;
   return false;
 #endif
@@ -2126,6 +2133,7 @@ PointerAnalysis::entryValidation(BasicBlock *entry) {
     passAllProps(entry);
     return;
   }
+  else DEF_LOG("Unlikely an EH frame pointer: "<<hex<<entry);
   //return;
 #endif
   if(p != NULL && 
@@ -2172,16 +2180,15 @@ PointerAnalysis::entryValidation(BasicBlock *entry) {
   }
   else {
 #ifdef EH_FRAME_DISASM_ROOT
-  if(likelyTrueEhCode(entry)) {
-    passAllProps(entry);
-    //return;
-  }
-#else
+    if(likelyTrueEhCode(entry)) {
+      passAllProps(entry);
+      return;
+    }
+#endif
     resolveNoRetCall(entry);
     if(codeParent(entry))
       passAllProps(entry);
     analyzeEntry(entry);
-#endif
   }
   if(codeByProperty(entry) && contextPassed(entry,entry))
     validateIndTgtsFrmEntry(entry);
@@ -2220,8 +2227,10 @@ PointerAnalysis::createAnalysisQ(CandidateType t) {
         auto bb = getBB(p.first);
         if(bb != NULL && bb->isCode() == false) {
           passAllProps(bb);
-          long double score = powl(2,44) * 40;
-          analysisQ_.push(AnalysisCandidate(p.second->address(),score));
+	  if(codeByProperty(bb)) {
+            long double score = powl(2,44) * 40;
+            analysisQ_.push(AnalysisCandidate(p.second->address(),score));
+	  }
         }
       }
     }
@@ -2619,375 +2628,3 @@ PointerAnalysis::cfgConsistencyAnalysis() {
   cout<<"Candidate count: "<<dec<<candidate_count<<endl;
 }
 
-int
-PointerAnalysis::tgtCount(vector <BasicBlock *> &bb_list) {
-  int ptr_tgt_cnt = 0;
-  for(auto & bb : bb_list) {
-    auto parents = bb->parents();
-    for(auto & p : parents) {
-      if(p->target() == bb->start()) {
-        auto ins = p->lastIns();
-        if(ins->insSize() >= 4)
-          ptr_tgt_cnt++;
-      }
-    }
-  }
-  return ptr_tgt_cnt;
-}
-
-BasicBlock * 
-PointerAnalysis::checkSignature(BasicBlock *bb) {
-  auto orig_bb = bb;
-  auto ins_list = orig_bb->insList();
-  for(auto & ins : ins_list) {
-    BasicBlock copy_bb = *orig_bb;
-    auto new_bb = getBB(ins->location());
-    bool add_bb = false;
-    if(new_bb == NULL) {
-      new_bb = copy_bb.split(ins->location());
-      add_bb = true;
-    }
-    if(fnSigScore(new_bb) >= powl(2,14)) {
-      if(add_bb)
-        addBBtoFn(new_bb, PointerSource::VALIDITY_WINDOW);
-      return new_bb;
-    }
-  }
-  return NULL;
-}
-
-void
-PointerAnalysis::markConflicting(vector <BasicBlock *> &bb_list) {
-  for(auto & bb : bb_list) {
-    Conflicts_.insert(bb->start());
-  }
-}
-
-bool
-PointerAnalysis::entryPointCorrection(BasicBlock *ptr_bb) {
-  auto external_callers = externalCallers(ptr_bb, ptr_bb);
-  if(external_callers.size() > 0) {
-    for(auto & p : external_callers) {
-      if(p->isCode() || codeByProperty(p)) {
-        DEF_LOG("Avoiding entry point correction..ptr has callers: "<<hex<<ptr_bb->start());
-        return false;
-      }
-    }
-  }
-  map <uint64_t, Pointer *> ptrMap = pointers ();
-  auto ptr_it = ptrMap.find(ptr_bb->start());
-  auto ptr = ptr_it->second;
-  if(ptr_it == ptrMap.end() || ptr->source() != PointerSource::JUMPTABLE) {
-    DEF_LOG("Entry point correction for: "<<hex<<ptr_bb->start());
-    if(fnSigScore(ptr_bb) >= powl(2,14))
-      return true;
-    auto sig_start = checkSignature(ptr_bb);
-    if(sig_start != NULL && sig_start->start() != ptr_bb->start()) {
-      for(auto & p : propList_)
-        sig_start->passedProp(p);
-      Conflicts_.insert(ptr_bb->start());
-      possiblePtrs_.insert(sig_start->start());
-      DEF_LOG("Adding signature start as corrected entry: "<<hex<<ptr_bb->start()<<"->"<<sig_start->start());
-      return true;
-    }
-    vector <BasicBlock *> region;
-    region.push_back(ptr_bb);
-    auto fall_through_bb = ptr_bb->fallThroughBB();
-    uint64_t window = ptr_bb->validityWindow();
-    if(window == 0) {
-      auto fall_bb = fall_through_bb;
-      auto last_ins = ptr_bb->lastIns();
-      bool is_jmp = last_ins->isUnconditionalJmp();
-      while (fall_bb != NULL && !is_jmp) {
-        window = fall_bb->start();
-        last_ins = fall_bb->lastIns();
-        is_jmp = last_ins->isUnconditionalJmp();
-        fall_bb = fall_bb->fallThroughBB();
-      }
-    }
-    while(fall_through_bb != NULL && 
-          fall_through_bb->start() <= window) {
-      long double score = regionScore(region);
-      if(score == 0) {
-        DEF_LOG("Checking fall through: "<<hex<<fall_through_bb->start());
-        auto sig_start = checkSignature(fall_through_bb);
-        if(sig_start != NULL) {
-          for(auto & p : propList_)
-            sig_start->passedProp(p);
-          DEF_LOG("Adding signature start as corrected entry: "<<hex<<ptr_bb->start()<<"->"<<sig_start->start());
-          if(sig_start->start() != fall_through_bb->start())
-            region.push_back(fall_through_bb);
-          possiblePtrs_.insert(sig_start->start());
-          markConflicting(region);
-          return true;
-        }
-        if(fall_through_bb->isCode()) {
-          DEF_LOG("Def code root found..correcting new entry point to: "<<hex<<fall_through_bb->start());
-          possiblePtrs_.insert(fall_through_bb->start());
-          markConflicting(region);
-          return true;
-        }
-        auto external_callers = externalCallers(fall_through_bb, ptr_bb);
-        if(external_callers.size() > 0) {
-          DEF_LOG("External caller found..correcting new entry point to: "<<hex<<fall_through_bb->start()<<"<-"<<external_callers[0]->start());
-          possiblePtrs_.insert(fall_through_bb->start());
-          markConflicting(region);
-          return true;
-        }
-        auto fall_ptr = ptrMap.find(fall_through_bb->start());
-        if(fall_ptr != ptrMap.end() && 
-          (fall_ptr->second->source() == PointerSource::RIP_RLTV)) {
-          DEF_LOG("RLTV pointer found..correcting new entry point to: "<<hex<<fall_through_bb->start());
-          possiblePtrs_.insert(fall_through_bb->start());
-          markConflicting(region);
-          return true;
-        }
-      }
-      region.push_back(fall_through_bb);
-      fall_through_bb = fall_through_bb->fallThroughBB();
-    }
-
-  }
-  return false;
-}
-
-void
-PointerAnalysis::FNEntryCorrection(BasicBlock *ptr_bb) {
-  uint64_t window = 0;
-  auto orig_bb = ptr_bb;
-  while(orig_bb != NULL) {
-    auto last_ins = orig_bb->lastIns();
-    window = last_ins->location();
-    if(last_ins->isUnconditionalJmp() || 
-       last_ins->isCall() || last_ins->asmIns().find("ret") != string::npos)
-      break;
-    orig_bb = orig_bb->fallThroughBB();
-  }
-  auto entry_score = probScore(ptr_bb->start());
-  DEF_LOG("Correcting false negative: "<<hex<<ptr_bb->start()<<" window: "<<hex<<window<<" score: "<<dec<<entry_score);
-  for(auto i = ptr_bb->start() - 17; i < window; i++) {
-    if(FNCorrectionDone_.find(i) != FNCorrectionDone_.end())
-      continue;
-    FNCorrectionDone_.insert(i);
-    if(conflictsPriorityCode(i))
-      continue;
-    auto bb = getBB(i);
-    if(bb == NULL) {
-      addToCfg(i, PointerSource::GAP_PTR);
-    }
-    bb = getBB(i);
-    if(bb != NULL) {
-      vector <BasicBlock *> bb_check {bb};
-      if(validIns(bb_check) == false)
-        continue;
-      linkAllBBs();
-      auto bb_lst = bbSeq(bb);
-      bool ignore = false;
-      for(auto & bb : bb_lst) {
-        if(bb->noConflict(window) == false) {
-          ignore = true;
-          break;
-        }
-      }
-      if(ignore)
-        continue;
-      if(validCF(bb_lst)) {
-        auto bb_score = probScore(i);
-        if(bb_score < powl(2,10))
-          continue;
-        //double fn_sig_score = fnSigScore(bb);
-        /*
-        if(fn_sig_score > powl(2,14)) {
-          for(auto & bb : bb_lst) {
-            DEF_LOG("Passing: "<<hex<<bb->start());
-            for(auto & p : propList_) {
-              bb->passedProp(p);
-            }
-          }
-        }
-        */
-        analyzeEntry(bb);
-        possiblePtrs_.insert(bb->start());
-        break;
-      }
-      //if(codeByProperty(bb)) {
-      //  possiblePtrs_.insert(bb->start());
-      //  entryPointCorrection(bb);
-      //  break;
-      //}
-    }
-  }
-}
-
-void
-PointerAnalysis::FNCorrection() {
-  map <uint64_t, Pointer *> ptrMap = pointers ();
-  for(auto & ptr : ptrMap) {
-    auto ptr_bb = getBB(ptr.first);
-    if(ptr_bb != NULL && ptr.second->type() != PointerType::CP
-       && (ptr.second->source() == PointerSource::GAP_PTR)
-       && codeByProperty(ptr_bb) == false && ptr_bb->isCode() == false) {
-      if(FNCorrectionDone_.find(ptr_bb->start()) != FNCorrectionDone_.end())
-        continue;
-      FNCorrectionDone_.insert(ptr_bb->start());
-      auto cnf_bbs = conflictingBBs(ptr_bb->start());
-      bool ignore = false;
-      for(auto & cnf_bb : cnf_bbs) {
-        if(cnf_bb->isCode() || codeByProperty(cnf_bb)) {
-          ignore = true;
-          break;
-        }
-      }
-      if(ignore) {
-        continue;
-      }
-      auto score = probScore(ptr_bb->start());
-      if(score < ACCEPT_THRESHOLD) {
-        continue;
-      }
-      if(Conflicts_.find(ptr.first) != Conflicts_.end())
-        continue;
-      DEF_LOG("Correcting false negative for: "<<hex<<ptr.first<<" score: "<<score);
-      FNEntryCorrection(ptr_bb);
-    }
-  }
-}
-
-
-void
-PointerAnalysis::removeConflicts() {
-  map <uint64_t, Pointer *> ptrMap = pointers ();
-  map <uint64_t, Function *>funMap = funcMap();
-  
-  for(auto & ptr : ptrMap) {
-    auto ptr_bb = getBB(ptr.first);
-    if(ptr_bb != NULL && ptr.second->type() != PointerType::CP
-       && ptr.second->type() != PointerType::DP 
-       && (ptr.second->source() == PointerSource::STOREDCONST 
-           || ptr.second->source() == PointerSource::JUMPTABLE
-           || ptr.second->source() == PointerSource::CONSTOP
-           || ptr.second->source() == PointerSource::GAP_PTR
-           || ptr.second->source() == PointerSource::RIP_RLTV)
-       && passed_.find(ptr.first) != passed_.end()
-       && Conflicts_.find(ptr.first) == Conflicts_.end()
-       && ptr_bb->isCode() == false) {
-      DEF_LOG("Checking for conflict: "<<hex<<ptr.first);
-      unordered_set <uint64_t> checked;
-      bool removed = false;
-      auto score1 = probScore(ptr.first);
-      auto cnf_bb_lst = conflictingBBs(ptr.first);
-      for(auto & cnf_bb : cnf_bb_lst) {
-        auto score2 = probScore(cnf_bb->start());
-        if(passed_.find(cnf_bb->start()) != passed_.end() &&
-           Conflicts_.find(cnf_bb->start()) == Conflicts_.end()) {
-          if(ptr_bb->parents().size() == 0 && cnf_bb->parents().size() > 0) {
-            DEF_LOG("Conflicting with directly called bb: "<<hex<<ptr_bb->start()<<"->"<<hex<<cnf_bb->start());
-            Conflicts_.insert(ptr.first);
-            removed = true;
-            break;
-          }
-          else if(score2 > score1) {
-            DEF_LOG("Conflicting with higher score bb: "<<hex<<ptr_bb->start()<<"->"<<hex<<cnf_bb->start());
-            Conflicts_.insert(ptr.first);
-            removed = true;
-            break;
-          }
-          /*
-          else if(ptr.second->source() == PointerSource::GAP_PTR) {
-            auto p = ptrMap.find(cnf_bb->start());
-            if(p != ptrMap.end() && p->second->source() != PointerSource::GAP_PTR) {
-              DEF_LOG("Gap ptr conflicting with any other ptr: "<<hex<<ptr_bb->start()<<"->"<<hex<<cnf_bb->start());
-              Conflicts_.insert(ptr.first);
-              removed = true;
-              break;
-            }
-          }
-          else {
-            auto p = ptrMap.find(cnf_bb->start());
-            if(p != ptrMap.end() && 
-              (p->second->source() == PointerSource::RIP_RLTV ||
-               p->second->source() == PointerSource::PIC_RELOC) &&
-               p->first > ptr.first) {
-              DEF_LOG("Conflicting with RLTV ptr: "<<hex<<ptr_bb->start()<<"->"<<hex<<cnf_bb->start());
-              Conflicts_.insert(ptr.first);
-              removed = true;
-              break;
-            }
-          }
-          */
-        }
-      }
-      /*
-      if(removed)
-        continue;
-      if(removed == false) {
-        removed = entryPointCorrection(ptr_bb);
-      }
-      if(removed == false && ptr.second->source() == PointerSource::GAP_PTR && score1 == 0) {
-        DEF_LOG("Gap code with 0 score: "<<hex<<ptr_bb->start());
-        Conflicts_.insert(ptr_bb->start());
-        continue;
-      }
-      */
-      //if(removed == false && ptr.second->source() == PointerSource::GAP_PTR) {
-      //  //Remove all occluded BBs
-      //  for(auto i = 1; i <= 4; i++) {
-      //    Conflicts_.insert(ptr.first + i);
-      //  }
-      //}
-    }
-    //else {
-    //  DEF_LOG("Avoiding resolution: "<<hex<<ptr.first<<" source: "<<(int)(ptr.second->source())<<" type: "<<(int)(ptr.second->type()));
-    //  if(ptr_bb != NULL) {
-    //    DEF_LOG("Ptr bb type: "<<ptr_bb->isCode()<<" property "<<codeByProperty(ptr_bb));
-    //  }
-    //}
-  }
-}
-
-void
-PointerAnalysis::removeEHConflicts() {
-  map <uint64_t, Pointer *> ptrMap = pointers ();
-  map <uint64_t, Function *>funMap = funcMap();
-  for(auto & fn : funMap) {
-    auto entries = fn.second->probableEntry();
-    for(auto & entry1 : entries) {
-      auto p1 = ptrMap.find(entry1);
-      auto bb1 = getBB(entry1);
-      if(p1 != ptrMap.end() && p1->second->source() == PointerSource::EHFIRST
-         && bb1 != NULL && codeByProperty(bb1)) {
-        LOG("Removing conflicts with EH ptr: "<<hex<<p1->first);
-        auto seq1 = bbSeq(bb1);
-        for(auto & entry2 : entries) {
-          if(entry1 != entry2) {
-            auto p2 = ptrMap.find(entry2);
-            auto bb2 = getBB(entry2); 
-            if(p2 != ptrMap.end() && p2->second->source() != PointerSource::EHFIRST
-               && bb2 != NULL && codeByProperty(bb2)) {
-              auto seq2 = bbSeq(bb2);
-              LOG("Checking conflict with: "<<hex<<p2->first);
-              if(conflictingSeqs(seq1, seq2)) {
-                LOG("Conflicting ptr: "<<hex<<p2->first);
-                Conflicts_.insert(entry2);
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-bool
-PointerAnalysis::conflictingSeqs(vector <BasicBlock *> &seq1,
-                                 vector <BasicBlock *> &seq2) {
-  for(auto & b1 : seq1) {
-    for(auto & b2 : seq2)
-      if(b1->noConflict(b2->start()) == false ||
-         b2->noConflict(b1->start()) == false) {
-        LOG("Conflicting bbs: "<<hex<<b1->start()<<" "<<b2->start());
-        return true;
-      }
-  }
-  return false;
-}

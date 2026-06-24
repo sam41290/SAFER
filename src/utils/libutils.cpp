@@ -21,6 +21,14 @@ set <uint8_t> utils::conditional_jmp_opcodes {
 set <uint8_t> utils::conditional_long_jmp_opcodes {
   0x80,0x81,0x88,0x89,0x84,0x85,0x82,0x83,0x86,0x87,0x8c,0x8d,0x8e,0x8f,0x8a,0x8b
 };
+vector <string> utils::gprSuffixes{"di","si",
+                           "bp","bx",
+                           "dx","ax",
+                           "cx","sp",
+                           "r8","r9",
+                           "r10","r11",
+                           "r12","r13",
+                           "r14","r15","ip"};
 
 vector <string> utils::gpr{"%rdi","%rsi",
                            "%rbp","%rbx",
@@ -29,7 +37,7 @@ vector <string> utils::gpr{"%rdi","%rsi",
                            "%r8","%r9",
                            "%r10","%r11",
                            "%r12","%r13",
-                           "%r14","%r15"};
+                           "%r14","%r15","%rip"};
 
 unordered_map <uint64_t, string> utils::sym_bindings;
 set <string> utils::cf_ins_set {

@@ -90,8 +90,12 @@ enum class InstArg {
   REG_RCX,
   REG_RSP,
   EXENAME,
-  EFLAGS //Need to add implementation in cfg/Instrument.cpp's setInsParams()
-         //function
+  //EFLAGS, //Need to add implementation in cfg/Instrument.cpp's setInsParams()
+  CUSTOM_DATA0,
+  CUSTOM_DATA1,
+  CUSTOM_DATA2,
+  CUSTOM_DATA3,
+  CUSTOM_DATA4
 };
 
 struct InstUnit {
@@ -101,12 +105,19 @@ struct InstUnit {
   vector<InstArg> args_;
 };
 
+struct InstData {
+  string symbol_ = "";
+  void *data_ = NULL;
+  int size_ = 0;
+};
+
 
 class Instrument: public ENCCLASS
 {
   vector<pair<InstPoint,InstUnit>> targetPos_;
   vector<pair<string,InstUnit>> targetFuncs_;
   static vector<string> instFuncs_;
+  static map<int, InstData *> instDataMap_;
   string exeNameLabel_ = ".exename";
   static int counter;
 public:
@@ -130,6 +141,7 @@ public:
   vector<pair<InstPoint,InstUnit>> targetPositions() { return targetPos_;}
   vector<pair<string, InstUnit>> targetFunctions() { return targetFuncs_;}
   vector<string> instFunctions() { return instFuncs_;}
+  map<int, InstData *> instDataMap() { return instDataMap_; }
   string exeNameLabel() { return exeNameLabel_; };
   //map<string,vector<InstArg>> instArgs() { return instArgs_; }
   //ector<pair<uint64_t,string>> targetAddrs() { return targetAddrs_; }
@@ -153,6 +165,7 @@ public:
   string getRegVal(string reg, InstPoint h);  
   string directCallShstkTramp();
   string shadowRetInst(string &reg1, string &reg2, int free_reg_cnt);
+  InstArg addInstrumentationData(void *data, int size);
   virtual void instrument() = 0;
 
 private:

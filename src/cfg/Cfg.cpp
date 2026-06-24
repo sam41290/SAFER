@@ -470,7 +470,7 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
   /* Performs DFS along Cfg and adds the given address and the following basic
    * blocks in to the Cfg
    */
-  LOG("Processing address: " <<hex <<addrs<<" code type: "<<dec<<(int)t);
+  DEF_LOG("Processing address: " <<hex <<addrs<<" code type: "<<dec<<(int)t);
   if(disassembler_->invalid(addrs))
     return false;
   if(INVALID_CODE_PTR(addrs))
@@ -497,10 +497,10 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
     }
   }
   else {
-    LOG("Chunk Start: " <<hex <<addrs <<" Chunk end: " <<hex <<chunk_end);
+    DEF_LOG("Chunk Start: " <<hex <<addrs <<" Chunk end: " <<hex <<chunk_end);
     auto ins_list = disassembler_->getIns(addrs, 1000);
     if(ins_list.size() == 0) {
-      LOG("No instruction found");
+      DEF_LOG("No instruction found");
       invalidPtr(addrs);
       return false;
     }
@@ -535,27 +535,32 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
           return false;
         }
       }
-      //for(auto i = bb->start(); i < bb->boundary(); i++) {
-      //  if(bb->isValidIns(i) == false) {
-      //    auto cnf_bb = getBB(i);
-      //    if(cnf_bb != NULL && 
-      //      (cnf_bb->source() == PointerSource::KNOWN_CODE_PTR ||
-      //       cnf_bb->source() == PointerSource::CALL_TGT_2)) {
-      //      removeBB(bb);
-      //      invalidPtr(addrs);
-      //      return false;
-      //    }
-      //  }
-      //}
     }
     if(processTarget(bb,t) == false) {
+      DEF_LOG("Invalid target...removing BB: "<<hex<<bb->start());
       removeBB(bb);
       invalidPtr(addrs);
       return false;
     }
+    if(bb->isCall() && bb->target() != 0) {
+      auto t = bb->target();
+      auto exit_fns = exitFns();
+      auto may_exit_fns = mayExitFns();
+      if(exit_fns.find(t) != exit_fns.end()) {
+        bb->type(BBType::NON_RETURNING);
+        bb->callType(bb->type());
+        bb->fallThrough(0);
+        bb->fallThroughBB(NULL);
+      }
+      else if(may_exit_fns.find(t) != may_exit_fns.end()) {
+        bb->type(BBType::MAY_BE_RETURNING);
+        bb->callType(bb->type());
+      }
+    }
     if(processFallThrough(bb,t) == false) {
       auto ins = bb->lastIns();
       if(ins->isCall() == false && ins->isJump() == false) {
+        DEF_LOG("Invalid fall...removing BB: "<<hex<<bb->start());
         removeBB(bb);
         invalidPtr(addrs);
         return false;
@@ -585,10 +590,21 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
   }
   BBType tgt_type;
   BBType fall_through_type;
-  LOG("Finalizing: "<<hex<<addrs<<" - "<<hex<<bb);
-  if(bb->type() ==  BBType::NA) {
-
-
+  DEF_LOG("Finalizing: "<<hex<<addrs<<" - "<<hex<<bb);
+  if(bb->isCall() && bb->lastIns()->isPltJmp()) {
+    if(bb->type() == BBType::NON_RETURNING) {
+      bb->callType(bb->type());
+      bb->fallThrough(0);
+    }
+    else if(bb->type() == BBType::MAY_BE_RETURNING) {
+      bb->callType(bb->type());
+      if(bb->fallThrough() != 0) {
+        fall_through_type = getBBType(bb->fallThrough());//bb->fallThroughBB()->type();
+        if(fall_through_type == BBType::NON_RETURNING) bb->type(fall_through_type);
+      }
+    }
+  }
+  else if(bb->type() ==  BBType::NA) {
     if(bb->fallThrough() != 0) {
       fall_through_type = getBBType(bb->fallThrough());//bb->fallThroughBB()->type();
     }
@@ -599,7 +615,6 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
     else
       tgt_type = BBType::NA;
     LOG("Tgt type: "<<(int)tgt_type<<" fall type: "<<(int)fall_through_type);
-    
     if(bb->fallThrough() == 0 && bb->target() == 0)
       bb->type(BBType::RETURNING);
     else if(bb->fallThrough() == 0)
@@ -607,15 +622,15 @@ Cfg::addToCfg(uint64_t addrs, PointerSource t) {
     else if(bb->target() == 0)
       bb->type(fall_through_type);
     else if(bb->isCall()) {
-      bb->callType(tgt_type);
-      if(tgt_type == BBType::NON_RETURNING || fall_through_type == BBType::NON_RETURNING)
-        bb->type(BBType::NON_RETURNING);
-      else if(tgt_type == BBType::MAY_BE_RETURNING || fall_through_type == BBType::MAY_BE_RETURNING)
-        bb->type(BBType::MAY_BE_RETURNING);
-      else if(tgt_type == BBType::NA)
-        bb->type(tgt_type);
-      else
-        bb->type(fall_through_type);
+	bb->callType(tgt_type);
+        if(tgt_type == BBType::NON_RETURNING || fall_through_type == BBType::NON_RETURNING)
+          bb->type(BBType::NON_RETURNING);
+        else if(tgt_type == BBType::MAY_BE_RETURNING || fall_through_type == BBType::MAY_BE_RETURNING)
+          bb->type(BBType::MAY_BE_RETURNING);
+        else if(tgt_type == BBType::NA)
+          bb->type(tgt_type);
+        else
+          bb->type(fall_through_type);
     }
     else if(fall_through_type != tgt_type)
       bb->type(BBType::MAY_BE_RETURNING);
@@ -1295,21 +1310,11 @@ Cfg::disassembleGaps() {
         i++;
       else {
         for(auto & ins : ins_list) {
-          /*
-          if((ins->isCall() || ins->isJump()) &&
-              ins->target() != 0 &&
-              withinCodeSec(ins->target()) == false) {
-            i++;
-            break;
-          }
-          */
           linear_scan.push_back(ins);
           i = ins->location() + ins->insSize();
           if(i >= g.end_)
             break;
         }
-        //linear_scan.insert(linear_scan.end(), ins_list.begin(), ins_list.end());
-        //i = ins_list[ins_list.size() - 1]->location() + ins_list[ins_list.size() - 1]->insSize();
       }
     }
     DEF_LOG("Linear scan complete. Instruction count: "<<linear_scan.size());
@@ -1506,68 +1511,6 @@ Cfg::disassembleGaps() {
 void
 Cfg::genCFG() {
 
-#ifdef PURERANDOMDISASM
-  randomPointDisasm(500,1000);
-#ifdef CFGCONSISTENCYCHECK
-  cfgConsistencyAnalysis();
-#endif
-  classifyPtrs();
-  return;
-#endif
-  
-#ifdef DATADISASM
-  uint64_t start = 0;
-  for(section sec:rxSections_) {
-    if(sec.sec_type == section_types::RX) {
-      if(start == 0)
-        start = sec.vma;
-    }
-  }
-  std::random_device rd;
-  std::default_random_engine eng(rd());
-  std::uniform_int_distribution<int> distr(start, dataSegmntEnd_);
-
-  for (int n = 0; n < 3000; ++n) {
-    uint64_t r = distr(eng);
-    newPointer(r, PointerType::DP,PointerSource::NONE,100);
-  }
-  disasmRoots(PointerType::DP);
-  processAllRoots();
-  linkAllBBs();
-#ifdef CFGCONSISTENCYCHECK
-  saveCnsrvtvCode();
-  cfgConsistencyAnalysis();
-#endif
-  return;
-#endif
-#ifdef STRINGS
-  uint64_t start = INT_MAX, end = 0;
-  for(auto & sec : rxSections_) {
-    if(sec.sec_type == section_types::RX) {
-      if(sec.vma < start)
-        start = sec.vma;
-      if((sec.vma + sec.size) > end)
-        end = sec.vma + sec.size;
-    }
-  }
-  std::random_device rd;
-  std::default_random_engine eng(rd());
-  std::uniform_int_distribution<int> distr(start,end);
-
-  for (int n = 0; n < 5000; ++n) {
-    uint64_t r = distr(eng);
-    newPointer(r, PointerType::CP,PointerSource::NONE,100);
-  }
-  disasmRoots(PointerType::CP);
-  processAllRoots();
-  linkAllBBs();
-#ifdef CFGCONSISTENCYCHECK
-  saveCnsrvtvCode();
-  cfgConsistencyAnalysis();
-#endif
-  return;
-#endif
-
   disasmRoots(PointerType::CP);
 
 #ifdef GROUND_TRUTH
@@ -1575,64 +1518,20 @@ Cfg::genCFG() {
   classifyPtrs();
   chkJmpTblRewritability();
   symbolize();
-  string key("/");
-  size_t found = exePath_.rfind(key);
-  string file_name = exePath_.substr(found + 1);
-  ofstream ofile;
-  ofile.open("tmp/" + file_name + "_symbols.data");
-  auto ptr_map = pointers();
-  for(auto & ptr : ptr_map) {
-    ptr.second->dump(ofile);
-  }
-  ofile.close();
-
-  ofile.open("tmp/" + file_name + "_64bitFP.data");
-  for(auto & ptr : ptr_map) {
-    auto loc = ptr.second->storages(8);
-    if(loc.size() > 0 && ptr.second->type() == PointerType::UNKNOWN)
-      ofile<<hex<<ptr.first<<endl;
-  }
-  ofile.close();
 
   return;
 #endif
 
 #ifdef KNOWN_CODE_POINTER_ROOT
-//#ifdef DISASMONLY
-//  if(utils::file_exists("tmp/cfg.present")) {
-//    LOG("Cfg already present. Skipping disassembly and reading cfg");
-//    readCfg();
-//    linkAllBBs();
-//    classifyPtrs();
-//  }
-//  else {
-//    LOG("Cfg not present. Starting disassembly");
-//    cnsrvtvDisasm();
-//  }
-//#else
   cnsrvtvDisasm();
-//#endif
 #ifdef CFGCONSISTENCYCHECK
   saveCnsrvtvCode();
   cfgConsistencyAnalysis();
-  //dump();
-#else
-  //dump();
 #endif
   classifyPtrs();
   chkJmpTblRewritability();
   guessJumpTable();
   symbolize();
-  string key("/");
-  size_t found = exePath_.rfind(key);
-  string file_name = exePath_.substr(found + 1);
-  ofstream ofile;
-  ofile.open("tmp/" + file_name + "_symbols.data");
-  map <uint64_t, Pointer *> ptr_map = pointers();
-  for(auto & ptr : ptr_map) {
-    ptr.second->dump(ofile);
-  }
-  ofile.close();
   return;
 #endif
 
@@ -1650,16 +1549,6 @@ Cfg::genCFG() {
   classifyPtrs();
   chkJmpTblRewritability();
   symbolize();
-  string key("/");
-  size_t found = exePath_.rfind(key);
-  string file_name = exePath_.substr(found + 1);
-  ofstream ofile;
-  ofile.open("tmp/" + file_name + "_symbols.data");
-  auto ptr_map = pointers();
-  for(auto & ptr : ptr_map) {
-    ptr.second->dump(ofile);
-  }
-  ofile.close();
   return;
 #endif
 
@@ -1904,6 +1793,7 @@ Cfg::processIndrctJmp(Instruction *call_ins, BasicBlock *bb,code_type t) {
         int ind = insList.size() - 2;
         uint64_t ptr = PTR_ACCESS(insList[ind]);
         ADD_PTR_TO_MAIN(ptr);
+	addMainSymbol(ptr); // First address passed into RDI is main
         ind--;
         ptr = PTR_ACCESS(insList[ind]);
         ADD_PTR_TO_MAIN(ptr);
@@ -1920,8 +1810,10 @@ Cfg::processIndrctJmp(Instruction *call_ins, BasicBlock *bb,code_type t) {
       DEF_LOG("may exit call found. Marking bb: "<<hex<<bb->start()<<" may be returning");
       bb->type(BBType::MAY_BE_RETURNING);
     }
-    if(isPlt(jump_slot))
+    if(isPlt(jump_slot)) {
       call_ins->isPltJmp(true);
+      call_ins->pltTarget(pltTarget(jump_slot));
+    }
     //  call_ins->atRequired(false);
   }
 }
