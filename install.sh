@@ -24,11 +24,14 @@ else
 fi
 cd ..
 
-path=`echo "${TOOL_PATH}" | sed 's/\//\\\\\/\/g'`
+path=$(echo "${TOOL_PATH}" | sed 's|/|\\/|g')
 
-sed -i "/#define TOOL_PATH/c #define TOOL_PATH \"${path}\/\"" run/config.h
+echo "PATH: ${path}"
+echo "TOOL_PATH: ${TOOL_PATH}"
 
-rand_configs=($(ls -1 ${TOOL_PATH}/run/randmodes/*.h))
+sed -i "/#define TOOL_PATH/c #define TOOL_PATH \"${path}\/\"" configs/config.h
+
+rand_configs=($(ls -1 ${TOOL_PATH}/configs/randmodes/*.h))
 for f in "${rand_configs[@]}"
 do
   sed -i "/#define TOOL_PATH/c #define TOOL_PATH \"${path}\/\"" ${f}
@@ -67,6 +70,8 @@ ln -sf ${TOOL_PATH}/testsuite/instrument-suite.sh ${INSTALL_DIR}/instrument-suit
 ln -sf ${TOOL_PATH}/testsuite/instrument_prog.sh ${INSTALL_DIR}/instrument_prog.sh 2>/dev/null || true
 
 mkdir -p ${HOME}/instrumented_libs
+mkdir /tmp/sbr2
+mkdir /tmp/sbr2/1
 
 sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/apps/run.sh 2>/dev/null || true
 sed -i "s|^TOOL_PATH=.*|TOOL_PATH=\"${TOOL_PATH}\"|" ${TOOL_PATH}/scripts/instrument_prog.sh 2>/dev/null || true
